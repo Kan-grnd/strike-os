@@ -3,6 +3,8 @@ import prisma from "@/lib/db";
 import { spawnAgent } from "@/lib/runtime-state";
 import { createAgentFromBody } from "@/lib/agent-creation";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");

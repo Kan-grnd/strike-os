@@ -3,6 +3,8 @@ import fs from "fs";
 import path from "path";
 import { APP_NAME, APP_VERSION } from "@/lib/constants";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const dbUrl = process.env.DATABASE_URL || "";
   let dbPath = "";

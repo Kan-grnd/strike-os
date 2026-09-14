@@ -6,3 +6,4 @@ node_modules
 *.db-journal
 dist
 .DS_Store
+tsconfig.tsbuildinfo

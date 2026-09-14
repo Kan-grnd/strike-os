@@ -16,6 +16,8 @@ import type { PlanStep } from "@/lib/mission-engine";
 import { setAgentState } from "@/lib/runtime-state";
 import { eventBus } from "@/lib/events";
 
+export const dynamic = "force-dynamic";
+
 function serializeInstall(i: {
   id: string;
   bundleId: string;

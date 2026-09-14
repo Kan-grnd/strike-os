@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { eventBus } from "@/lib/events";
 
+export const dynamic = "force-dynamic";
+
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   try {
     const secret = await prisma.secret.findUnique({ where: { id: params.id } });

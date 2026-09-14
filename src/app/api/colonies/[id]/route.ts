@@ -12,6 +12,8 @@ import {
   type DeleteColonyMode,
 } from "@/lib/runtime-state";
 
+export const dynamic = "force-dynamic";
+
 type Params = { id: string };
 
 export async function GET(req: Request, { params }: { params: Params }) {

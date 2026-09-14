@@ -3,6 +3,8 @@ import prisma from "@/lib/db";
 import { eventBus } from "@/lib/events";
 import { SETTING_KEYS, SETTING_DEFAULTS, type SettingKey } from "@/lib/settings";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const rows = await prisma.systemSetting.findMany({
     where: { key: { in: SETTING_KEYS as unknown as string[] } },

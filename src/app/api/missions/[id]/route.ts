@@ -3,6 +3,8 @@ import prisma from "@/lib/db";
 import { eventBus } from "@/lib/events";
 import { getMissionEngine } from "@/lib/engine";
 
+export const dynamic = "force-dynamic";
+
 type Params = { id: string };
 
 export async function GET(req: Request, { params }: { params: Params }) {

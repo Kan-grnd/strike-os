@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { parseNaturalLanguage } from "@/lib/automation-parser";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();

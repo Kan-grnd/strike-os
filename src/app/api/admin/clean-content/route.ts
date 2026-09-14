@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { eventBus } from "@/lib/events";
 
+export const dynamic = "force-dynamic";
+
 const dbUrl = process.env.DATABASE_URL || "";
 
 function confirm() {

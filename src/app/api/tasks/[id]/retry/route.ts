@@ -1,6 +1,8 @@
 import Prisma from "@prisma/client";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 type Params = { id: string };
 
 export async function POST(req: Request, { params }: { params: Params }) {

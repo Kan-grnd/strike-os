@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { CORE_ID } from "@/lib/topology";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Live Topology projection.
  * Reads real system state and relationships — never duplicated UI state.

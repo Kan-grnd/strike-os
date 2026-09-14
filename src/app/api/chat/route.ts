@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/chat — list conversations with last-message snippet
 // POST /api/chat — create a new conversation
 export async function GET() {

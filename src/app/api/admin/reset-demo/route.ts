@@ -3,6 +3,8 @@ import prisma from "@/lib/db";
 import { eventBus } from "@/lib/events";
 import { seedDemo } from "@/lib/demo-seed";
 
+export const dynamic = "force-dynamic";
+
 const dbUrl = process.env.DATABASE_URL || "";
 
 function confirm() {

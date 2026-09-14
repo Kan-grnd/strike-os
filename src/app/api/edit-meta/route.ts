@@ -4,6 +4,8 @@ import path from "path";
 import { Prisma } from "@prisma/client";
 import { editTicketsAllowed } from "@/lib/edit-tickets";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Dev-gated metadata for the ticket modal's Data section: the Prisma model
  * names and the available API route paths. Models come from the generated

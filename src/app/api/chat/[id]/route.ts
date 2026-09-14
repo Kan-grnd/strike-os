@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/chat/[id] — return conversation + full message thread
 // DELETE /api/chat/[id] — delete conversation (cascades to messages)
 export async function GET(_req: Request, { params }: { params: { id: string } }) {

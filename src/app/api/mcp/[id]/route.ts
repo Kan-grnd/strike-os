@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { eventBus } from "@/lib/events";
 
+export const dynamic = "force-dynamic";
+
 type Params = { id: string };
 
 export async function GET(req: Request, { params }: { params: Params }) {

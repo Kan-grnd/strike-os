@@ -3,6 +3,8 @@ import prisma from "@/lib/db";
 import { modelGateway } from "@/lib/model-gateway";
 import { ProviderError } from "@/lib/providers/base";
 
+export const dynamic = "force-dynamic";
+
 // POST /api/chat/[id]/messages — append a user message, call the model
 // gateway with the full thread history, persist both sides, return them.
 export async function POST(req: Request, { params }: { params: { id: string } }) {

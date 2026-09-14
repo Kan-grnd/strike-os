@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { automationState } from "@/lib/automation-state";
 
+export const dynamic = "force-dynamic";
+
 type Params = { id: string };
 
 export async function GET(req: Request, { params }: { params: Params }) {
