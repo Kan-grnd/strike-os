@@ -1,0 +1,282 @@
+"use client";
+
+import { useState } from "react";
+import useSWR from "swr";
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
+export const REFRESH_RATES = {
+  live: 3000,
+  normal: 10000,
+  relaxed: 30000,
+  paused: 0,
+} as const;
+
+export type RefreshPreset = keyof typeof REFRESH_RATES;
+
+export function useSettings() {
+  return useSWR<{ settings: Record<string, string> }>("/api/settings", fetcher, {
+    refreshInterval: 30000,
+    revalidateOnFocus: false,
+  });
+}
+
+export function useRefreshRate() {
+  const { data } = useSettings();
+  const preset = (data?.settings?.["refresh.preset"] || "normal") as RefreshPreset;
+  return REFRESH_RATES[preset] ?? REFRESH_RATES.normal;
+}
+
+function pollOptions(rate: number) {
+  return {
+    refreshInterval: rate,
+    revalidateOnFocus: false,
+    dedupingInterval: 2000,
+  };
+}
+
+export async function updateSettings(settings: Record<string, string>) {
+  return fetch("/api/settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ settings }),
+  }).then((r) => r.json());
+}
+
+export async function resetDatabase() {
+  return fetch("/api/admin/reset-demo", { method: "POST" }).then((r) => r.json());
+}
+
+export async function cleanContent() {
+  return fetch("/api/admin/clean-content", { method: "POST" }).then((r) => r.json());
+}
+
+export async function setAutomationsGlobal(paused: boolean) {
+  return fetch("/api/admin/automations-global", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ paused }),
+  }).then((r) => r.json());
+}
+
+export function useAgents(filters?: Record<string, string>) {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set("status", filters.status);
+  if (filters?.type) params.set("type", filters.type);
+  if (filters?.colonyId) params.set("colonyId", filters.colonyId);
+  const key = `/api/agents${params.toString() ? `?${params}` : ""}`;
+  return useSWR<{ agents: any[] }>(key, fetcher);
+}
+
+export function useMission(id?: string) {
+  return useSWR<{ mission: any; events: any[] }>(id ? `/api/missions/${id}` : null, fetcher);
+}
+
+export function useColonies() {
+  return useSWR<{ colonies: any[] }>("/api/colonies", fetcher);
+}
+
+export function useTopology() {
+  const rate = useRefreshRate();
+  return useSWR<{ projection: any }>("/api/topology", fetcher, pollOptions(rate));
+}
+
+export function useMissions() {
+  return useSWR<{ missions: any[] }>("/api/missions", fetcher);
+}
+
+export function useTools() {
+  return useSWR<{ tools: any[] }>("/api/tools", fetcher);
+}
+
+export function useProviders() {
+  return useSWR<{ providers: any[] }>("/api/providers", fetcher);
+}
+
+export function useModels() {
+  return useSWR<{ models: any[] }>("/api/models", fetcher);
+}
+
+export function useAutomations() {
+  return useSWR<{ automations: any[] }>("/api/automations", fetcher);
+}
+
+export function useMCPConnections() {
+  return useSWR<{ connections: any[] }>("/api/mcp", fetcher);
+}
+
+export function useMemories(filters?: Record<string, string>) {
+  const params = new URLSearchParams();
+  if (filters?.scope) params.set("scope", filters.scope);
+  const key = `/api/memory${params.toString() ? `?${params}` : ""}`;
+  return useSWR<{ memories: any[] }>(key, fetcher);
+}
+
+export function useHealth() {
+  const rate = useRefreshRate();
+  return useSWR<{ name: string; version: string; status: string; time: string }>(
+    "/api/health",
+    fetcher,
+    pollOptions(rate)
+  );
+}
+
+export async function createAutomation(data: {
+  name: string;
+  description?: string;
+  trigger: Record<string, unknown>;
+  conditions?: Record<string, unknown>;
+  actions: Record<string, unknown>[];
+  status?: string;
+}) {
+  return fetch("/api/automations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  }).then((r) => r.json());
+}
+
+export async function startAutomation(id: string) {
+  return fetch(`/api/automations/${id}/start`, { method: "POST" }).then((r) => r.json());
+}
+
+export async function pauseAutomation(id: string) {
+  return fetch(`/api/automations/${id}/pause`, { method: "POST" }).then((r) => r.json());
+}
+
+export async function resumeAutomation(id: string) {
+  return fetch(`/api/automations/${id}/resume`, { method: "POST" }).then((r) => r.json());
+}
+
+export async function cancelAutomation(id: string) {
+  return fetch(`/api/automations/${id}/cancel`, { method: "POST" }).then((r) => r.json());
+}
+
+export async function runAutomation(id: string) {
+  return fetch(`/api/automations/${id}/run`, { method: "POST" }).then((r) => r.json());
+}
+
+export function useWorkflows() {
+  return useSWR("/api/automations", fetcher);
+}
+
+export function useWorkflow(id?: string) {
+  return useSWR(id ? `/api/automations/${id}` : null, fetcher);
+}
+
+export function useMemory(id?: string) {
+  return useSWR<{ memory: any }>(id ? `/api/memory/${id}` : null, fetcher);
+}
+
+export function useRelationships(filters?: Record<string, string>) {
+  const params = new URLSearchParams();
+  if (filters?.relation) params.set("relation", filters.relation);
+  if (filters?.fromType) params.set("fromType", filters.fromType);
+  if (filters?.fromId) params.set("fromId", filters.fromId);
+  if (filters?.toType) params.set("toType", filters.toType);
+  if (filters?.toId) params.set("toId", filters.toId);
+  const key = `/api/relationships${params.toString() ? `?${params}` : ""}`;
+  return useSWR<{ relationships: any[] }>(key, fetcher);
+}
+
+export function useTraces(filters?: Record<string, string>) {
+  const params = new URLSearchParams();
+  if (filters?.missionId) params.set("missionId", filters.missionId);
+  if (filters?.taskId) params.set("taskId", filters.taskId);
+  if (filters?.agentId) params.set("agentId", filters.agentId);
+  const key = `/api/observability/traces${params.toString() ? `?${params}` : ""}`;
+  return useSWR<{ traces: any[] }>(key, fetcher);
+}
+
+export function useDecisions(filters?: Record<string, string>) {
+  const params = new URLSearchParams();
+  if (filters?.q) params.set("q", filters.q);
+  const key = `/api/decisions${params.toString() ? `?${params}` : ""}`;
+  return useSWR<{ decisions: any[] }>(key, fetcher);
+}
+
+export function useTrace(id?: string) {
+  return useSWR<{ trace: any }>(id ? `/api/observability/traces/${id}` : null, fetcher);
+}
+
+export function useEvents(filters?: Record<string, string>) {
+  const params = new URLSearchParams();
+  if (filters?.type) params.set("type", filters.type);
+  const key = `/api/events${params.toString() ? `?${params}` : ""}`;
+  const rate = useRefreshRate();
+  return useSWR<{ events: any[] }>(key, fetcher, pollOptions(rate));
+}
+
+export function useLogs(filters?: Record<string, string>) {
+  const params = new URLSearchParams();
+  if (filters?.level) params.set("level", filters.level);
+  if (filters?.service) params.set("service", filters.service);
+  const key = `/api/observability/logs${params.toString() ? `?${params}` : ""}`;
+  const rate = useRefreshRate();
+  return useSWR<{ logs: any[] }>(key, fetcher, pollOptions(rate));
+}
+
+export function useCosts(range = "7d", groupBy = "model") {
+  const rate = useRefreshRate();
+  return useSWR<{ totalCost: number; dimensions: Record<string, number>; traceCount: number }>(
+    `/api/observability/costs?range=${range}&groupBy=${groupBy}`,
+    fetcher,
+    pollOptions(rate)
+  );
+}
+
+export function usePerformance(range = "7d") {
+  const rate = useRefreshRate();
+  return useSWR<{ totalTraces: number; avgLatencyMs: number; errorRate: number; completedTasks: number; failedTasks: number; byAgent: any[] }>(
+    `/api/observability/performance?range=${range}`,
+    fetcher,
+    pollOptions(rate)
+  );
+}
+
+export async function createAgent(data: {
+  name: string;
+  description?: string;
+  type?: string;
+  colonyId?: string;
+  parentId?: string;
+  capabilities?: string[];
+  tools?: string[];
+  models?: string[];
+}) {
+  return fetch("/api/agents", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  }).then((r) => r.json());
+}
+
+export async function createMission(data: {
+  goal: string;
+  plan?: Record<string, unknown>;
+  agentIds?: string[];
+  priority?: number;
+}) {
+  return fetch("/api/missions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  }).then((r) => r.json());
+}
+
+export function useTasks(filters?: Record<string, string>) {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set("status", filters.status);
+  if (filters?.missionId) params.set("missionId", filters.missionId);
+  if (filters?.agentId) params.set("agentId", filters.agentId);
+  const key = `/api/tasks${params.toString() ? `?${params}` : ""}`;
+  return useSWR<{ tasks: any[] }>(key, fetcher);
+}
+
+export async function createColony(data: { name: string; description?: string }) {
+  return fetch("/api/colonies", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  }).then((r) => r.json());
+}

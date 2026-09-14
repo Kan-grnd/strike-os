@@ -1,0 +1,572 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Theme packs ───────────────────────────────────────────────
+   Applied by next-themes as class names on <html> (attribute="class"):
+     abyssal    — refined cool near-black dark (default; also covers the
+                  legacy "dark" class emitted before first user choice)
+     ember      — warm charcoal dark, burnt-orange accent
+     ghost      — light flagship
+     cobalt     — deep blue dark, sky accent
+     sandstorm  — warm paper light, burnt-orange accent
+     abyss-teal — deep green dark, teal accent
+     porcelain  — crisp light, cobalt accent
+     arctic     — icy pale blue light, deep-sky accent
+     onyx       — pure black dark, cyan accent
+     high-contrast — pure white light, black, strong borders
+   State colors are IMMUTABLE across every pack and match the signal
+   layer's stateHex exactly: failed #f87171 (red), blocked #fbbf24
+   (amber), ok #34d399 (emerald), approval #a78bfa (violet). The orange
+   accents (ember/sandstorm) stay in the burnt-orange family (hue 21)
+   so they never read as the blocked amber (hue 43). No gradients. */
+
+@layer base {
+  :root,
+  .ghost {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 8%;
+    --primary: 0 0% 8%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 12%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 42%;
+    --accent: 0 0% 95%;
+    --accent-foreground: 0 0% 12%;
+    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
+    --destructive-foreground: 0 0% 10%;
+    --success: 158 64% 52%; /* #34d399 ok (immutable) */
+    --success-foreground: 0 0% 10%;
+    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
+    --warning-foreground: 0 0% 10%;
+    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
+    --info: 210 80% 45%;
+    --info-foreground: 0 0% 100%;
+    --border: 0 0% 90%;
+    --input: 0 0% 96%;
+    --ring: 0 0% 8%;
+    --radius: 0.5rem;
+
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: "JetBrains Mono", "SF Mono", Menlo, Monaco, Consolas, monospace;
+
+    color-scheme: light;
+  }
+
+  .dark,
+  .abyssal {
+    --background: 240 5% 4%;
+    --foreground: 0 0% 96%;
+    --card: 240 4% 7%;
+    --card-foreground: 0 0% 96%;
+    --popover: 240 4% 9%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 0 0% 96%;
+    --primary-foreground: 0 0% 4%;
+    --secondary: 240 4% 14%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 240 4% 12%;
+    --muted-foreground: 0 0% 63%;
+    --accent: 240 4% 14%;
+    --accent-foreground: 0 0% 96%;
+    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
+    --destructive-foreground: 0 0% 6%;
+    --success: 158 64% 52%; /* #34d399 ok (immutable) */
+    --success-foreground: 0 0% 6%;
+    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
+    --warning-foreground: 0 0% 6%;
+    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
+    --info: 205 82% 55%;
+    --info-foreground: 0 0% 8%;
+    --border: 240 4% 14%;
+    --input: 240 3% 9%;
+    --ring: 0 0% 96%;
+
+    color-scheme: dark;
+  }
+
+  .ember {
+    --background: 22 22% 6%;
+    --foreground: 24 28% 96%;
+    --card: 22 18% 9%;
+    --card-foreground: 24 28% 96%;
+    --popover: 22 18% 11%;
+    --popover-foreground: 24 28% 96%;
+    --primary: 21 90% 41%; /* #cb4e0b burnt-orange — AA 4.9:1 on white text */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 22 16% 14%;
+    --secondary-foreground: 24 28% 96%;
+    --muted: 22 14% 12%;
+    --muted-foreground: 24 12% 62%;
+    --accent: 22 16% 15%;
+    --accent-foreground: 24 28% 96%;
+    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
+    --destructive-foreground: 0 0% 6%;
+    --success: 158 64% 52%; /* #34d399 ok (immutable) */
+    --success-foreground: 0 0% 6%;
+    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
+    --warning-foreground: 0 0% 6%;
+    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
+    --info: 197 85% 55%;
+    --info-foreground: 0 0% 8%;
+    --border: 22 16% 14%;
+    --input: 22 14% 10%;
+    --ring: 21 90% 48%;
+
+    color-scheme: dark;
+  }
+
+  .cobalt {
+    --background: 216 60% 10%; /* #0a1628 deep blue */
+    --foreground: 204 30% 96%;
+    --card: 215 55% 12%;
+    --card-foreground: 204 30% 96%;
+    --popover: 215 55% 14%;
+    --popover-foreground: 204 30% 96%;
+    --primary: 199 84% 60%; /* #38bdf8 sky */
+    --primary-foreground: 215 50% 9%;
+    --secondary: 215 40% 16%;
+    --secondary-foreground: 204 30% 96%;
+    --muted: 215 38% 14%;
+    --muted-foreground: 205 20% 64%;
+    --accent: 215 40% 17%;
+    --accent-foreground: 204 30% 96%;
+    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
+    --destructive-foreground: 0 0% 6%;
+    --success: 158 64% 52%; /* #34d399 ok (immutable) */
+    --success-foreground: 0 0% 6%;
+    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
+    --warning-foreground: 0 0% 6%;
+    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
+    --info: 205 82% 55%;
+    --info-foreground: 0 0% 8%;
+    --border: 215 42% 18%;
+    --input: 215 45% 12%;
+    --ring: 199 84% 60%;
+
+    color-scheme: dark;
+  }
+
+  .sandstorm {
+    --background: 36 43% 93%; /* #f5efe6 warm paper */
+    --foreground: 25 20% 16%;
+    --card: 36 50% 96%;
+    --card-foreground: 25 20% 16%;
+    --popover: 36 45% 96%;
+    --popover-foreground: 25 20% 16%;
+    --primary: 21 90% 41%; /* #cb4e0b burnt-orange — AA 4.9:1 on white text */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 34 25% 85%;
+    --secondary-foreground: 26 18% 20%;
+    --muted: 34 24% 87%;
+    --muted-foreground: 28 12% 42%;
+    --accent: 34 26% 84%;
+    --accent-foreground: 26 18% 20%;
+    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
+    --destructive-foreground: 0 0% 10%;
+    --success: 158 64% 52%; /* #34d399 ok (immutable) */
+    --success-foreground: 0 0% 10%;
+    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
+    --warning-foreground: 0 0% 10%;
+    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
+    --info: 21 80% 45%;
+    --info-foreground: 0 0% 100%;
+    --border: 34 20% 80%;
+    --input: 36 40% 90%;
+    --ring: 21 90% 48%;
+
+    color-scheme: light;
+  }
+
+  .abyss-teal {
+    --background: 173 68% 7%; /* #06201d deep green */
+    --foreground: 172 40% 94%;
+    --card: 172 60% 9%;
+    --card-foreground: 172 40% 94%;
+    --popover: 172 55% 11%;
+    --popover-foreground: 172 40% 94%;
+    --primary: 172 66% 50%; /* #2dd4bf teal */
+    --primary-foreground: 173 60% 8%;
+    --secondary: 172 40% 14%;
+    --secondary-foreground: 172 40% 94%;
+    --muted: 172 35% 12%;
+    --muted-foreground: 174 25% 64%;
+    --accent: 172 42% 15%;
+    --accent-foreground: 172 40% 94%;
+    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
+    --destructive-foreground: 0 0% 6%;
+    --success: 158 64% 52%; /* #34d399 ok (immutable) */
+    --success-foreground: 0 0% 6%;
+    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
+    --warning-foreground: 0 0% 6%;
+    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
+    --info: 197 85% 55%;
+    --info-foreground: 0 0% 8%;
+    --border: 172 38% 16%;
+    --input: 172 40% 10%;
+    --ring: 172 66% 50%;
+
+    color-scheme: dark;
+  }
+
+  .porcelain {
+    --background: 213 41% 98%; /* #f8fafc crisp white */
+    --foreground: 222 30% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 30% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 30% 14%;
+    --primary: 224 76% 48%; /* #1d4ed8 cobalt */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 30% 94%;
+    --secondary-foreground: 222 25% 20%;
+    --muted: 215 28% 95%;
+    --muted-foreground: 220 10% 44%;
+    --accent: 215 30% 93%;
+    --accent-foreground: 222 25% 20%;
+    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
+    --destructive-foreground: 0 0% 10%;
+    --success: 158 64% 52%; /* #34d399 ok (immutable) */
+    --success-foreground: 0 0% 10%;
+    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
+    --warning-foreground: 0 0% 10%;
+    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
+    --info: 224 80% 50%;
+    --info-foreground: 0 0% 100%;
+    --border: 220 20% 88%;
+    --input: 220 25% 92%;
+    --ring: 224 76% 48%;
+
+    color-scheme: light;
+  }
+
+  .arctic {
+    --background: 218 100% 97%; /* #eef4ff icy pale blue */
+    --foreground: 220 45% 16%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 45% 16%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 45% 16%;
+    --primary: 200 98% 36%; /* #0273ae deep sky — AA 4.8:1 on white text */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 216 60% 93%;
+    --secondary-foreground: 218 40% 22%;
+    --muted: 216 55% 94%;
+    --muted-foreground: 217 20% 46%;
+    --accent: 216 60% 92%;
+    --accent-foreground: 218 40% 22%;
+    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
+    --destructive-foreground: 0 0% 10%;
+    --success: 158 64% 52%; /* #34d399 ok (immutable) */
+    --success-foreground: 0 0% 10%;
+    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
+    --warning-foreground: 0 0% 10%;
+    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
+    --info: 200 98% 40%;
+    --info-foreground: 0 0% 100%;
+    --border: 218 40% 85%;
+    --input: 218 50% 90%;
+    --ring: 200 98% 39%;
+
+    color-scheme: light;
+  }
+
+  .onyx {
+    --background: 0 0% 0%; /* #000000 pure black */
+    --foreground: 186 40% 95%;
+    --card: 190 20% 4%;
+    --card-foreground: 186 40% 95%;
+    --popover: 190 20% 6%;
+    --popover-foreground: 186 40% 95%;
+    --primary: 188 86% 53%; /* #22d3ee cyan */
+    --primary-foreground: 190 60% 6%;
+    --secondary: 190 18% 10%;
+    --secondary-foreground: 186 40% 95%;
+    --muted: 190 16% 8%;
+    --muted-foreground: 187 20% 62%;
+    --accent: 190 20% 11%;
+    --accent-foreground: 186 40% 95%;
+    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
+    --destructive-foreground: 0 0% 6%;
+    --success: 158 64% 52%; /* #34d399 ok (immutable) */
+    --success-foreground: 0 0% 6%;
+    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
+    --warning-foreground: 0 0% 6%;
+    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
+    --info: 197 85% 55%;
+    --info-foreground: 0 0% 8%;
+    --border: 190 16% 12%;
+    --input: 190 18% 5%;
+    --ring: 188 86% 53%;
+
+    color-scheme: dark;
+  }
+
+  .high-contrast {
+    --background: 0 0% 100%; /* #ffffff pure white */
+    --foreground: 0 0% 0%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+    --primary: 0 0% 0%; /* black */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 93%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 0 0% 93%;
+    --muted-foreground: 0 0% 25%;
+    --accent: 0 0% 88%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
+    --destructive-foreground: 0 0% 10%;
+    --success: 158 64% 52%; /* #34d399 ok (immutable) */
+    --success-foreground: 0 0% 10%;
+    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
+    --warning-foreground: 0 0% 10%;
+    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
+    --info: 0 0% 0%;
+    --info-foreground: 0 0% 100%;
+    --border: 0 0% 40%; /* strong visible borders */
+    --input: 0 0% 85%;
+    --ring: 0 0% 0%;
+
+    color-scheme: light;
+  }
+
+  /* Accent overrides — appearance.accent (none = pack default).
+     Recolors --primary + --ring while keeping contrast via a dark-on-light
+     foreground that works on every pack. */
+  html[data-accent="cyan"] {
+    --primary: 189 94% 30%; /* #0e8ca3 cyan — AA 4.7:1 on white text */
+    --ring: 189 94% 30%;
+    --primary-foreground: 0 0% 100%;
+  }
+  html[data-accent="teal"] {
+    --primary: 173 80% 29%; /* #0f8577 teal — AA 4.5:1 on white text */
+    --ring: 173 80% 29%;
+    --primary-foreground: 0 0% 100%;
+  }
+  html[data-accent="sky"] {
+    --primary: 199 89% 37%; /* #0a7db2 sky — AA 4.6:1 on white text */
+    --ring: 199 89% 37%;
+    --primary-foreground: 0 0% 100%;
+  }
+  html[data-accent="burnt-orange"] {
+    --primary: 21 90% 41%; /* #cb4e0b burnt-orange — AA 4.9:1 on white text */
+    --ring: 21 90% 48%;
+    --primary-foreground: 0 0% 100%;
+  }
+}
+
+/* ─── Density ───────────────────────────────────────────────────
+   appearance.density maps to documentElement.dataset.density (wired in
+   the Settings page). Comfortable = current spacing (no overrides);
+   Compact visibly tightens common card/section paddings and gaps.
+   Unlayered so these beat the Tailwind utilities. */
+html[data-density="compact"] .p-6 {
+  padding: 1rem;
+}
+html[data-density="compact"] .p-8 {
+  padding: 1.5rem;
+}
+html[data-density="compact"] .pt-0 {
+  padding-top: 0;
+}
+html[data-density="compact"] .pb-0 {
+  padding-bottom: 0;
+}
+html[data-density="compact"] .pl-0 {
+  padding-left: 0;
+}
+html[data-density="compact"] .pr-0 {
+  padding-right: 0;
+}
+html[data-density="compact"] .gap-6 {
+  gap: 1rem;
+}
+html[data-density="compact"] .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem;
+}
+
+@layer base {
+  :root {
+    --grid-alpha: 0.3;
+  }
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    position: relative;
+    isolation: isolate;
+  }
+
+  /* Faded grid backdrop — two layers, theme vars only, no hardcoded hexes.
+     Fade layer carries the grid + mask (lines gather at the screen edges,
+     center reads clear), absolutely positioned so it scrolls with content —
+     static, never fixed, reduced-motion safe by construction. */
+  body::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / var(--grid-alpha)) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / var(--grid-alpha)) 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-position: 0 0;
+    -webkit-mask-image: radial-gradient(ellipse at center, transparent 20%, black);
+    mask-image: radial-gradient(ellipse at center, transparent 20%, black);
+  }
+}
+
+/* The app shell paints an opaque --background over the whole viewport, which
+   would hide the body-level backdrop entirely. Neutralise only that single
+   paint here (content layers keep their own backgrounds); this avoids a third
+   file so the change stays scoped to this stylesheet + the topology page. */
+body > div.h-screen.flex.bg-background {
+  background-color: transparent;
+}
+
+/* Live Topology is a full-canvas view — drop both backdrop layers there.
+   The mount attribute is managed by src/app/topology/page.tsx. */
+body[data-canvas="topology"],
+body[data-canvas="topology"]::before {
+  background-image: none;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Focus visible styles */
+/* Layered so Tailwind utilities (e.g. .outline-none on the chat composer)
+   live in @layer utilities and can override it — an unlayered rule always
+   beats layered rules and would paint a 2px ring even when the element
+   opts out. */
+@layer base {
+  *:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
+/* Sidebar nav: keep focus rings inside the pill so the 2px-offset global
+   ring never stripes across adjacent section headers or separators. */
+.sidebar-nav a:focus-visible,
+.sidebar-nav button:focus-visible {
+  outline-offset: -2px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ─── Live Topology ─────────────────────────────────────────── */
+
+/* Signal packets — native <animateMotion> mover + soft-glow dot */
+.topo-signal {
+  will-change: transform;
+}
+.topo-signal-dot {
+  opacity: 0.95;
+}
+
+/* Fallback node pulse for a signal whose edge is hidden/missing in the mode */
+.topo-node-pulse {
+  animation: topo-node-pulse 0.9s ease-out 2;
+}
+
+@keyframes topo-node-pulse {
+  0% {
+    box-shadow: 0 0 0 2px var(--signal-color);
+    opacity: 1;
+  }
+  100% {
+    box-shadow: 0 0 0 14px transparent;
+    opacity: 0;
+  }
+}
+
+@keyframes agent-flash-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 12px rgba(244, 63, 94, 0);
+  }
+}
+
+.agent-flash {
+  animation: agent-flash-ring 0.7s ease-out 2;
+}
+
+/* Ensure custom nodes control their own look */
+.react-flow__node {
+  padding: 0 !important;
+}
+.react-flow__node *,
+.react-flow__node {
+  outline: none;
+}
+
+/* Edge hit-area friendly but visually light */
+.react-flow__edge-path {
+  cursor: crosshair;
+}
+
+.react-flow__handle {
+  background: #3f3f46;
+  border: 1px solid #18181b;
+}
+.react-flow__handle-top,
+.react-flow__handle-left {
+  left: 0;
+  transform: translate(-50%, -50%);
+}
+.react-flow__handle-bottom,
+.react-flow__handle-right {
+  right: 0;
+}
+
+.react-flow__minimap {
+  --xy-minimap-background-color: rgba(9, 9, 11, 0.85);
+  background: rgba(9, 9, 11, 0.85);
+  border-radius: 10px;
+  border: 1px solid #27272a;
+}

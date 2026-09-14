@@ -1,0 +1,574 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Colony ──────────────────────────────────────────────
+
+model Colony {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  agents Agent[]
+  memories Memory[]
+
+  @@index([status])
+  @@map("colonies")
+}
+
+// ─── Agent ───────────────────────────────────────────────
+
+model Agent {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  type        String  @default("WORKER")
+  status      String  @default("IDLE")
+
+  // Runtime lifecycle state (canonical; drives topology + events)
+  runtimeState          String   @default("IDLE")
+  previousRuntimeState  String   @default("IDLE")
+  blockedBy             String?
+  stateReason           String?
+  currentTaskId         String?
+
+  colonyId    String?
+  colony      Colony? @relation(fields: [colonyId], references: [id])
+  parentId    String?
+  parent      Agent?  @relation("AgentHierarchy", fields: [parentId], references: [id])
+  children    Agent[] @relation("AgentHierarchy")
+
+  capabilities String  @default("[]")
+  tools        String  @default("[]")
+  models       String  @default("[]")
+  permissions  String  @default("[]")
+  memoryScope  String  @default("AGENT")
+  modelPolicy  String  @default("{}")
+  fallbackModelIds String @default("[]")
+
+  tasksCompleted Int     @default(0)
+  avgDuration    Float   @default(0)
+  successRate    Float   @default(100)
+  totalCost      Float   @default(0)
+  lastActiveAt   DateTime?
+
+  memories Memory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([runtimeState])
+  @@index([type])
+  @@index([colonyId])
+  @@map("agents")
+}
+
+// ─── Provider ────────────────────────────────────────────
+
+model Provider {
+  id              String   @id @default(cuid())
+  name            String
+  category        String   @default("AI")
+  baseUrl         String?
+  status          String   @default("unknown")
+  health          String   @default("{}")
+  rateLimits      String   @default("{}")
+  costPer1KInput  Float?
+  costPer1KOutput Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  models Model[]
+
+  @@map("providers")
+}
+
+// ─── Model ───────────────────────────────────────────────
+
+model Model {
+  id              String   @id @default(cuid())
+  providerId      String
+  provider        Provider @relation(fields: [providerId], references: [id])
+  name            String
+  capabilities    String   @default("[]")
+  contextWindow   Int      @default(8192)
+  costPer1KInput  Float?
+  costPer1KOutput Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([providerId])
+  @@map("models")
+}
+
+// ─── Mission ─────────────────────────────────────────────
+
+model Mission {
+  id          String   @id @default(cuid())
+  goal        String
+  status      String   @default("PLANNING")
+  plan        String   @default("{}")
+  agentIds    String   @default("[]")
+  priority    Int      @default(0)
+  totalCost   Float    @default(0)
+  duration    Int?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  completedAt DateTime?
+
+  tasks Task[]
+  memories Memory[]
+
+  @@index([status])
+  @@map("missions")
+}
+
+// ─── Task ────────────────────────────────────────────────
+
+model Task {
+  id            String   @id @default(cuid())
+  missionId     String
+  mission       Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  description   String
+  status        String   @default("QUEUED")
+
+  input         String   @default("{}")
+  output        String   @default("{}")
+  trace         String   @default("[]")
+
+  ownerAgentId  String?
+  dependencies  String   @default("[]")
+
+  priority      Int      @default(0)
+  retryCount    Int      @default(0)
+  maxRetries    Int      @default(3)
+  timeout       Int      @default(60000)
+  cost          Float    @default(0)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  completedAt   DateTime?
+
+  @@index([missionId])
+  @@index([status])
+  @@index([ownerAgentId])
+  @@map("tasks")
+}
+
+// ─── Tool ────────────────────────────────────────────────
+
+model Tool {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  source      String   @default("NATIVE")
+  sourceId    String?
+
+  inputSchema  String   @default("{}")
+  outputSchema String   @default("{}")
+
+  permissions String   @default("[]")
+  cost        Int      @default(0)
+  timeout     Int      @default(30000)
+  health      String   @default("unknown")
+  lastUsedAt  DateTime?
+  totalCalls  Int      @default(0)
+  successRate Float    @default(100)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("tools")
+}
+
+// ─── Event ───────────────────────────────────────────────
+
+model Event {
+  id        String   @id @default(cuid())
+  type      String
+  timestamp DateTime @default(now())
+  source    String
+  subject   String?
+  subjectId String?
+  missionId String?
+  taskId    String?
+  agentId   String?
+  payload   String   @default("{}")
+  traceId   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([timestamp])
+  @@index([missionId])
+  @@index([agentId])
+  @@map("events")
+}
+
+// ─── MCP Connection ──────────────────────────────────────
+
+model MCPConnection {
+  id        String   @id @default(cuid())
+  name      String
+  baseUrl   String
+  status    String   @default("PENDING")
+  tools     String   @default("[]")
+  resources String   @default("[]")
+  lastPing  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("mcp_connections")
+}
+
+// ─── Automation ──────────────────────────────────────────
+
+model Automation {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  trigger       String   @default("{}")
+  conditions    String   @default("{}")
+  actions       String   @default("[]")
+  status        String   @default("ACTIVE")
+  lastRun       DateTime?
+  nextRun       DateTime?
+  runCount      Int      @default(0)
+  errorCount    Int      @default(0)
+  workflowPlan  String   @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  runs AutomationRun[]
+
+  @@map("automations")
+}
+
+model AutomationRun {
+  id            String     @id @default(cuid())
+  automationId  String
+  automation    Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  status        String     @default("running")
+  triggerEvent  String     @default("{}")
+  actionsResult String     @default("[]")
+  error         String?
+  duration      Int?
+  cost          Float      @default(0)
+
+  startedAt     DateTime   @default(now())
+  completedAt   DateTime?
+
+  @@index([automationId])
+  @@map("automation_runs")
+}
+
+// ─── Memory ──────────────────────────────────────────────
+
+model Memory {
+  id          String   @id @default(cuid())
+  content     String
+  importance  Float    @default(0.5)
+  source      String
+  scope       String   @default("GLOBAL")
+  subjectId   String?
+  subjectType String?
+  confidence  Float    @default(1.0)
+  expiresAt   DateTime?
+
+  // Referential integrity relations
+  agent     Agent?   @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  agentId   String?
+  mission     Mission? @relation(fields: [missionId], references: [id], onDelete: SetNull)
+  missionId   String?
+
+  // Referential integrity relations to Colony
+  colony     Colony?  @relation(fields: [colonyId], references: [id], onDelete: SetNull)
+  colonyId   String?
+
+  // Memory-to-memory relations
+  memoryLinksFrom MemoryRelation[] @relation("FromMemoryLink")
+  memoryLinksTo   MemoryRelation[] @relation("ToMemoryLink")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([scope])
+  @@index([importance])
+  @@index([agentId])
+  @@index([missionId])
+  @@index([colonyId])
+  @@map("memories")
+}
+
+// ─── Relationship (Knowledge Graph) ─────────────────────
+
+model Relationship {
+  id       String   @id @default(cuid())
+  fromId   String
+  fromType String
+  relation String
+  toId     String
+  toType   String
+  metadata String   @default("{}")
+
+  createdAt DateTime @default(now())
+
+  @@index([fromId, fromType])
+  @@index([toId, toType])
+  @@index([relation])
+  @@map("relationships")
+}
+
+// ─── Memory Relation (Memory-to-Memory links) ────────────
+
+model MemoryRelation {
+  id        String   @id @default(cuid())
+  fromMemoryId String
+  fromMemory Memory @relation("FromMemoryLink", fields: [fromMemoryId], references: [id], onDelete: Cascade)
+  toMemoryId String
+  toMemory Memory @relation("ToMemoryLink", fields: [toMemoryId], references: [id], onDelete: Cascade)
+  relation  String   @default("links")
+  metadata  String   @default("{}")
+  createdAt DateTime @default(now())
+
+  @@map("memory_relations")
+}
+
+// ─── Edit Ticket (dev-only "edit on the spot" queue) ──────
+
+model EditTicket {
+  id            String   @id @default(cuid())
+  scope         String   // THIS_ELEMENT | THIS_SECTION | THIS_PAGE | WHOLE_APP | BACKEND_DATA
+  tweakKind     String   // TEXT | COLOR | SPACING | SIZE | HIDE_SHOW | MOVE | BEHAVIOR | OTHER
+  route         String
+  selectorPath  String
+  htmlExcerpt   String   @default("")
+  // Computed-style snapshot + per-tweak current values, stored as JSON
+  currentStyles String   @default("{}")
+  intent        String
+  // Structured before→after change rows, stored as JSON array of EditChange
+  changes       String?
+  // Optional data-context the ticket is scoped to, stored as JSON
+  dataContext   String?
+  // Viewport-sized SVG render of the target rect + annotations, as a data URL
+  thumbnail     String?
+  status        String   @default("OPEN") // OPEN | DONE
+  createdAt     DateTime @default(now())
+
+  @@index([status])
+  @@map("edit_tickets")
+}
+
+// ─── Secret (vault reference — values never exposed) ────
+
+model Secret {
+  id        String   @id @default(cuid())
+  name      String
+  provider  String
+  reference String
+  createdAt DateTime @default(now())
+
+  @@map("secrets")
+}
+
+// ─── Approval (human-in-the-loop) ──────────────────────
+
+model Approval {
+  id          String   @id @default(cuid())
+  type        String
+  description String
+  policy      String   @default("ALWAYS_ASK")
+  status      String   @default("PENDING")
+  createdBy   String?
+  resolvedBy  String?
+  metadata    String   @default("{}")
+
+  createdAt  DateTime @default(now())
+  resolvedAt DateTime?
+
+  @@index([status])
+  @@map("approvals")
+}
+
+// ─── Connector (API Integration) ────────────────────────
+
+model Connector {
+  id          String   @id @default(cuid())
+  name        String
+  baseUrl     String?
+  authType    String   @default("NONE") // API_KEY, BEARER, BASIC, OAUTH, NONE
+  authConfig  String   @default("{}")
+  status      String   @default("PENDING")
+  health      String   @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  endpoints ConnectorEndpoint[]
+  webhooks ConnectorWebhook[]
+
+  @@map("connectors")
+}
+
+model ConnectorEndpoint {
+  id            String   @id @default(cuid())
+  connectorId   String
+  connector     Connector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  method        String   // GET, POST, PUT, DELETE, etc.
+  path          String
+  summary       String?
+  description   String?
+  inputSchema   String   @default("{}")
+  outputSchema  String   @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("connector_endpoints")
+}
+
+model ConnectorWebhook {
+  id          String   @id @default(cuid())
+  connectorId String
+  connector   Connector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  url         String
+  events      String   @default("[]") // JSON array of event types
+  status      String   @default("active")
+  lastTriggered DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("connector_webhooks")
+}
+
+// ─── Integration (Custom Code) ────────────────────────
+
+model Integration {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  code        String   // custom handler code
+  status      String   @default("draft") // draft, active, deprecated
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("integrations")
+}
+
+// ─── Log (structured application logs) ────────────────────
+
+model Log {
+  id          String   @id @default(cuid())
+  level       String   @default("INFO") // DEBUG, INFO, WARN, ERROR
+  service     String   @default("unknown")
+  message     String
+  metadata    String   @default("{}")
+  correlation String?
+  traceId     String?
+  createdAt   DateTime @default(now())
+
+  @@index([level])
+  @@index([service])
+  @@index([createdAt])
+  @@map("logs")
+}
+
+// ─── Observability Metrics (cost/performance aggregates) ──
+
+model ObservabilityMetric {
+  id          String   @id @default(cuid())
+  category    String   @default("cost") // cost, latency, error_rate, usage
+  dimension   String   @default("model") // model, agent, provider, mission, tool
+  dimensionId String
+  value       Float    @default(0)
+  timestamp   DateTime @default(now())
+  metadata    String   @default("{}")
+
+  @@index([category, dimension, timestamp])
+  @@map("observability_metrics")
+}
+
+// ─── Trace (observability) ──────────────────────────────
+
+model Trace {
+  id        String   @id @default(cuid())
+  missionId String?
+  taskId    String?
+  agentId   String?
+  events    String   @default("[]")
+  cost      Float?
+  duration  Int?
+  createdAt DateTime @default(now())
+
+  @@index([missionId])
+  @@index([taskId])
+  @@index([agentId])
+  @@map("traces")
+}
+
+// ─── System Settings (key/value persistence) ─────────────
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+// ─── Chat (ChatGPT-style AI conversations) ────────────────
+
+model Conversation {
+  id        String   @id @default(cuid())
+  title     String
+  modelId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages ChatMessage[]
+
+  @@index([updatedAt])
+  @@map("conversations")
+}
+
+model ChatMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String       // user | assistant | system
+  content        String
+  tokens         Int?
+  cost           Float?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+  @@map("chat_messages")
+}
+
+// ─── Specialist Forge — one-click specialist installs ────
+
+model SpecialistInstall {
+  id             String   @id @default(cuid())
+  bundleId       String   @unique
+  agentId        String
+  status         String   @default("INSTALLED") // INSTALLED | ACTIVE | PAUSED
+  permissions    String   @default("[]") // tool permission grants (explicit consent record)
+  trialHistory   String   @default("[]") // SpecialistTrialRecord[]
+  trialMissionId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([agentId])
+  @@map("specialist_installs")
+}
