@@ -77,8 +77,7 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
 
   // Escape is scoped to the edit-mode surfaces only: close the ticket modal
   // first, then drop a shape tool, then leave edit mode. When neither is
-  // mounted the key is left untouched so hosting pages (e.g. the topology
-  // inspector) keep ownership of it.
+  // mounted the key is left untouched so hosting pages keep ownership of it.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;

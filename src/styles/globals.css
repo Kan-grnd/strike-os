@@ -429,8 +429,7 @@ html[data-density="compact"] .space-y-6 > :not([hidden]) ~ :not([hidden]) {
 
 /* The app shell paints an opaque --background over the whole viewport, which
    would hide the body-level backdrop entirely. Neutralise only that single
-   paint here (content layers keep their own backgrounds); this avoids a third
-   file so the change stays scoped to this stylesheet + the topology page. */
+   paint here (content layers keep their own backgrounds). */
 body > div.h-screen.flex.bg-background {
   background-color: transparent;
 }
@@ -487,32 +486,6 @@ body > div.h-screen.flex.bg-background {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-  }
-}
-
-/* ─── Live Topology ─────────────────────────────────────────── */
-
-/* Signal packets — native <animateMotion> mover + soft-glow dot */
-.topo-signal {
-  will-change: transform;
-}
-.topo-signal-dot {
-  opacity: 0.95;
-}
-
-/* Fallback node pulse for a signal whose edge is hidden/missing in the mode */
-.topo-node-pulse {
-  animation: topo-node-pulse 0.9s ease-out 2;
-}
-
-@keyframes topo-node-pulse {
-  0% {
-    box-shadow: 0 0 0 2px var(--signal-color);
-    opacity: 1;
-  }
-  100% {
-    box-shadow: 0 0 0 14px transparent;
-    opacity: 0;
   }
 }
 

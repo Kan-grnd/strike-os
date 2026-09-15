@@ -6,8 +6,7 @@ import { useEditMode } from "./edit-mode-provider";
 /**
  * Floating toggle mounted next to the theme switcher in the shell header.
  * Esc is handled inside EditModeProvider and only while edit mode is active
- * or the ticket modal is open; otherwise it stays owned by hosting pages
- * (e.g. the topology inspector).
+ * or the ticket modal is open; otherwise it stays owned by hosting pages.
  */
 export function EditModeToggle() {
   const { active, setActive } = useEditMode();

@@ -1,10 +1,9 @@
 /**
- * Runtime State — canonical agent/colony lifecycle for Live Topology.
+ * Runtime State — canonical agent/colony lifecycle.
  *
  * The principle: the DATABASE is the source of truth. Every state transition
  * is persisted (preserving `previousRuntimeState` for paused->resume) and
- * emitted to the event bus. The topology renders this state; it never holds
- * a competing graph of its own.
+ * emitted to the event bus.
  */
 
 import prisma from "@/lib/db";

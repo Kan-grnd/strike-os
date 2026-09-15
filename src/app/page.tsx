@@ -265,11 +265,6 @@ export default function HomePage() {
             description="Launch a new mission"
             icon={Brain}
           />
-          <QuickActionCard
-            title="View Topology"
-            description="See your live system graph"
-            icon={Activity}
-          />
         </div>
       </section>
     </div>
