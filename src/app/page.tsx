@@ -24,7 +24,6 @@ import {
   useMissions,
   useAutomations,
   useEvents,
-  useTopology,
   usePerformance,
   useCosts,
 } from "@/hooks/useApi";
@@ -36,7 +35,6 @@ export default function HomePage() {
   const { data: missionsData, isLoading: missionsLoading } = useMissions();
   const { data: automationsData, isLoading: automationsLoading } = useAutomations();
   const { data: eventsData, isLoading: eventsLoading } = useEvents({});
-  const { data: topologyData, isLoading: topologyLoading } = useTopology();
   const { data: performanceData, isLoading: performanceLoading } = usePerformance();
   const { data: costsData, isLoading: costsLoading } = useCosts();
 
@@ -44,7 +42,12 @@ export default function HomePage() {
   const runningTasks = tasksData?.tasks || [];
   const missions = missionsData?.missions || [];
   const automations = automationsData?.automations || [];
-  const missionPercent = topologyData?.projection?.missionPercent || {};
+  const missionPercent: Record<string, number> = {};
+  for (const m of missions as any[]) {
+    const tasks = m.tasks || [];
+    const done = tasks.filter((t: any) => t.status === "COMPLETED").length;
+    missionPercent[`mission:${m.id}`] = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
+  }
   const performance = performanceData || { completedTasks: 0, failedTasks: 0 };
   const costs = costsData && costsData.totalCost > 0 ? costsData : undefined;
 
@@ -54,7 +57,6 @@ export default function HomePage() {
     missionsLoading ||
     automationsLoading ||
     eventsLoading ||
-    topologyLoading ||
     performanceLoading ||
     costsLoading;
 

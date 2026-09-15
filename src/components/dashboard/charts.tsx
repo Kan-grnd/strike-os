@@ -1,6 +1,18 @@
 import * as React from "react";
 import { Card } from "@/components/ui/card";
-import { stateHex } from "@/lib/topology";
+
+function stateHex(status: string | undefined): string {
+  const T: Record<string, string> = {
+    idle: "#a1a1aa", initializing: "#38bdf8", thinking: "#38bdf8", planning: "#2dd4bf",
+    executing: "#22d3ee", delegating: "#2dd4bf", waiting: "#38bdf8",
+    waiting_for_approval: "#a78bfa", retrying: "#fb923c", blocked: "#fbbf24",
+    paused: "#fb923c", stopped: "#3f3f46", completed: "#34d399", failed: "#f87171",
+    cancelled: "#3f3f46", active: "#22d3ee", running: "#22d3ee", planning_mission: "#2dd4bf",
+    ready: "#71717a", healthy: "#34d399", connected: "#34d399", degraded: "#fbbf24", unknown: "#52525b",
+  };
+  if (!status) return T.idle;
+  return T[status] ?? T[status.toLowerCase()] ?? T.unknown;
+}
 
 const ACTIVE_LIVE = ["executing", "planning", "thinking", "delegating", "initializing", "retrying"];
 

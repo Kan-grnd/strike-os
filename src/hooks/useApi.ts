@@ -76,11 +76,6 @@ export function useColonies() {
   return useSWR<{ colonies: any[] }>("/api/colonies", fetcher);
 }
 
-export function useTopology() {
-  const rate = useRefreshRate();
-  return useSWR<{ projection: any }>("/api/topology", fetcher, pollOptions(rate));
-}
-
 export function useMissions() {
   return useSWR<{ missions: any[] }>("/api/missions", fetcher);
 }
