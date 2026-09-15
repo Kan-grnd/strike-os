@@ -435,13 +435,6 @@ body > div.h-screen.flex.bg-background {
   background-color: transparent;
 }
 
-/* Live Topology is a full-canvas view — drop both backdrop layers there.
-   The mount attribute is managed by src/app/topology/page.tsx. */
-body[data-canvas="topology"],
-body[data-canvas="topology"]::before {
-  background-image: none;
-}
-
 @layer utilities {
   .text-balance {
     text-wrap: balance;
