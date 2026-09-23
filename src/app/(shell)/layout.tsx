@@ -32,6 +32,16 @@ export default function GlobalShell({ children }: { children: React.ReactNode })
     requestAnimationFrame(() => requestAnimationFrame(() => setSuppressAnimation(false)));
   }, [settings]);
 
+  // On narrow screens the full sidebar steals the whole page, so collapse it
+  // to icons automatically. Session-only — never written back to settings.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1024px)");
+    const onMatch = () => setCollapsed((prev) => (mq.matches ? true : prev));
+    onMatch();
+    mq.addEventListener("change", onMatch);
+    return () => mq.removeEventListener("change", onMatch);
+  }, []);
+
   // Safety net: if settings never resolve, re-enable animations so the toggle
   // still animates.
   useEffect(() => {
