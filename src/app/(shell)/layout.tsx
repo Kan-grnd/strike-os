@@ -1,14 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { ThemeSwitcher } from "@/components/layout/theme-switcher";
 import { EditModeProvider } from "@/components/edit-mode/edit-mode-provider";
 import { EditModeToggle } from "@/components/edit-mode/edit-mode-toggle";
 import { CommandBar } from "@/components/shell/command-bar";
 import { useSettings } from "@/hooks/useApi";
+import { cn } from "@/lib/utils";
 
 export default function GlobalShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const fullBleed = pathname === "/chat";
   const { data: settings } = useSettings();
   const [collapsed, setCollapsed] = useState(false);
   // Suppress the sidebar's width transition until the saved start state is
@@ -53,7 +57,9 @@ export default function GlobalShell({ children }: { children: React.ReactNode })
               <ThemeSwitcher />
             </div>
           </header>
-          <div className="p-6">{children}</div>
+          <div className={cn(fullBleed ? "flex h-[calc(100dvh-3.5rem)] flex-col" : "p-6")}>
+            {children}
+          </div>
         </EditModeProvider>
       </main>
     </div>

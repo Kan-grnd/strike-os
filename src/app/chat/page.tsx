@@ -21,8 +21,16 @@ import {
   List,
   Code,
   Sparkles,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -346,55 +354,64 @@ export default function ChatPage() {
   const ready = draft.trim().length > 0 && !sending;
 
   return (
-    <div className="flex h-[calc(100dvh-6.5rem)] min-h-0 gap-2 py-1 sm:gap-3">
+    <div className="flex h-full min-h-0 gap-3 p-3">
       <style dangerouslySetInnerHTML={{ __html: MOTION_CSS }} />
 
       {/* ── history rail ── */}
-      <aside
+      <Card
         className={cn(
-          "rail flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-[width] [transition-duration:180ms] ease-out motion-reduce:transition-none",
+          "rail flex flex-col overflow-hidden shadow-none transition-[width] [transition-duration:180ms] ease-out motion-reduce:transition-none",
           railCollapsed ? "w-[68px]" : "w-[180px] sm:w-[228px] xl:w-[264px]"
         )}
+        role="complementary"
         aria-label="Chat history"
       >
-        <div className={cn("flex items-center gap-2 py-2.5", railCollapsed ? "justify-center px-0" : "px-3")}>
-          <button
+        <div className={cn("flex items-center gap-2 py-2.5", railCollapsed ? "justify-center px-0" : "px-2.5")}>
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={toggleRail}
             aria-label={railCollapsed ? "Expand history panel" : "Collapse history panel"}
             aria-expanded={!railCollapsed}
             title={railCollapsed ? "Expand history panel" : "Collapse history panel"}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-none"
+            className="h-8 w-8 shrink-0 rounded-lg"
           >
-            <ChevronLeft className={cn("h-3.5 w-3.5 transition-transform duration-200", railCollapsed && "rotate-180")} />
-          </button>
+            <ChevronLeft className={cn("h-4 w-4 transition-transform duration-200", railCollapsed && "rotate-180")} />
+          </Button>
           {!railCollapsed && (
-            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-muted-foreground">
-              <Search className="h-3 w-3 shrink-0" />
-              <input
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search chats…"
                 aria-label="Search chats"
-                className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground sm:text-[12.5px]"
+                className="h-8 pl-8 text-[13px]"
               />
             </div>
           )}
         </div>
 
-        <div className="rail-list min-h-0 flex-1 space-y-1 overflow-y-auto px-1.5 py-1">
+        <ScrollArea className="rail-list min-h-0 flex-1 px-1.5 py-1">
           {conversations.length === 0 ? (
             railCollapsed ? null : (
-              <div className="px-3.5 py-5 text-[12.5px] leading-relaxed text-muted-foreground">
-                <strong className="font-semibold text-foreground">No chats yet.</strong>
-                <br />
-                Start one below — or press New Chat.
-              </div>
+              <EmptyState
+                icon={MessageSquare}
+                title="No chats yet"
+                description="Start one below — or press New Chat."
+                className="px-3 py-8"
+              />
             )
           ) : grouped.length === 0 ? (
             railCollapsed ? null : (
-              <p className="px-3.5 py-3 text-[11.5px] uppercase tracking-wider text-muted-foreground">No matches</p>
+              <EmptyState
+                icon={Search}
+                title="No matches"
+                description={`Nothing matches "${search}".`}
+                className="px-3 py-8"
+              />
             )
           ) : (
             grouped.map(([group, items]) => (
@@ -409,6 +426,7 @@ export default function ChatPage() {
                         setSendError(null);
                       }}
                       title={c.title}
+                      aria-label={c.title}
                       className={cn(
                         "min-w-0 flex-1 truncate rounded-lg text-left text-[13px]",
                         railCollapsed ? "flex justify-center p-0" : "px-3 py-2",
@@ -430,45 +448,48 @@ export default function ChatPage() {
                       {!railCollapsed && <span className="block truncate">{c.title}</span>}
                     </button>
                     {!railCollapsed && (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon"
                         aria-label={`Delete conversation: ${c.title}`}
                         title="Delete"
                         onClick={(e) => {
                           e.stopPropagation();
                           deleteConversation(c.id);
                         }}
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none group-hover:opacity-100 group-focus-within:opacity-100"
+                        className="h-8 w-8 shrink-0 rounded-lg opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
                       >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                        <X className="h-4 w-4" />
+                      </Button>
                     )}
                   </div>
                 ))}
               </div>
             ))
           )}
-        </div>
+        </ScrollArea>
 
-        <div className="border-t border-border/60 p-2.5">
-          <button
+        <div className="p-2.5">
+          <Separator className="mb-2.5" />
+          <Button
             type="button"
             onClick={startNew}
             aria-label="New chat"
             title="New chat"
             className={cn(
-              "pressable flex h-9 items-center justify-center gap-2 rounded-lg bg-primary font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-none",
-              railCollapsed ? "mx-auto w-9" : "w-full"
+              "pressable gap-2 font-bold",
+              railCollapsed ? "mx-auto h-9 w-9 px-0" : "h-9 w-full"
             )}
           >
             <Plus className="h-4 w-4" />
-            {!railCollapsed && <span className="text-[13px] font-bold">New Chat</span>}
-          </button>
+            {!railCollapsed && <span className="text-[13px]">New Chat</span>}
+          </Button>
         </div>
-      </aside>
+      </Card>
 
       {/* ── stage ── */}
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
         <a
           href="#chat-composer"
           className="sr-only rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[95] focus:ring-2 focus:ring-ring"
@@ -476,19 +497,20 @@ export default function ChatPage() {
           Skip to composer
         </a>
 
-        <div
-          ref={threadRef}
-          role="log"
-          aria-live="polite"
-          aria-label="Conversation"
-          className="min-h-0 flex-1 overflow-y-auto"
-        >
+        <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden shadow-none">
           <div
-            className={cn(
-              "mx-auto flex min-h-full max-w-[820px] flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8",
-              !activeId && "justify-center"
-            )}
+            ref={threadRef}
+            role="log"
+            aria-live="polite"
+            aria-label="Conversation"
+            className="min-h-0 flex-1 overflow-y-auto"
           >
+            <div
+              className={cn(
+                "mx-auto flex min-h-full max-w-[820px] flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8",
+                !activeId && "justify-center"
+              )}
+            >
             {!activeId || messages.length === 0 ? (
               <div key={`welcome-${activeId ?? "new"}`} className={cn("rise", entered && "enter")}>
                 {/* welcome hero */}
@@ -521,18 +543,19 @@ export default function ChatPage() {
                   </p>
                   <div className="mt-3 flex flex-wrap items-center justify-center gap-2 [@media(min-height:640px)]:mt-5">
                     {SUGGESTIONS.map((s) => (
-                      <button
+                      <Button
                         key={s.label}
                         type="button"
+                        variant="outline"
                         onClick={() => {
                           setDraft(s.q);
                           composerRef.current?.focus();
                         }}
-                        className="pressable flex h-8 items-center gap-2 rounded-full border border-border bg-card px-4 text-[12.5px] font-semibold text-card-foreground transition-colors hover:border-primary hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                        className="pressable h-8 gap-2 rounded-full px-4 text-[12.5px] font-semibold"
                       >
                         <s.icon className="h-3.5 w-3.5" />
                         {s.label}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
@@ -571,52 +594,60 @@ export default function ChatPage() {
                             >
                               <p className="whitespace-pre-wrap">{m.content}</p>
                               {meta && (
-                                <p className="mt-1.5 font-mono text-[10.5px] leading-none text-muted-foreground">
-                                  {meta}
-                                </p>
+                                <div className="mt-1.5">
+                                  <Badge variant="secondary" className="font-mono text-[10.5px] font-normal leading-none">
+                                    {meta}
+                                  </Badge>
+                                </div>
                               )}
                             </div>
                             {!isUser && (
                               <div className="msgacts mt-1.5 flex items-center gap-0.5 pl-1">
-                                <button
+                                <Button
                                   type="button"
+                                  variant="ghost"
+                                  size="icon"
                                   aria-label="Copy message"
                                   title="Copy"
                                   onClick={() => copyMessage(m)}
-                                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                  className="h-8 w-8 rounded-md"
                                 >
                                   {copiedId === m.id ? (
                                     <Check className="h-3.5 w-3.5 text-success" />
                                   ) : (
                                     <Copy className="h-3.5 w-3.5" />
                                   )}
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                   type="button"
+                                  variant="ghost"
+                                  size="icon"
                                   aria-label="Good response"
                                   aria-pressed={votes[m.id] === "up"}
                                   title="Good response"
                                   onClick={() => toggleVote(m.id, "up")}
                                   className={cn(
-                                    "flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                                    "h-8 w-8 rounded-md",
                                     votes[m.id] === "up" && "text-primary"
                                   )}
                                 >
                                   <ThumbsUp className="h-3.5 w-3.5" />
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                   type="button"
+                                  variant="ghost"
+                                  size="icon"
                                   aria-label="Bad response"
                                   aria-pressed={votes[m.id] === "down"}
                                   title="Bad response"
                                   onClick={() => toggleVote(m.id, "down")}
                                   className={cn(
-                                    "flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                                    "h-8 w-8 rounded-md",
                                     votes[m.id] === "down" && "text-primary"
                                   )}
                                 >
                                   <ThumbsDown className="h-3.5 w-3.5" />
-                                </button>
+                                </Button>
                               </div>
                             )}
                           </div>
@@ -643,7 +674,7 @@ export default function ChatPage() {
 
             {sendError && (
               <div
-                role="status"
+                role="alert"
                 className="mt-2 flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/5 px-4 py-3"
               >
                 <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
@@ -667,10 +698,11 @@ export default function ChatPage() {
             )}
           </div>
         </div>
+        </Card>
 
         {/* ── composer ── */}
-        <form onSubmit={send} className="shrink-0 px-3 pb-2.5 sm:px-6 sm:pb-4">
-          <div className="mx-auto max-w-[820px] overflow-hidden rounded-xl border border-border bg-card focus-within:border-foreground/30">
+        <form onSubmit={send} className="shrink-0">
+          <Card className="mx-auto max-w-[820px] overflow-hidden shadow-none">
             <textarea
               id="chat-composer"
               ref={composerRef}
@@ -684,13 +716,13 @@ export default function ChatPage() {
               disabled={sending}
               className="block h-auto min-h-[38px] w-full resize-none overflow-x-hidden bg-transparent px-3.5 pb-1 pt-2 text-base leading-snug text-foreground outline-none [overflow-wrap:anywhere] placeholder:text-muted-foreground disabled:opacity-60"
             />
-            <div className="flex items-center gap-1.5 px-2 pb-1.5">
+            <div className="flex items-center gap-1.5 px-2 pb-1.5 pt-1">
               <select
                 value={modelId ?? ""}
                 onChange={(e) => setModelId(e.target.value || null)}
                 disabled={sending || models.length === 0}
                 aria-label="Model"
-                className="h-7 min-w-0 max-w-[46%] shrink rounded-full border border-border bg-background px-2.5 text-[12px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                className="h-8 min-w-0 max-w-[46%] shrink rounded-full border border-input bg-background px-2.5 text-[12px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
               >
                 {models.length === 0 ? (
                   <option value="">No models configured</option>
@@ -706,16 +738,16 @@ export default function ChatPage() {
                 <CornerDownLeft className="h-3 w-3" />
                 Enter to send
               </span>
-              <button
+              <Button
                 type="submit"
+                variant="default"
+                size="icon"
                 disabled={!ready}
                 aria-label="Send message"
                 aria-busy={sending}
                 className={cn(
-                  "send-icon ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform [transition-duration:100ms] ease-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                  ready
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "bg-muted text-muted-foreground",
+                  "send-icon ml-auto h-10 w-10 shrink-0 rounded-full transition-transform [transition-duration:100ms] ease-out",
+                  !ready && "bg-muted text-muted-foreground hover:bg-muted hover:text-muted-foreground",
                   ready && "active:scale-90"
                 )}
               >
@@ -724,9 +756,9 @@ export default function ChatPage() {
                 ) : (
                   <Send className="h-4 w-4" />
                 )}
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         </form>
       </main>
     </div>
