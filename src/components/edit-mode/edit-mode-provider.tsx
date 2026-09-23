@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { PickerOverlay } from "./picker-overlay";
 import { ShapeOverlay } from "./shape-overlay";
@@ -9,14 +9,27 @@ import { EditBadge } from "./edit-badge";
 import { TicketModal } from "./ticket-modal";
 import type { CaptureResult } from "./capture";
 
+export type ShapeTool =
+  | "rectangle"
+  | "ellipse"
+  | "arrow"
+  | "pen"
+  | "line"
+  | "pin"
+  | "text";
+export type ActiveTool = ShapeTool | "select" | null;
+
 export interface Shape {
   id: string;
-  type: "rectangle" | "ellipse" | "arrow";
+  type: ShapeTool;
   x: number;
   y: number;
   x2: number;
   y2: number;
   color: string;
+  strokeWidth: number;
+  points?: { x: number; y: number }[];
+  label?: string;
 }
 
 interface EditModeContextValue {
@@ -24,12 +37,18 @@ interface EditModeContextValue {
   setActive: (value: boolean) => void;
   shapes: Shape[];
   addShape: (shape: Shape) => void;
+  updateShape: (id: string, patch: Partial<Shape>) => void;
+  removeShape: (id: string) => void;
   undoShape: () => void;
   clearShapes: () => void;
-  activeTool: "rectangle" | "ellipse" | "arrow" | null;
-  setActiveTool: (tool: "rectangle" | "ellipse" | "arrow" | null) => void;
+  activeTool: ActiveTool;
+  setActiveTool: (tool: ActiveTool) => void;
   activeColor: string;
   setActiveColor: (color: string) => void;
+  strokeWidth: number;
+  setStrokeWidth: (width: number) => void;
+  selectedId: string | null;
+  setSelectedId: (id: string | null) => void;
 }
 
 const EditModeContext = createContext<EditModeContextValue>({
@@ -37,57 +56,89 @@ const EditModeContext = createContext<EditModeContextValue>({
   setActive: () => {},
   shapes: [],
   addShape: () => {},
+  updateShape: () => {},
+  removeShape: () => {},
   undoShape: () => {},
   clearShapes: () => {},
   activeTool: null,
   setActiveTool: () => {},
   activeColor: "#ef4444",
   setActiveColor: () => {},
+  strokeWidth: 2,
+  setStrokeWidth: () => {},
+  selectedId: null,
+  setSelectedId: () => {},
 });
 
 export function useEditMode() {
   return useContext(EditModeContext);
 }
 
+const shapesKey = (route: string) => `strike.edit.shapes.${route}`;
+
+const DEFAULT_COLOR = "#ef4444";
+const DEFAULT_WIDTH = 2;
+
 export function EditModeProvider({ children }: { children: React.ReactNode }) {
   const [active, setActive] = useState(false);
   const [pending, setPending] = useState<CaptureResult | null>(null);
   const [shapes, setShapes] = useState<Shape[]>([]);
-  const [activeTool, setActiveTool] = useState<"rectangle" | "ellipse" | "arrow" | null>(null);
-  const [activeColor, setActiveColor] = useState("#ef4444");
+  const [activeTool, setActiveTool] = useState<ActiveTool>(null);
+  const [activeColor, setActiveColor] = useState(DEFAULT_COLOR);
+  const [strokeWidth, setStrokeWidth] = useState(DEFAULT_WIDTH);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const pathname = usePathname();
-  const prevPath = useRef(pathname);
 
+  // Shapes are per-route: load what was saved for this page on mount and on
+  // every route change, and forget the transient editing state when moving on.
+  // Nothing is written back to the server — annotations are local until a
+  // ticket carries them. Loading runs before the persist effect below, and
+  // that effect's debounce cleanup means the initial [] is never persisted.
   useEffect(() => {
-    if (prevPath.current !== pathname) {
-      setPending(null);
+    setSelectedId(null);
+    setActiveTool(null);
+    try {
+      const raw = window.localStorage.getItem(shapesKey(pathname));
+      setShapes(raw ? (JSON.parse(raw) as Shape[]) : []);
+    } catch {
       setShapes([]);
-      setActiveTool(null);
     }
-    prevPath.current = pathname;
   }, [pathname]);
+
+  // Debounced persist whenever the drawing sheet for this route changes.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        window.localStorage.setItem(shapesKey(pathname), JSON.stringify(shapes));
+      } catch {
+        /* storage unavailable — drawings just won't survive reload */
+      }
+    }, 200);
+    return () => clearTimeout(t);
+  }, [shapes, pathname]);
 
   const handleCapture = useCallback((capture: CaptureResult) => {
     setPending(capture);
     setActive(false);
     setActiveTool(null);
+    setSelectedId(null);
   }, []);
 
   const clearPending = useCallback(() => setPending(null), []);
 
   // Escape is scoped to the edit-mode surfaces only: close the ticket modal
-  // first, then drop a shape tool, then leave edit mode. When neither is
-  // mounted the key is left untouched so hosting pages keep ownership of it.
+  // first, then drop an active shape/select tool, then leave edit mode.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+      const target = e.target as HTMLElement | null;
+      const typing =
+        target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT");
+      if (e.key !== "Escape" || typing) return;
       if (pending) {
         clearPending();
       } else if (active) {
         if (activeTool !== null) setActiveTool(null);
-        else {
-          setActive(false);
-        }
+        else setActive(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -98,12 +149,25 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
     setShapes((prev) => [...prev, shape]);
   }, []);
 
+  const updateShape = useCallback((id: string, patch: Partial<Shape>) => {
+    setShapes((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  }, []);
+
+  const removeShape = useCallback((id: string) => {
+    setSelectedId((sel) => (sel === id ? null : sel));
+    setShapes((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
   const undoShape = useCallback(() => {
-    setShapes((prev) => prev.slice(0, -1));
+    setShapes((prev) => {
+      setSelectedId(null);
+      return prev.slice(0, -1);
+    });
   }, []);
 
   const clearShapes = useCallback(() => {
     setShapes([]);
+    setSelectedId(null);
   }, []);
 
   return (
@@ -113,18 +177,24 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
         setActive,
         shapes,
         addShape,
+        updateShape,
+        removeShape,
         undoShape,
         clearShapes,
         activeTool,
         setActiveTool,
         activeColor,
         setActiveColor,
+        strokeWidth,
+        setStrokeWidth,
+        selectedId,
+        setSelectedId,
       }}
     >
       {children}
       {active && (
         <>
-          <EditBadge onExit={() => { setActive(false); setActiveTool(null); }} />
+          <EditBadge onExit={() => { setActive(false); setActiveTool(null); setSelectedId(null); }} />
           <ShapeToolbar />
           <ShapeOverlay />
           {activeTool === null && (

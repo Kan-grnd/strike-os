@@ -28,6 +28,8 @@ export const SCOPE_OPTIONS = [
 
 export type TicketScope = (typeof SCOPE_OPTIONS)[number]["id"];
 
+export type TicketPriority = "LOW" | "MEDIUM" | "HIGH";
+
 export interface ComputeStyleSnapshot {
   fontSize: string;
   fontFamily: string;
@@ -56,13 +58,17 @@ export interface EditTicketInput {
   applyToSiblings?: boolean;
   changes?: EditChange[];
   dataContext?: EditDataContext;
+  priority?: TicketPriority;
   shapes?: Array<{
-    type: "rectangle" | "ellipse" | "arrow";
+    type: string;
     x: number;
     y: number;
     x2: number;
     y2: number;
     color: string;
+    strokeWidth?: number;
+    points?: { x: number; y: number }[];
+    label?: string;
   }>;
   /** Optional human-readable label for the target (falls back to scope). */
   label?: string;
@@ -194,6 +200,7 @@ export interface EditTicketRow {
   currentStyles: string; // JSON — { computed, tweak, label, viewport }
   intent: string;
   status: string;
+  priority?: string;
   createdAt: string;
   changes?: string | null; // JSON array of EditChange
   dataContext?: string | null; // JSON of EditDataContext
@@ -290,13 +297,17 @@ export interface PromptSource {
   changes?: EditChange[] | string | null;
   dataContext?: EditDataContext | string | null;
   thumbnail?: string | null;
+  priority?: string;
   shapes?: Array<{
-    type: "rectangle" | "ellipse" | "arrow";
+    type: string;
     x: number;
     y: number;
     x2: number;
     y2: number;
     color: string;
+    strokeWidth?: number;
+    points?: { x: number; y: number }[];
+    label?: string;
   }>;
   /** Optional human-readable label for the target (falls back to scope). */
   label?: string;
@@ -406,7 +417,8 @@ export function buildImplementerPrompt(t: PromptSource): string {
   return [
     "Strike OS edit ticket",
     `Tweak: ${KIND_LABEL[t.tweakKind] ?? t.tweakKind}`,
-    `Intent: ${t.intent}`,
+    `Intro: ${t.intent}`,
+    t.priority && t.priority !== "MEDIUM" ? `Priority: ${t.priority}` : "",
     targetBlock,
     dataBlock,
     changesBlock,

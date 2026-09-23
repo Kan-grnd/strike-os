@@ -366,6 +366,7 @@ model EditTicket {
   // Viewport-sized SVG render of the target rect + annotations, as a data URL
   thumbnail     String?
   status        String   @default("OPEN") // OPEN | DONE
+  priority      String   @default("MEDIUM") // LOW | MEDIUM | HIGH
   createdAt     DateTime @default(now())
 
   @@index([status])

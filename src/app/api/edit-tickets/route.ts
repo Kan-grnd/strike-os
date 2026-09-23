@@ -33,6 +33,7 @@ export async function POST(req: Request) {
       changes,
       dataContext,
       thumbnail,
+      priority,
     } = body ?? {};
 
     if (!scope || !tweakKind || !route || !selectorPath || !intent?.trim()) {
@@ -64,6 +65,7 @@ export async function POST(req: Request) {
             ? thumbnail
             : null,
         status: "OPEN",
+        priority: ["LOW", "MEDIUM", "HIGH"].includes(priority) ? priority : "MEDIUM",
       },
     });
 

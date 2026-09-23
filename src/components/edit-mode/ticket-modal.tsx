@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Copy, ExternalLink, Eye, Plus, Trash2, X } from "lucide-react";
+import { Check, Copy, ExternalLink, Eye, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,12 +20,59 @@ import {
   type EditChange,
   type EditDataContext,
   type EditTicketInput,
+  type TicketPriority,
   type TicketScope,
   type TweakKind,
 } from "@/lib/edit-tickets";
 import { buildThumbnailDataUrl } from "@/lib/edit-thumbnail";
 import type { CaptureResult } from "./capture";
 import { useEditMode } from "./edit-mode-provider";
+
+/** One-click starting points that pre-fill kind, a row or two, and the intent. */
+const TEMPLATES: {
+  id: string;
+  label: string;
+  kind: TweakKind;
+  props: string[];
+  intent: (label: string) => string;
+}[] = [
+  {
+    id: "spacing",
+    label: "Fix spacing",
+    kind: "SPACING",
+    props: ["padding", "margin"],
+    intent: (label) => `Re-balance the spacing on ${label} so it breathes and aligns with the layout around it.`,
+  },
+  {
+    id: "copy",
+    label: "Fix copy",
+    kind: "TEXT",
+    props: ["fontSize", "fontWeight", "color"],
+    intent: (label) => `Tighten the copy on ${label}: keep the meaning, sharpen the wording, match the visual hierarchy.`,
+  },
+  {
+    id: "responsive",
+    label: "Make responsive",
+    kind: "SIZE",
+    props: ["width", "height", "padding"],
+    intent: (label) => `Make ${label} behave correctly at mobile widths without breaking the desktop layout.`,
+  },
+  {
+    id: "contrast",
+    label: "Fix contrast",
+    kind: "COLOR",
+    props: ["color", "backgroundColor"],
+    intent: (label) => `Raise the contrast on ${label} so text stays readable on every surface (WCAG AA).`,
+  },
+];
+
+const PRIORITY_LABEL: Record<TicketPriority, string> = {
+  LOW: "Low",
+  MEDIUM: "Medium",
+  HIGH: "High",
+};
+
+const draftKey = (route: string) => `strike.edit.draft.${route}`;
 
 interface TicketModalProps {
   capture: CaptureResult;
@@ -238,6 +285,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
   const prevFocus = useRef<HTMLElement | null>(null);
   const [kind, setKind] = useState<TweakKind>("TEXT");
   const [scope, setScope] = useState<TicketScope>("THIS_ELEMENT");
+  const [priority, setPriority] = useState<TicketPriority>("MEDIUM");
   const [applyToSiblings, setApplyToSiblings] = useState(false);
   const [target, setTarget] = useState<TargetCrumb>(() => ({
     tag: "node",
@@ -360,9 +408,126 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
     return () => root.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // A half-finished ticket survives reloads: each route keeps one draft in
+  // localStorage. It is only ever written back to the server when filed.
+  useEffect(() => {
+    let cancelled = false;
+    try {
+      const raw = window.localStorage.getItem(draftKey(capture.route));
+      if (!raw) return;
+      const d = JSON.parse(raw) as Partial<TicketModalProps> & {
+        kind?: TweakKind;
+        scope?: TicketScope;
+        priority?: TicketPriority;
+        applyToSiblings?: boolean;
+        changes?: EditChange[];
+        intent?: string;
+        dataContext?: Partial<EditDataContext>;
+      };
+      if (cancelled) return;
+      if (d.kind) setKind(d.kind as TweakKind);
+      if (d.scope) setScope(d.scope as TicketScope);
+      if (d.priority) setPriority(d.priority as TicketPriority);
+      if (typeof d.applyToSiblings === "boolean") setApplyToSiblings(d.applyToSiblings);
+      if (Array.isArray(d.changes)) {
+        setChanges(
+          changeRowsFor(d.kind ?? "TEXT", target.computed).map((row) => {
+            const saved = d.changes!.find((c) => c.property === row.property);
+            return saved ? { ...row, desired: saved.desired, note: saved.note } : row;
+          })
+        );
+      }
+      if (typeof d.intent === "string") setIntent(d.intent);
+      if (d.dataContext) {
+        setDataContext({
+          model: d.dataContext.model ?? "",
+          endpoint: d.dataContext.endpoint ?? "",
+          recordId: d.dataContext.recordId ?? "",
+          note: d.dataContext.note ?? "",
+        });
+      }
+    } catch {
+      /* corrupt draft — ignore */
+    }
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Debounced draft save whenever a field changes.
+  useEffect(() => {
+    if (filedId) return;
+    const t = setTimeout(() => {
+      try {
+        window.localStorage.setItem(
+          draftKey(capture.route),
+          JSON.stringify({
+            kind,
+            scope,
+            priority,
+            applyToSiblings,
+            changes,
+            intent,
+            dataContext,
+          })
+        );
+      } catch {
+        /* storage unavailable */
+      }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [kind, scope, priority, applyToSiblings, changes, intent, dataContext, filedId, capture.route]);
+
+  const discardDraft = () => {
+    try {
+      window.localStorage.removeItem(draftKey(capture.route));
+    } catch {
+      /* ignore */
+    }
+    setKind("TEXT");
+    setScope("THIS_ELEMENT");
+    setPriority("MEDIUM");
+    setApplyToSiblings(false);
+    setChanges(changeRowsFor("TEXT", target.computed));
+    setIntent("");
+    setCustomEndpoint(false);
+    setDataContext({ model: "", endpoint: "", recordId: "", note: "" });
+  };
+
   const pickKind = (k: TweakKind) => {
     setKind(k);
     setChanges(changeRowsFor(k, target.computed));
+  };
+
+  const applyTemplate = (tpl: typeof TEMPLATES[number]) => {
+    setKind(tpl.kind);
+    setChanges(
+      tpl.props.map((property) => ({
+        property,
+        current: currentFor(property, target),
+        desired: "",
+        note: "",
+      }))
+    );
+    const label = target.label ? `“${target.label.slice(0, 40)}”` : "this element";
+    setIntent(tpl.intent(label));
+  };
+
+  const draftIntent = () => {
+    const rows = changes.filter((c) => c.desired.trim() || c.note.trim());
+    if (rows.length === 0) {
+      toast.info("Add at least one desired value first");
+      return;
+    }
+    const label = target.label ? `“${target.label.slice(0, 40)}”` : "this element";
+    const lines = rows.map((c) => {
+      const from = c.current.trim() ? ` from ${c.current}` : "";
+      const to = c.desired.trim() ? ` to ${c.desired}` : "";
+      const note = c.note.trim() ? ` — ${c.note}` : "";
+      return `  - ${c.property}${from}${to}${note}`;
+    });
+    setIntent(`Change ${label} on ${capture.route}:\n${lines.join("\n")}`);
   };
 
   const currentFor = (property: string, crumb: TargetCrumb): string => {
@@ -412,6 +577,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
       intent,
       applyToSiblings,
       changes,
+      priority,
       dataContext: {
         model: dataContext.model.trim(),
         endpoint: dataContext.endpoint.trim(),
@@ -422,7 +588,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
       label: target.label,
       hasThumbnail: shapes.length > 0,
     }),
-    [scope, kind, capture, target, changes, intent, applyToSiblings, dataContext, shapes]
+    [scope, kind, capture, target, changes, intent, applyToSiblings, priority, dataContext, shapes]
   );
 
   // Live preview: when toggled on, mirror each desired Change onto the live
@@ -501,6 +667,11 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
 
   const fileTicket = async () => {
     if (!intent.trim() || submitting) return;
+    const withDesired = changes.some((c) => c.desired.trim().length > 0);
+    if (!withDesired) {
+      toast.info("Add at least one desired value before filing");
+      return;
+    }
     setSubmitting(true);
     try {
       const thumbnail = buildThumbnailDataUrl({
@@ -529,12 +700,18 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
           }),
           changes,
           dataContext,
+          priority,
           thumbnail,
           intent,
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? "Failed to file ticket");
+      try {
+        window.localStorage.removeItem(draftKey(capture.route));
+      } catch {
+        /* storage unavailable */
+      }
       setFiledId(json.ticket.id);
       setPreviewActive(false);
       toast.success("Ticket filed");
@@ -544,6 +721,11 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
       setSubmitting(false);
     }
   };
+
+  const readyToFile =
+    intent.trim().length > 0 &&
+    changes.some((c) => c.desired.trim().length > 0) &&
+    !submitting;
 
   return (
     <div ref={rootRef} className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -916,7 +1098,60 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
 
               <section>
                 <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Intent
+                  Templates
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {TEMPLATES.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => applyTemplate(t)}
+                      title={`Start from “${t.label}” — fills kind, change rows and intent`}
+                      className={cn(
+                        "rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                        "border-border text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground/80">
+                  One click fills the kind, a change row or two and a draft intent — edit anything afterwards.
+                </p>
+              </section>
+
+              <section>
+                <div className="flex items-center justify-between">
+                  <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Intent
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <label htmlFor="ticket-priority" className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Priority
+                    </label>
+                    <select
+                      id="ticket-priority"
+                      value={priority}
+                      onChange={(e) => setPriority(e.target.value as TicketPriority)}
+                      aria-label="Ticket priority"
+                      className="h-8 w-24 rounded-md border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
+                    >
+                      {Object.entries(PRIORITY_LABEL).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                    <Button variant="ghost" size="sm" type="button" onClick={draftIntent} title="Compose the intent from the change rows above">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Draft from changes
+                    </Button>
+                    <Button variant="ghost" size="sm" type="button" onClick={discardDraft} title="Clear the saved draft for this page">
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Discard draft
+                    </Button>
+                  </div>
                 </div>
                 <Textarea
                   value={intent}
@@ -965,7 +1200,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                   {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                   {copied ? "Copied" : "Copy implementer prompt"}
                 </Button>
-                <Button size="sm" onClick={fileTicket} disabled={!intent.trim() || submitting}>
+                <Button size="sm" onClick={fileTicket} disabled={!readyToFile}>
                   {submitting ? "Filing…" : "File ticket"}
                 </Button>
               </div>

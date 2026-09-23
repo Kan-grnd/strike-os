@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 import { buildImplementerPrompt, type EditTicketRow } from "@/lib/edit-tickets";
 
 const KIND_STYLE: Record<string, { label: string; className: string }> = {
@@ -27,6 +28,14 @@ const KIND_STYLE: Record<string, { label: string; className: string }> = {
   BEHAVIOR: { label: "Behavior", className: "bg-blue-400/10 text-blue-300 border-blue-400/30" },
   OTHER: { label: "Other", className: "bg-muted text-muted-foreground border-border" },
 };
+
+const PRIORITY_STYLE: Record<string, { label: string; className: string }> = {
+  HIGH: { label: "High", className: "bg-red-400/10 text-red-300 border-red-400/30" },
+  MEDIUM: { label: "Medium", className: "bg-amber-400/10 text-amber-300 border-amber-400/30" },
+  LOW: { label: "Low", className: "bg-muted text-muted-foreground border-border" },
+};
+
+const PRIORITY_ORDER = ["HIGH", "MEDIUM", "LOW"];
 
 function parseStyles(row: EditTicketRow) {
   try {
@@ -66,6 +75,8 @@ export default function EditQueuePage() {
   const [tickets, setTickets] = useState<EditTicketRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [kindFilter, setKindFilter] = useState<string | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -123,8 +134,13 @@ export default function EditQueuePage() {
     }
   };
 
-  const open = tickets.filter((t) => t.status === "OPEN");
-  const done = tickets.filter((t) => t.status === "DONE");
+  const filtered = tickets.filter(
+    (t) =>
+      (!kindFilter || t.tweakKind === kindFilter) &&
+      (!priorityFilter || (t.priority || "MEDIUM") === priorityFilter)
+  );
+  const open = filtered.filter((t) => t.status === "OPEN");
+  const done = filtered.filter((t) => t.status === "DONE");
 
   const TicketRow = ({ t }: { t: EditTicketRow }) => {
     const styles = parseStyles(t);
@@ -132,12 +148,15 @@ export default function EditQueuePage() {
     const changes = parseChanges(t);
     const dataContext = parseDataContext(t);
     const kindStyle = KIND_STYLE[t.tweakKind] ?? KIND_STYLE.OTHER;
+    const priority = t.priority || "MEDIUM";
+    const priorityStyle = PRIORITY_STYLE[priority] ?? PRIORITY_STYLE.MEDIUM;
     return (
       <div className="rounded-lg border border-border bg-background p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className={`border ${kindStyle.className}`}>{kindStyle.label}</Badge>
+              <Badge className={`border ${priorityStyle.className}`}>{priorityStyle.label}</Badge>
               <Badge variant="outline">{t.scope}</Badge>
               {styles.label && (
                 <span className="text-sm font-medium text-foreground">“{styles.label}”</span>
@@ -305,6 +324,46 @@ export default function EditQueuePage() {
         />
       ) : (
         <>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Kind</span>
+            <button
+              type="button"
+              onClick={() => setKindFilter(null)}
+              className={cn(
+                "rounded-md border px-2 py-0.5 text-xs",
+                kindFilter === null ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300" : "border-border text-muted-foreground hover:text-foreground"
+              )}
+            >
+              All
+            </button>
+            {Object.keys(KIND_STYLE).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setKindFilter(kindFilter === k ? null : k)}
+                className={cn(
+                  "rounded-md border px-2 py-0.5 text-xs",
+                  kindFilter === k ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300" : "border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {KIND_STYLE[k].label}
+              </button>
+            ))}
+            <span className="mr-1 text-[11px] uppercase tracking-wider text-muted-foreground">Priority</span>
+            {PRIORITY_ORDER.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPriorityFilter(priorityFilter === p ? null : p)}
+                className={cn(
+                  "rounded-md border px-2 py-0.5 text-xs",
+                  priorityFilter === p ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300" : "border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {PRIORITY_STYLE[p].label}
+              </button>
+            ))}
+          </div>
           {open.length > 0 && (
             <section className="space-y-3">
               <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
