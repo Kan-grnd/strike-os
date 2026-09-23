@@ -31,6 +31,7 @@ import {
   FileText,
   BarChart3,
   DollarSign,
+  Layers,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -96,6 +97,7 @@ const navigationSections = [
   {
     title: "OBSERVATORY",
     items: [
+      { title: "Live Topology", href: "/topology", icon: Layers },
       { title: "Events", href: "/observability/events", icon: Activity },
       { title: "Traces", href: "/observability/traces", icon: FileText },
       { title: "Logs", href: "/observability/logs", icon: FileText },

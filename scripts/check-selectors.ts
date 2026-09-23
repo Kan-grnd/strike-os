@@ -1,0 +1,274 @@
+/* Derivation + store checks for the Live Topology spec.
+ * Run: npx tsx scripts/check-selectors.ts
+ */
+import {
+  BRAIN_NODE_ID,
+  getActiveOperations,
+  getAttentionRequired,
+  getTerritoryStats,
+  getTopologyEdges,
+  getTopologyNodes,
+  getVisibleAgents,
+  getVisibleOperations,
+  getVisibleSubAgents,
+} from "../src/lib/runtime/selectors";
+import { useRuntimeStore } from "../src/lib/runtime/store";
+import { computeBrainRuntime, computeSystemRuntime } from "../src/lib/runtime/mappers";
+import type { WorkforceRuntime } from "../src/lib/runtime/types";
+
+const now = new Date();
+
+const runtime: WorkforceRuntime = {
+  brain: {
+    state: "working",
+    agentCount: 6,
+    activeCount: 2,
+    waitingCount: 3,
+    errorCount: 1,
+    colonyCount: 2,
+    missionCount: 1,
+    operationCount: 3,
+  },
+  colonies: [
+    { id: "col-a", name: "Alpha Colony", status: "ACTIVE", agentIds: ["ag-1", "ag-2", "ag-4"], timestamps: { createdAt: now, updatedAt: now } },
+    { id: "col-b", name: "Beta Colony", status: "ACTIVE", agentIds: ["ag-3", "ag-5"], timestamps: { createdAt: now, updatedAt: now } },
+  ],
+  agents: [
+    { id: "ag-1", name: "Researcher", type: "SPECIALIST", colonyId: "col-a", runtimeState: "executing", models: ["gpt-5"], capabilities: [], tools: [], permissions: [], successRate: 95, avgDuration: 1, totalCost: 1, createdAt: now, updatedAt: now },
+    { id: "ag-2", name: "Analyst", type: "WORKER", colonyId: "col-a", runtimeState: "blocked", models: [], capabilities: [], tools: [], permissions: [], successRate: 90, avgDuration: 1, totalCost: 1, createdAt: now, updatedAt: now },
+    { id: "ag-3", name: "Coder", type: "WORKER", colonyId: "col-b", runtimeState: "idle", models: [], capabilities: [], tools: [], permissions: [], successRate: 88, avgDuration: 1, totalCost: 1, createdAt: now, updatedAt: now },
+    { id: "ag-4", name: "Sub-Reviewer", type: "WORKER", colonyId: "col-a", parentId: "ag-1", runtimeState: "waiting_for_approval", models: [], capabilities: [], tools: [], permissions: [], successRate: 92, avgDuration: 1, totalCost: 1, createdAt: now, updatedAt: now },
+    { id: "ag-5", name: "Failed Agent", type: "WORKER", colonyId: "col-b", runtimeState: "failed", models: [], capabilities: [], tools: [], permissions: [], successRate: 50, avgDuration: 1, totalCost: 1, createdAt: now, updatedAt: now },
+    { id: "ag-6", name: "Cancelled Agent", type: "WORKER", colonyId: "col-a", runtimeState: "cancelled", models: [], capabilities: [], tools: [], permissions: [], successRate: 10, avgDuration: 1, totalCost: 1, createdAt: now, updatedAt: now },
+  ],
+  tasks: [
+    { id: "t1", missionId: "m1", description: "run", status: "RUNNING", ownerAgentId: "ag-1", dependencies: [], retryCount: 0, maxRetries: 3, cost: 1, timestamps: { createdAt: now, updatedAt: now } },
+    { id: "t2", missionId: "m1", description: "done", status: "COMPLETED", ownerAgentId: "ag-1", dependencies: [], retryCount: 0, maxRetries: 3, cost: 1, timestamps: { createdAt: now, updatedAt: now, completedAt: now } },
+    { id: "t3", missionId: "m1", description: "cancelled", status: "CANCELLED", ownerAgentId: "ag-3", dependencies: [], retryCount: 0, maxRetries: 3, cost: 1, timestamps: { createdAt: now, updatedAt: now } },
+    { id: "t4", missionId: "m1", description: "queued", status: "QUEUED", ownerAgentId: "ag-2", dependencies: [], retryCount: 0, maxRetries: 3, cost: 1, timestamps: { createdAt: now, updatedAt: now } },
+    { id: "t5", missionId: "m1", description: "sub run", status: "RUNNING", ownerAgentId: "ag-4", dependencies: ["t4"], retryCount: 1, maxRetries: 3, cost: 2, timestamps: { createdAt: now, updatedAt: now } },
+  ],
+  relationships: [
+    { fromId: "ag-1", fromType: "agent", relation: "manages", toId: "ag-4", toType: "agent" },
+  ],
+  recentEvents: [],
+  system: { providerCount: 3, modelCount: 4, mcpCount: 1, memoryCount: 2 },
+  generatedAt: now,
+};
+
+const results: string[] = [];
+const check = (label: string, ok: boolean, detail?: string) => {
+  results.push(`${ok ? "PASS" : "FAIL"} ${label}${detail ? ` — ${detail}` : ""}`);
+};
+const bandOf = (s: unknown) => {
+  if (s && typeof s === "object") {
+    return (s as Record<string, unknown>).band as string;
+  }
+  return undefined;
+};
+
+// ── Overview band (< 0.8): Brain + Specialist territories only ──
+const overviewNodes = getTopologyNodes(runtime, 0.5);
+const overviewTypes = overviewNodes.map((n) => n.type as string);
+check("overview: brain present", overviewNodes.some((n) => n.id === BRAIN_NODE_ID));
+check("overview: only brain+specialist", overviewTypes.every((t) => t === "brain" || t === "specialist"), overviewTypes.join(","));
+check("overview: both territories", overviewTypes.filter((t) => t === "specialist").length === 2);
+check("overview: agents hidden", getVisibleAgents(runtime, 0.5).length === 0);
+check("overview: sub-agents hidden", getVisibleSubAgents(runtime, 0.5).length === 0);
+check("overview: operations hidden", getVisibleOperations(runtime, 0.5).length === 0);
+check("overview: cancelled agent excluded", getVisibleAgents(runtime, 1.0).every((a) => a.id !== "ag-6"));
+
+// ── Agents band (0.8–1.3): agents appear, sub-agents/ops stay hidden ──
+const agentsTypes = getTopologyNodes(runtime, 1.0).map((n) => n.type as string);
+check("agents band: root agents visible", agentsTypes.filter((t) => t === "agent").length === 4, agentsTypes.join(","));
+check("agents band: sub-agents hidden", agentsTypes.filter((t) => t === "subagent").length === 0);
+check("agents band: ops hidden", agentsTypes.filter((t) => t === "operation").length === 0);
+
+// ── Operations band (≥1.3): sub-agents + operations appear ──
+const deepNodes = getTopologyNodes(runtime, 1.5);
+const deepTypes = deepNodes.map((n) => n.type as string);
+check("operations band: sub-agent visible", deepNodes.some((n) => n.id === "ag-4"));
+check("operations band: ops visible", ["t1", "t4", "t5"].every((id) => deepNodes.some((n) => n.id === id)));
+check("operations band: completed excluded", !deepNodes.some((n) => n.id === "t2"));
+check("operations band: cancelled excluded", !deepNodes.some((n) => n.id === "t3"));
+
+// ── Metadata band (≥2.0): nodes carry metadata band ──
+const metaNodes = getTopologyNodes(runtime, 2.2);
+check("metadata band: band flag present", bandOf(metaNodes.find((n) => n.type === "agent")?.data) === "metadata", String(bandOf(metaNodes.find((n) => n.type === "agent")?.data)));
+
+// ── Active operations / attention ──
+const active = getActiveOperations(runtime);
+check("active ops = 3", active.length === 3, active.map((t) => t.id).join(","));
+const attention = getAttentionRequired(runtime);
+check("attention = analyst+sub+failed", attention.map((a) => a.id).sort().join(",") === "ag-2,ag-4,ag-5", attention.map((a) => a.id).join(","));
+
+// ── Territory stats (specialist identity) ──
+const alpha = getTerritoryStats(runtime, "col-a");
+const beta = getTerritoryStats(runtime, "col-b");
+check("territory alpha total excludes cancelled", alpha.total === 3, String(alpha.total));
+check("territory alpha active=1", alpha.active === 1, String(alpha.active));
+check("territory alpha waiting=2", alpha.waiting === 2, String(alpha.waiting));
+check("territory beta errors=1", beta.errors === 1, String(beta.errors));
+
+// ── Top-down positioning ──
+const posNodes = getTopologyNodes(runtime, 1.5);
+const posOf = (id: string) => posNodes.find((n) => n.id === id)?.position ?? { x: 0, y: 0 };
+const yOf = (type: string) => posNodes.filter((n) => n.type === type).map((n) => posOf(n.id as string).y);
+check("top-down: brain x=0", posOf(BRAIN_NODE_ID).x === 0 && posOf(BRAIN_NODE_ID).y === 40, JSON.stringify(posOf(BRAIN_NODE_ID)));
+check("top-down: territories row below brain", Math.max(...yOf("specialist")) >= posOf(BRAIN_NODE_ID).y && yOf("specialist").every((y) => y > posOf(BRAIN_NODE_ID).y));
+check("top-down: all agents below territories", yOf("agent").every((y) => y > Math.max(...yOf("specialist"))));
+check("top-down: sub-agents below agents", yOf("subagent").every((y) => y > Math.max(...yOf("agent")) - 1), `agents max=${Math.max(...yOf("agent"))} sub=${yOf("subagent")}`);
+check("top-down: operations below owners", yOf("operation").every((y) => y > Math.max(...yOf("agent"))));
+const territoryXs = posNodes.filter((n) => n.type === "specialist").map((n) => posOf(n.id as string).x);
+check("top-down: territories balanced about brain", Math.abs(territoryXs.reduce((a, b) => a + b, 0)) < 1, territoryXs.join(","));
+
+// ── Determinism ──
+const posNodesAgain = getTopologyNodes(runtime, 1.5);
+const stable = posNodes.every((n) => {
+  const other = posNodesAgain.find((m) => m.id === n.id);
+  return other && other.position.x === n.position.x && other.position.y === n.position.y;
+});
+check("layout determinism: identical across calls", stable);
+
+// ── Focus: dim unrelated, keep the tree ──
+const focusNodes = getTopologyNodes(runtime, 1.5, "ag-1");
+const focusedAgent = focusNodes.find((n) => n.id === "ag-1");
+const subAgent = focusNodes.find((n) => n.id === "ag-4");
+const dimmedAnalyst = focusNodes.find((n) => n.id === "ag-2");
+const dimmedBetaColony = focusNodes.find((n) => n.id === "col-b");
+const alphaColony = focusNodes.find((n) => n.id === "col-a");
+const focusedOp = focusNodes.find((n) => n.id === "t5");
+const dimmedOp = focusNodes.find((n) => n.id === "t4");
+check("focus: focused agent not dimmed", focusedAgent?.style === undefined, JSON.stringify(focusedAgent?.style));
+check("focus: sub-agent kept", subAgent?.style === undefined, JSON.stringify(subAgent?.style));
+check("focus: unrelated analyst dimmed", dimmedAnalyst?.style !== undefined && (dimmedAnalyst.style as { opacity?: number }).opacity !== undefined && (dimmedAnalyst.style as { opacity?: number }).opacity === 0.2, JSON.stringify(dimmedAnalyst?.style));
+check("focus: other territory dimmed", dimmedBetaColony?.style !== undefined, JSON.stringify(dimmedBetaColony?.style));
+check("focus: own territory not dimmed", alphaColony?.style === undefined, JSON.stringify(alphaColony?.style));
+check("focus: sub's op not dimmed", focusedOp?.style === undefined, JSON.stringify(focusedOp?.style));
+check("focus: analyst's op dimmed", dimmedOp?.style !== undefined, JSON.stringify(dimmedOp?.style));
+
+// ── Edges: temp edges animated, ownership thin ──
+const edgesDeep = getTopologyEdges(runtime, 1.5, undefined, {
+  tempEdges: [
+    { id: "temp:delegation:e1", kind: "delegation", source: "ag-1", target: "ag-4", taskId: "t1", eventId: "e1", label: "Delegated", occurredAt: Date.now() },
+    { id: "temp:verification:v1", kind: "verification", source: "ag-1", target: "t1", taskId: "t1", eventId: "v1", label: "Verifying", occurredAt: Date.now() },
+  ],
+});
+const tempAnimated = edgesDeep.filter((e) => e.animated === true);
+check("edges: temp edges animated", tempAnimated.length === 2, `animated=${tempAnimated.length}`);
+check("edges: ownership edges present", edgesDeep.some((e) => e.source === BRAIN_NODE_ID));
+const edgesOverview = getTopologyEdges(runtime, 0.5, undefined, {
+  tempEdges: [{ id: "temp:delegation:e1", kind: "delegation", source: "ag-1", target: "ag-4", eventId: "e1", occurredAt: Date.now() }],
+});
+check("edges: temp edges withheld below operations band", !edgesOverview.some((e) => e.animated));
+
+// ── Brain health derivation (§14: aggregate, not node-propagation) ──
+const states = (list: string[]): InstanceType<typeof Array> => list;
+const withStates = (...runtimeState: string[]) =>
+  runtimeState.map((state, i) => ({
+    id: `a${i}`,
+    name: `A${i}`,
+    type: "WORKER" as const,
+    colonyId: "col-a",
+    runtimeState: state as string,
+    models: [],
+    capabilities: [],
+    tools: [],
+    permissions: [],
+    successRate: 90,
+    avgDuration: 1,
+    totalCost: 1,
+    createdAt: now,
+    updatedAt: now,
+  }));
+const mind = (agents: ReturnType<typeof withStates>) =>
+  computeBrainRuntime(agents as never, runtime.colonies as never, [] as never, [] as never).state;
+check("brain: single failed agent does not degrade (§14)", mind(withStates("executing", "executing", "failed", "idle")) === "working", String(mind(withStates("executing", "executing", "failed", "idle"))));
+check("brain: one third attention → degraded", mind(withStates("executing", "blocked", "idle")) === "degraded", String(mind(withStates("executing", "blocked", "idle"))));
+check("brain: nothing active but blocked → critical", mind(withStates("waiting", "blocked")) === "critical", String(mind(withStates("waiting", "blocked"))));
+check("brain: quiet and healthy → operational", mind(withStates("idle", "idle")) === "operational", String(mind(withStates("idle", "idle"))));
+check("brain: no agents → offline", mind([]) === "offline", String(mind([])));
+check("system: counts pass through", (() => {
+  const s = computeSystemRuntime({ providers: 3, models: 4, mcps: 1, memories: 2 } as never);
+  return (s as { providerCount: number }).providerCount === 3 && (s as { modelCount: number }).modelCount === 4 && (s as { mcpCount: number }).mcpCount === 1 && (s as { memoryCount: number }).memoryCount === 2;
+})());
+
+void states;
+
+// ── Store: transient events ──
+const s = useRuntimeStore;
+const madeEvents: Array<{ types: string }> = [];
+void madeEvents;
+
+let fresh = true;
+function freshRuntime(): WorkforceRuntime {
+  void fresh;
+  return JSON.parse(JSON.stringify(runtime, (k, v) => (k === "generatedAt" ? new Date() : v))) as WorkforceRuntime;
+}
+
+s.getState().initializeWithSnapshot(freshRuntime());
+const storeBefore = s.getState();
+
+// delegation start → temp edge; duplicate idempotent
+const t0 = new Date();
+const t1 = new Date(t0.getTime() + 1000);
+s.getState().applyEvents([
+  { id: "ev-delegation", type: "delegation.started", timestamp: t1, source: "topology", agentId: "ag-1", taskId: "t1", payload: { from: "ag-1", to: "ag-4", label: "Scoped review" } },
+]);
+check("store: delegation adds temp edge", s.getState().tempEdges.length === 1 && s.getState().tempEdges[0].kind === "delegation", JSON.stringify(s.getState().tempEdges));
+s.getState().applyEvents([
+  { id: "ev-delegation", type: "delegation.started", timestamp: t1, source: "topology", agentId: "ag-1", taskId: "t1", payload: { from: "ag-1", to: "ag-4", label: "Scoped review" } },
+]);
+check("store: duplicate event idempotent (still 1 edge)", s.getState().tempEdges.length === 1, String(s.getState().tempEdges.length));
+
+// delegation complete removes it
+s.getState().applyEvents([
+  { id: "ev-delegation-done", type: "delegation.completed", timestamp: t1, source: "topology", agentId: "ag-1", taskId: "t1", payload: { from: "ag-1", to: "ag-4" } },
+]);
+check("store: delegation completion removes edge", s.getState().tempEdges.length === 0, String(s.getState().tempEdges.length));
+
+// verification start/pass round trip
+s.getState().applyEvents([
+  { id: "ev-verif", type: "verification.started", timestamp: t1, source: "topology", agentId: "ag-1", taskId: "t1", payload: { from: "ag-1" } },
+]);
+check("store: verification adds temp edge", s.getState().tempEdges.some((e) => e.kind === "verification"), JSON.stringify(s.getState().tempEdges));
+s.getState().applyEvents([
+  { id: "ev-verif-pass", type: "verification.passed", timestamp: t1, source: "topology", agentId: "ag-1", taskId: "t1", payload: {} },
+]);
+check("store: verification pass removes edge", !s.getState().tempEdges.some((e) => e.kind === "verification"), String(s.getState().tempEdges.length));
+
+// operation completion → flash + task completed
+const taskState = s.getState().runtime?.tasks.find((x) => x.id === "t1");
+check("store: t1 running before completion", taskState?.status === "RUNNING", String(taskState?.status));
+s.getState().applyEvents([
+  { id: "ev-complete", type: "task.completed", timestamp: t1, source: "workflow", taskId: "t1", missionId: "m1", agentId: "ag-1", payload: { output: "ok" } },
+]);
+const completedTask = s.getState().runtime?.tasks.find((x) => x.id === "t1");
+check("store: completed task flips status", completedTask?.status === "COMPLETED", String(completedTask?.status));
+check("store: completion flash registered at owner", s.getState().flashes.some((f) => f.entityId === "ag-1" && f.kind === "success"), JSON.stringify(s.getState().flashes));
+
+// stale guard: an old agent event must not overwrite newer state
+s.getState().applyEvents([
+  { id: "ev-state-new", type: "agent.thinking", timestamp: t1, source: "runtime", agentId: "ag-2", payload: { to: "thinking" } },
+]);
+const ag2AfterNew = s.getState().runtime?.agents.find((a) => a.id === "ag-2");
+check("store: agent updated to thinking", ag2AfterNew?.runtimeState === "thinking", String(ag2AfterNew?.runtimeState));
+s.getState().applyEvents([
+  { id: "ev-state-stale", type: "agent.executing", timestamp: t0, source: "runtime", agentId: "ag-2", payload: { to: "executing" } },
+]);
+const ag2AfterStale = s.getState().runtime?.agents.find((a) => a.id === "ag-2");
+check("store: stale event skipped (keeps thinking)", ag2AfterStale?.runtimeState === "thinking", String(ag2AfterStale?.runtimeState));
+
+// brain.state.changed override
+s.getState().applyEvents([
+  { id: "ev-brain", type: "brain.state.changed", timestamp: t1, source: "runtime", payload: { to: "degraded" } },
+]);
+check("store: brain.state.changed applies", s.getState().runtime?.brain.state === "degraded", String(s.getState().runtime?.brain.state));
+
+void storeBefore;
+void freshRuntime;
+
+const failed: string[] = results.filter((r) => r.startsWith("FAIL"));
+console.log(results.join("\n"));
+console.log(`\n${results.length - failed.length}/${results.length} passed`);
+if (failed.length > 0) process.exit(1);

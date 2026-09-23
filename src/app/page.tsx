@@ -15,6 +15,7 @@ import {
   Clock,
   AlertCircle,
   Rocket,
+  Layers,
 } from "lucide-react";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -27,6 +28,7 @@ import {
   usePerformance,
   useCosts,
 } from "@/hooks/useApi";
+import Link from "next/link";
 import { FleetHealth, isAgentActiveLive } from "@/components/dashboard/charts";
 
 export default function HomePage() {
@@ -265,6 +267,12 @@ export default function HomePage() {
             description="Launch a new mission"
             icon={Brain}
           />
+          <QuickActionCard
+            title="View Topology"
+            description="Inspect live workforce runtime & signals"
+            icon={Layers}
+            href="/topology"
+          />
         </div>
       </section>
     </div>
@@ -364,12 +372,14 @@ function QuickActionCard({
   title,
   description,
   icon: Icon,
+  href,
 }: {
   title: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
+  href?: string;
 }) {
-  return (
+  const body = (
     <Card className="group cursor-pointer transition-colors hover:border-primary/50 p-4">
       <div className="flex items-start gap-3">
         <div className="rounded-md bg-muted p-2 group-hover:bg-primary/10 transition-colors">
@@ -381,5 +391,12 @@ function QuickActionCard({
         </div>
       </div>
     </Card>
+  );
+  return href ? (
+    <Link href={href} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      {body}
+    </Link>
+  ) : (
+    body
   );
 }

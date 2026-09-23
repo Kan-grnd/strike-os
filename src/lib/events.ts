@@ -87,6 +87,21 @@ export type EventType =
   | "model.fallback"
   | "model.failed"
   | "model.timeout"
+  // Topology control plane — transient runtime relationships.
+  // These describe ephemeral, event-shaped behavior (never persistent structure).
+  | "brain.state.changed"
+  | "delegation.started"
+  | "delegation.completed"
+  | "communication.started"
+  | "communication.completed"
+  | "verification.started"
+  | "verification.passed"
+  | "verification.revise"
+  | "verification.failed"
+  | "verification.escalated"
+  | "recovery.started"
+  | "recovery.succeeded"
+  | "recovery.failed"
   // System
   | "system.started"
   | "system.error"
