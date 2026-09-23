@@ -346,14 +346,14 @@ export default function ChatPage() {
   const ready = draft.trim().length > 0 && !sending;
 
   return (
-    <div className="flex h-[calc(100vh-6.5rem)] gap-2 py-1 sm:gap-3">
+    <div className="flex h-[calc(100dvh-6.5rem)] min-h-0 gap-2 py-1 sm:gap-3">
       <style dangerouslySetInnerHTML={{ __html: MOTION_CSS }} />
 
       {/* ── history rail ── */}
       <aside
         className={cn(
           "rail flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-[width] [transition-duration:180ms] ease-out motion-reduce:transition-none",
-          railCollapsed ? "w-[68px]" : "w-[220px] sm:w-[264px]"
+          railCollapsed ? "w-[68px]" : "w-[180px] sm:w-[228px] xl:w-[264px]"
         )}
         aria-label="Chat history"
       >
@@ -383,7 +383,7 @@ export default function ChatPage() {
           )}
         </div>
 
-        <div className="rail-list flex-1 space-y-1 overflow-y-auto px-1.5 py-1">
+        <div className="rail-list min-h-0 flex-1 space-y-1 overflow-y-auto px-1.5 py-1">
           {conversations.length === 0 ? (
             railCollapsed ? null : (
               <div className="px-3.5 py-5 text-[12.5px] leading-relaxed text-muted-foreground">
@@ -468,7 +468,7 @@ export default function ChatPage() {
       </aside>
 
       {/* ── stage ── */}
-      <main className="flex min-w-0 flex-1 flex-col">
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col">
         <a
           href="#chat-composer"
           className="sr-only rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[95] focus:ring-2 focus:ring-ring"
@@ -481,11 +481,11 @@ export default function ChatPage() {
           role="log"
           aria-live="polite"
           aria-label="Conversation"
-          className="flex-1 overflow-y-auto"
+          className="min-h-0 flex-1 overflow-y-auto"
         >
           <div
             className={cn(
-              "mx-auto flex min-h-full max-w-[820px] flex-col gap-5 px-6 py-10",
+              "mx-auto flex min-h-full max-w-[820px] flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8",
               !activeId && "justify-center"
             )}
           >
@@ -496,7 +496,7 @@ export default function ChatPage() {
                   <div
                     role="img"
                     aria-label="Strike intelligence orb"
-                    className="orb mb-6 h-[148px] w-[148px] rounded-full"
+                    className="orb mb-3 h-[112px] w-[112px] rounded-full [@media(min-height:640px)]:mb-5 [@media(min-height:640px)]:h-[124px] [@media(min-height:640px)]:w-[124px]"
                     style={{
                       background: [
                         "radial-gradient(circle at 62% 30%, hsl(var(--primary) / 0.65) 0%, transparent 52%)",
@@ -513,13 +513,13 @@ export default function ChatPage() {
                     <span className="absolute left-[70%] top-[34%] h-px w-px rounded-full bg-foreground/60" />
                     <span className="absolute left-[40%] top-[66%] h-px w-px rounded-full bg-foreground/60" />
                   </div>
-                  <h1 className="text-[30px] font-extrabold leading-tight tracking-tight">
+                  <h1 className="text-[24px] font-extrabold leading-tight tracking-tight sm:text-[30px]">
                     Good {partOfDay()}, Operator
                   </h1>
-                  <p className="mt-0.5 text-[30px] font-extrabold leading-tight tracking-tight text-muted-foreground">
+                  <p className="mt-0.5 text-[24px] font-extrabold leading-tight tracking-tight text-muted-foreground sm:text-[30px]">
                     How Can I <span className="text-primary">Assist You Today?</span>
                   </p>
-                  <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2 [@media(min-height:640px)]:mt-5">
                     {SUGGESTIONS.map((s) => (
                       <button
                         key={s.label}
@@ -669,8 +669,8 @@ export default function ChatPage() {
         </div>
 
         {/* ── composer ── */}
-        <form onSubmit={send} className="shrink-0 px-6 pb-6">
-          <div className="mx-auto max-w-[820px] overflow-hidden rounded-2xl border border-border bg-card focus-within:border-foreground/30">
+        <form onSubmit={send} className="shrink-0 px-3 pb-2.5 sm:px-6 sm:pb-4">
+          <div className="mx-auto max-w-[820px] overflow-hidden rounded-xl border border-border bg-card focus-within:border-foreground/30">
             <textarea
               id="chat-composer"
               ref={composerRef}
@@ -679,18 +679,18 @@ export default function ChatPage() {
               onKeyDown={onComposerKey}
               placeholder="Ask me anything…"
               aria-label="Message"
-              rows={2}
+              rows={1}
               enterKeyHint="send"
               disabled={sending}
-              className="block h-auto min-h-[52px] w-full resize-none overflow-x-hidden bg-transparent px-4 pb-1 pt-3.5 text-[13.5px] leading-relaxed text-foreground outline-none [overflow-wrap:anywhere] placeholder:text-muted-foreground disabled:opacity-60"
+              className="block h-auto min-h-[38px] w-full resize-none overflow-x-hidden bg-transparent px-3.5 pb-1 pt-2 text-base leading-snug text-foreground outline-none [overflow-wrap:anywhere] placeholder:text-muted-foreground disabled:opacity-60"
             />
-            <div className="flex items-center gap-2 px-3 pb-3">
+            <div className="flex items-center gap-1.5 px-2 pb-1.5">
               <select
                 value={modelId ?? ""}
                 onChange={(e) => setModelId(e.target.value || null)}
                 disabled={sending || models.length === 0}
                 aria-label="Model"
-                className="h-8 max-w-[240px] rounded-full border border-border bg-background px-3 text-[12px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                className="h-7 min-w-0 max-w-[46%] shrink rounded-full border border-border bg-background px-2.5 text-[12px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
               >
                 {models.length === 0 ? (
                   <option value="">No models configured</option>
@@ -702,7 +702,7 @@ export default function ChatPage() {
                   ))
                 )}
               </select>
-              <span className="hidden flex-1 items-center gap-1 text-[11px] text-faint sm:flex">
+              <span className="hidden min-w-0 flex-1 items-center gap-1 text-[11px] text-faint lg:flex">
                 <CornerDownLeft className="h-3 w-3" />
                 Enter to send
               </span>
@@ -712,7 +712,7 @@ export default function ChatPage() {
                 aria-label="Send message"
                 aria-busy={sending}
                 className={cn(
-                  "send-icon flex h-9 w-9 items-center justify-center rounded-full transition-transform [transition-duration:100ms] ease-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  "send-icon ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform [transition-duration:100ms] ease-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                   ready
                     ? "bg-primary text-primary-foreground hover:bg-primary/90"
                     : "bg-muted text-muted-foreground",
