@@ -21,17 +21,6 @@ export default function GlobalShell({ children }: { children: React.ReactNode })
   const [suppressAnimation, setSuppressAnimation] = useState(true);
   const didInit = useRef(false);
 
-  // Saved value is only the start state; the header chevron is a session
-  // override and never writes back.
-  useEffect(() => {
-    if (didInit.current) return;
-    const saved = settings?.settings?.["workspace.sidebarCollapsed"];
-    if (saved === undefined) return;
-    didInit.current = true;
-    setCollapsed(saved === "true");
-    requestAnimationFrame(() => requestAnimationFrame(() => setSuppressAnimation(false)));
-  }, [settings]);
-
   // On narrow screens the full sidebar steals the whole page, so collapse it
   // to icons automatically. Session-only — never written back to settings.
   useEffect(() => {
@@ -41,6 +30,23 @@ export default function GlobalShell({ children }: { children: React.ReactNode })
     mq.addEventListener("change", onMatch);
     return () => mq.removeEventListener("change", onMatch);
   }, []);
+
+  // Saved value is only the start state; the header chevron is a session
+  // override and never writes back. Narrow screens keep the auto-collapsed
+  // state — the saved "open" preference must not override it.
+  useEffect(() => {
+    if (didInit.current) return;
+    if (window.matchMedia("(max-width: 1024px)").matches) {
+      didInit.current = true;
+      requestAnimationFrame(() => requestAnimationFrame(() => setSuppressAnimation(false)));
+      return;
+    }
+    const saved = settings?.settings?.["workspace.sidebarCollapsed"];
+    if (saved === undefined) return;
+    didInit.current = true;
+    setCollapsed(saved === "true");
+    requestAnimationFrame(() => requestAnimationFrame(() => setSuppressAnimation(false)));
+  }, [settings]);
 
   // Safety net: if settings never resolve, re-enable animations so the toggle
   // still animates.
