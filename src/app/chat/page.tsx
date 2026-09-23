@@ -1,17 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { Suspense, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import useSWR from "swr";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   User,
   Bot,
-  Plus,
   Send,
   Loader2,
-  ChevronLeft,
   Search,
-  X,
   Copy,
   Check,
   ThumbsUp,
@@ -21,28 +19,13 @@ import {
   List,
   Code,
   Sparkles,
-  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
+import type { Conversation } from "@/lib/chat-groups";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
-
-type Conversation = {
-  id: string;
-  title: string;
-  modelId: string | null;
-  createdAt: string;
-  updatedAt: string;
-  lastMessage: string | null;
-  lastRole: string | null;
-};
 
 type ChatMessage = {
   id: string;
@@ -67,8 +50,6 @@ type ChatError = {
   noKey: boolean;
 };
 
-const RAIL_KEY = "strike.chat.rail";
-
 const SUGGESTIONS: { label: string; q: string; icon: typeof List }[] = [
   { label: "Summary", q: "Summarize mission status", icon: List },
   { label: "Code", q: "Show me what the Coder branch changed", icon: Code },
@@ -82,20 +63,6 @@ function partOfDay(): string {
   if (h < 18) return "Afternoon";
   return "Evening";
 }
-
-function bucketGroup(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const diff = Math.round((today - day) / 86400000);
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Yesterday";
-  if (diff <= 7) return "7 Days Ago";
-  return "Older";
-}
-
-const GROUP_ORDER = ["Today", "Yesterday", "7 Days Ago", "Older"];
 
 const MOTION_CSS = `
 .rise.enter > * { animation: rise .18s ease-out both; }
@@ -127,13 +94,9 @@ const MOTION_CSS = `
 }
 .msgacts button { transition: background-color .12s ease-out, color .12s ease-out, transform .1s ease-out; }
 .msgacts button:active { transform: scale(.9); }
-.rail-list {
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 8px, black calc(100% - 8px), transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0, black 8px, black calc(100% - 8px), transparent 100%);
-}
 @media (prefers-reduced-motion: reduce) {
   .rise.enter > *, .orb, .shimmer-line, .spin-icon, .msgacts button { animation: none !important; }
-  .rail, .send-icon, .pressable { transition: none !important; }
+  .send-icon, .pressable { transition: none !important; }
   .pressable:active { transform: none !important; }
 }
 `;
@@ -147,7 +110,10 @@ function metaLine(m: ChatMessage): string | null {
   return parts.join(" · ");
 }
 
-export default function ChatPage() {
+function ChatPageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const { data: listData, mutate: mutateList } = useSWR<{ conversations: Conversation[] }>(
     "/api/chat",
     fetcher,
@@ -160,7 +126,7 @@ export default function ChatPage() {
   const conversations = listData?.conversations ?? [];
   const models = modelsData?.models ?? [];
 
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const activeId = searchParams.get("c");
   const { data: threadData, mutate: mutateThread } = useSWR<
     { conversation: { messages: ChatMessage[]; title: string } }
   >(activeId ? `/api/chat/${activeId}` : null, fetcher);
@@ -172,9 +138,6 @@ export default function ChatPage() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<ChatError | null>(null);
-
-  const [search, setSearch] = useState("");
-  const [railCollapsed, setRailCollapsed] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [votes, setVotes] = useState<Record<string, "up" | "down" | null>>({});
   const [entered, setEntered] = useState(false);
@@ -183,29 +146,7 @@ export default function ChatPage() {
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Rail collapse state is presentation-only and persists locally.
-  useEffect(() => {
-    let stored: string | null = null;
-    try {
-      stored = window.localStorage.getItem(RAIL_KEY);
-    } catch {
-      /* storage unavailable — default to expanded */
-    }
-    if (stored === null && window.innerWidth < 760) setRailCollapsed(true);
-    else setRailCollapsed(stored === "closed");
-  }, []);
-
-  const toggleRail = () => {
-    const next = !railCollapsed;
-    setRailCollapsed(next);
-    try {
-      window.localStorage.setItem(RAIL_KEY, next ? "closed" : "open");
-    } catch {
-      /* ignore */
-    }
-  };
-
-  // Default to the cheapest model after models load.
+  // Default to the first model after models load.
   useEffect(() => {
     if (!modelId && models.length > 0) setModelId(models[0].id);
   }, [models, modelId]);
@@ -239,42 +180,6 @@ export default function ChatPage() {
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [draft]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return conversations;
-    return conversations.filter(
-      (c) =>
-        c.title.toLowerCase().includes(q) ||
-        (c.lastMessage ?? "").toLowerCase().includes(q)
-    );
-  }, [conversations, search]);
-
-  const grouped = useMemo(() => {
-    const map = new Map<string, Conversation[]>();
-    for (const c of filtered) {
-      const g = bucketGroup(c.updatedAt);
-      const list = map.get(g) ?? [];
-      list.push(c);
-      map.set(g, list);
-    }
-    return GROUP_ORDER.filter((g) => map.has(g)).map((g) => [g, map.get(g)!] as const);
-  }, [filtered]);
-
-  const startNew = () => {
-    setActiveId(null);
-    setSendError(null);
-    composerRef.current?.focus();
-  };
-
-  const deleteConversation = async (id: string) => {
-    await fetch(`/api/chat/${id}`, { method: "DELETE" });
-    if (activeId === id) {
-      setActiveId(null);
-      setSendError(null);
-    }
-    await mutateList();
-  };
-
   const send = async (e: FormEvent) => {
     e.preventDefault();
     const content = draft.trim();
@@ -296,7 +201,7 @@ export default function ChatPage() {
         const created = await res.json();
         if (!res.ok) throw new Error(created.error || "Failed to start chat");
         conversationId = created.conversation.id;
-        setActiveId(conversationId);
+        router.replace(`/chat?c=${conversationId}`);
         await mutateList();
       }
 
@@ -354,142 +259,11 @@ export default function ChatPage() {
   const ready = draft.trim().length > 0 && !sending;
 
   return (
-    <div className="flex h-full min-h-0 gap-3 p-3">
+    <div className="flex h-full min-h-0 flex-col">
       <style dangerouslySetInnerHTML={{ __html: MOTION_CSS }} />
 
-      {/* ── history rail ── */}
-      <Card
-        className={cn(
-          "rail flex flex-col overflow-hidden shadow-none transition-[width] [transition-duration:180ms] ease-out motion-reduce:transition-none",
-          railCollapsed ? "w-[68px]" : "w-[180px] sm:w-[228px] xl:w-[264px]"
-        )}
-        role="complementary"
-        aria-label="Chat history"
-      >
-        <div className={cn("flex items-center gap-2 py-2.5", railCollapsed ? "justify-center px-0" : "px-2.5")}>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={toggleRail}
-            aria-label={railCollapsed ? "Expand history panel" : "Collapse history panel"}
-            aria-expanded={!railCollapsed}
-            title={railCollapsed ? "Expand history panel" : "Collapse history panel"}
-            className="h-8 w-8 shrink-0 rounded-lg"
-          >
-            <ChevronLeft className={cn("h-4 w-4 transition-transform duration-200", railCollapsed && "rotate-180")} />
-          </Button>
-          {!railCollapsed && (
-            <div className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search chats…"
-                aria-label="Search chats"
-                className="h-8 pl-8 text-[13px]"
-              />
-            </div>
-          )}
-        </div>
-
-        <ScrollArea className="rail-list min-h-0 flex-1 px-1.5 py-1">
-          {conversations.length === 0 ? (
-            railCollapsed ? null : (
-              <EmptyState
-                icon={MessageSquare}
-                title="No chats yet"
-                description="Start one below — or press New Chat."
-                className="px-3 py-8"
-              />
-            )
-          ) : grouped.length === 0 ? (
-            railCollapsed ? null : (
-              <EmptyState
-                icon={Search}
-                title="No matches"
-                description={`Nothing matches "${search}".`}
-                className="px-3 py-8"
-              />
-            )
-          ) : (
-            grouped.map(([group, items]) => (
-              <div key={group}>
-                {!railCollapsed && <p className="px-3 pb-0.5 pt-2 text-[11.5px] text-muted-foreground">{group}</p>}
-                {items.map((c) => (
-                  <div key={c.id} className="group flex items-center gap-0.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveId(c.id);
-                        setSendError(null);
-                      }}
-                      title={c.title}
-                      aria-label={c.title}
-                      className={cn(
-                        "min-w-0 flex-1 truncate rounded-lg text-left text-[13px]",
-                        railCollapsed ? "flex justify-center p-0" : "px-3 py-2",
-                        c.id === activeId
-                          ? "bg-accent text-accent-foreground"
-                          : "text-foreground hover:bg-accent"
-                      )}
-                    >
-                      {railCollapsed && (
-                        <span className={cn(
-                          "mx-auto flex h-9 w-9 items-center justify-center rounded-[10px] border text-[13.5px] font-bold transition-transform [transition-duration:120ms] ease-out active:scale-95",
-                          c.id === activeId
-                            ? "border-transparent bg-primary text-primary-foreground"
-                            : "border-border bg-muted text-foreground"
-                        )}>
-                          {c.title.trim().charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                      {!railCollapsed && <span className="block truncate">{c.title}</span>}
-                    </button>
-                    {!railCollapsed && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Delete conversation: ${c.title}`}
-                        title="Delete"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteConversation(c.id);
-                        }}
-                        className="h-8 w-8 shrink-0 rounded-lg opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ))
-          )}
-        </ScrollArea>
-
-        <div className="p-2.5">
-          <Separator className="mb-2.5" />
-          <Button
-            type="button"
-            onClick={startNew}
-            aria-label="New chat"
-            title="New chat"
-            className={cn(
-              "pressable gap-2 font-bold",
-              railCollapsed ? "mx-auto h-9 w-9 px-0" : "h-9 w-full"
-            )}
-          >
-            <Plus className="h-4 w-4" />
-            {!railCollapsed && <span className="text-[13px]">New Chat</span>}
-          </Button>
-        </div>
-      </Card>
-
-      {/* ── stage ── */}
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+      {/* ── open chat layer ── */}
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col">
         <a
           href="#chat-composer"
           className="sr-only rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[95] focus:ring-2 focus:ring-ring"
@@ -497,20 +271,19 @@ export default function ChatPage() {
           Skip to composer
         </a>
 
-        <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden shadow-none">
+        <div
+          ref={threadRef}
+          role="log"
+          aria-live="polite"
+          aria-label="Conversation"
+          className="min-h-0 flex-1 overflow-y-auto"
+        >
           <div
-            ref={threadRef}
-            role="log"
-            aria-live="polite"
-            aria-label="Conversation"
-            className="min-h-0 flex-1 overflow-y-auto"
+            className={cn(
+              "mx-auto flex min-h-full max-w-[820px] flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8",
+              !activeId && "justify-center"
+            )}
           >
-            <div
-              className={cn(
-                "mx-auto flex min-h-full max-w-[820px] flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8",
-                !activeId && "justify-center"
-              )}
-            >
             {!activeId || messages.length === 0 ? (
               <div key={`welcome-${activeId ?? "new"}`} className={cn("rise", entered && "enter")}>
                 {/* welcome hero */}
@@ -698,11 +471,10 @@ export default function ChatPage() {
             )}
           </div>
         </div>
-        </Card>
 
         {/* ── composer ── */}
-        <form onSubmit={send} className="shrink-0">
-          <Card className="mx-auto max-w-[820px] overflow-hidden shadow-none">
+        <form onSubmit={send} className="shrink-0 border-t border-border/40">
+          <div className="mx-auto max-w-[820px] px-4 sm:px-6">
             <textarea
               id="chat-composer"
               ref={composerRef}
@@ -758,9 +530,17 @@ export default function ChatPage() {
                 )}
               </Button>
             </div>
-          </Card>
+          </div>
         </form>
       </main>
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={null}>
+      <ChatPageInner />
+    </Suspense>
   );
 }

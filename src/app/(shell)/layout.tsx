@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { ThemeSwitcher } from "@/components/layout/theme-switcher";
@@ -62,7 +62,13 @@ export default function GlobalShell({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex h-screen bg-background app-grid text-foreground font-sans antialiased">
-      <Sidebar collapsed={collapsed} onCollapsedChange={setCollapsed} suppressAnimation={suppressAnimation} />
+      <Suspense fallback={null}>
+        <Sidebar
+          collapsed={collapsed}
+          onCollapsedChange={setCollapsed}
+          suppressAnimation={suppressAnimation}
+        />
+      </Suspense>
       <main className="flex-1 min-w-0 overflow-auto relative">
         <EditModeProvider>
           <header className="sticky top-0 z-[82] bg-background border-b h-14 flex items-center justify-between px-6">

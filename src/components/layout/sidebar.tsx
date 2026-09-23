@@ -9,7 +9,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   LayoutDashboard,
-  MessageSquare,
   Activity,
   Users,
   Boxes,
@@ -38,13 +37,18 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ChatHistoryNav } from "@/components/layout/chat-history-nav";
 
-const navigationSections = [
+type SectionItem =
+  | { title: string; href: string; icon: React.ComponentType<{ className?: string }> }
+  | { title: string; component: typeof ChatHistoryNav };
+
+const navigationSections: { title: string; items: SectionItem[] }[] = [
   {
     title: "OVERVIEW",
     items: [
       { title: "Command Center", href: "/", icon: LayoutDashboard },
-      { title: "AI Chat", href: "/chat", icon: MessageSquare },
+      { title: "AI Chat", component: ChatHistoryNav },
     ],
   },
   {
@@ -277,6 +281,11 @@ export function Sidebar({ collapsed = false, onCollapsedChange, suppressAnimatio
                       )}
                     >
                       {section.items.map((item) => {
+                        if ("component" in item) {
+                          return (
+                            <item.component key={item.title} collapsed={collapsed} />
+                          );
+                        }
                         const isActive = pathname === item.href;
                         return (
                           <Link
