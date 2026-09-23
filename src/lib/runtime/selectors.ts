@@ -10,7 +10,7 @@ import type {
   TopologyBand,
   WorkforceRuntime,
 } from "./types";
-import { buildTopologyLayout } from "./layout";
+import { buildTopologyLayout, type TopologyLayout } from "./layout";
 
 /**
  * Zoom = information density, not scaling.
@@ -155,9 +155,10 @@ export function getTopologyNodes(
     narrow?: boolean;
     flashes?: CompletionFlash[];
     activate?: (id: string, type: string) => void;
+    layout?: TopologyLayout;
   } = {}
 ): Node[] {
-  const layout = buildTopologyLayout(runtime, opts.narrow ?? false);
+  const layout = opts.layout ?? buildTopologyLayout(runtime, opts.narrow ?? false);
   const band = bandFor(zoom);
   const focus = focusAgentId ? focusContext(runtime, focusAgentId) : null;
 
@@ -310,9 +311,9 @@ export function getTopologyEdges(
   runtime: WorkforceRuntime,
   zoom: number,
   focusAgentId?: string,
-  opts: { narrow?: boolean; tempEdges?: TempEdge[] } = {}
+  opts: { narrow?: boolean; tempEdges?: TempEdge[]; layout?: TopologyLayout } = {}
 ): Edge[] {
-  const layout = buildTopologyLayout(runtime, opts.narrow ?? false);
+  const layout = opts.layout ?? buildTopologyLayout(runtime, opts.narrow ?? false);
   const focus = focusAgentId ? focusContext(runtime, focusAgentId) : null;
 
   const visibleNodeIds = new Set<string>([BRAIN_NODE_ID]);
@@ -401,4 +402,27 @@ export function getTopologyEdges(
   }
 
   return edges;
+}
+
+/**
+ * Single-pass graph derivation: the deterministic layout is computed once and
+ * shared by the node and edge builders. Avoids running the layout engine twice
+ * on every render/zoom frame.
+ */
+export function getTopologyGraph(
+  runtime: WorkforceRuntime,
+  zoom: number,
+  focusAgentId?: string,
+  opts: {
+    narrow?: boolean;
+    flashes?: CompletionFlash[];
+    tempEdges?: TempEdge[];
+    activate?: (id: string, type: string) => void;
+  } = {}
+): { nodes: Node[]; edges: Edge[] } {
+  const layout = buildTopologyLayout(runtime, opts.narrow ?? false);
+  return {
+    nodes: getTopologyNodes(runtime, zoom, focusAgentId, { ...opts, layout }),
+    edges: getTopologyEdges(runtime, zoom, focusAgentId, { ...opts, layout }),
+  };
 }

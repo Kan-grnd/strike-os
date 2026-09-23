@@ -314,7 +314,8 @@ export const useRuntimeStore = create<RuntimeStore>((set, get) => ({
     clearSweep();
 
     const poll = async () => {
-      set({ connection: "RECONNECTING" });
+      const wasLive = get().connection !== "DISCONNECTED";
+      if (!wasLive) set({ connection: "RECONNECTING" });
       try {
         if (get().needsResync) {
           // Authoritative reconciliation: refetch snapshot, reset cursor, and

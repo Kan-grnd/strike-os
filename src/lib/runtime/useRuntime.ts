@@ -5,8 +5,7 @@ import { useRuntimeStore } from "./store";
 import type { WorkforceRuntime } from "./types";
 import {
   getAttentionRequired,
-  getTopologyEdges,
-  getTopologyNodes,
+  getTopologyGraph,
 } from "./selectors";
 
 export const useRuntime = () => useRuntimeStore((state) => state.runtime);
@@ -52,17 +51,12 @@ export function useTopologyGraph(
   const activate = opts.activate;
   return useMemo(() => {
     if (!runtime) return { nodes: [], edges: [] };
-    return {
-      nodes: getTopologyNodes(runtime, zoom, focusAgentId ?? undefined, {
-        narrow,
-        flashes,
-        activate,
-      }),
-      edges: getTopologyEdges(runtime, zoom, focusAgentId ?? undefined, {
-        narrow,
-        tempEdges,
-      }),
-    };
+    return getTopologyGraph(runtime, zoom, focusAgentId ?? undefined, {
+      narrow,
+      flashes,
+      tempEdges,
+      activate,
+    });
   }, [runtime, zoom, focusAgentId, tempEdges, flashes, narrow, activate]);
 }
 
