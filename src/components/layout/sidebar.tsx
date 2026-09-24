@@ -32,10 +32,8 @@ import {
   DollarSign,
   Layers,
   Settings,
-  ChevronLeft,
   ChevronDown,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { StrikeMark } from "@/components/ui/logo";
 import { ChatHistoryNav } from "@/components/layout/chat-history-nav";
 
@@ -197,19 +195,15 @@ export function Sidebar({ collapsed = false, onCollapsedChange, suppressAnimatio
       >
         {!collapsed && (
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
-              <svg
-                viewBox="34.027344 41.152344 431.945312 417.695312"
-                className="h-5 w-5 text-primary-foreground"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  fillRule="nonzero"
-                  d="M 352.796875 314.324219 L 352.796875 350.554688 L 137.839844 187.710938 L 137.839844 151.480469 Z M 333.660156 142.929688 L 292.542969 179.570312 L 321.855469 205.21875 L 465.972656 41.152344 L 377.628906 100.996094 L 96.316406 99.777344 L 96.316406 208.472656 L 296.207031 358.292969 L 160.230469 358.699219 L 203.386719 321.246094 L 170.410156 296.410156 L 34.027344 458.847656 L 114.636719 402.667969 L 395.949219 402.667969 L 395.949219 292.746094 L 196.464844 142.929688 Z M 333.660156 142.929688"
-                />
-              </svg>
-            </div>
+            <button
+              type="button"
+              onClick={() => onCollapsedChange?.(!collapsed)}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              <StrikeMark className="h-5 w-5" />
+            </button>
             <div className="flex flex-col">
               <span className="text-sm font-bold">STRIKE OS</span>
               <span className="text-micro text-muted-foreground">v0.1.0</span>
@@ -219,23 +213,13 @@ export function Sidebar({ collapsed = false, onCollapsedChange, suppressAnimatio
         {collapsed && (
           <button
             type="button"
-            onClick={() => onCollapsedChange?.(false)}
-            aria-label="Expand sidebar"
-            title="Expand sidebar"
+            onClick={() => onCollapsedChange?.(!collapsed)}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
             <StrikeMark className="h-5 w-5" />
           </button>
-        )}
-        {!collapsed && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onCollapsedChange?.(!collapsed)}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
         )}
       </div>
 
