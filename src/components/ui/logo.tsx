@@ -1,0 +1,20 @@
+/**
+ * Strike OS mark — the raw logo glyph. Inline SVG with fill="currentColor" so
+ * it inherits the surrounding text color. Source of truth matches the mark in
+ * icon.svg and the sidebar header.
+ */
+export function StrikeMark({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="34.027344 41.152344 431.945312 417.695312"
+      className={className}
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path
+        fillRule="nonzero"
+        d="M 352.796875 314.324219 L 352.796875 350.554688 L 137.839844 187.710938 L 137.839844 151.480469 Z M 333.660156 142.929688 L 292.542969 179.570312 L 321.855469 205.21875 L 465.972656 41.152344 L 377.628906 100.996094 L 96.316406 99.777344 L 96.316406 208.472656 L 296.207031 358.292969 L 160.230469 358.699219 L 203.386719 321.246094 L 170.410156 296.410156 L 34.027344 458.847656 L 114.636719 402.667969 L 395.949219 402.667969 L 395.949219 292.746094 L 196.464844 142.929688 Z M 333.660156 142.929688"
+      />
+    </svg>
+  );
+}
