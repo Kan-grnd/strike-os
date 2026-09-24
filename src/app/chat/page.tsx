@@ -462,7 +462,7 @@ function ChatPageInner() {
         </div>
 
         {/* ── composer ── */}
-        <form onSubmit={send} className="shrink-0 border-t border-border/40">
+        <form onSubmit={send} className="shrink-0">
           <div className="mx-auto w-full max-w-[820px] px-4 py-3 sm:px-6">
             <PromptComposer
               value={draft}
