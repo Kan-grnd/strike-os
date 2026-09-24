@@ -477,7 +477,7 @@ function ChatPageInner() {
                 enterKeyHint="send"
                 onKeyDown={onComposerKey}
               />
-              <div className="flex items-center gap-1.5 px-2 pb-1 pt-1">
+              <div className="flex items-center gap-2 px-1.5 pb-2 pt-2">
                 <ModelPicker
                   models={models}
                   value={modelId}
@@ -492,9 +492,11 @@ function ChatPageInner() {
                   aria-label="Send message"
                   aria-busy={sending}
                   className={cn(
-                    "send-icon ml-auto h-9 w-9 shrink-0 rounded-xl transition-transform [transition-duration:100ms] ease-out",
-                    !ready && "bg-muted text-muted-foreground hover:bg-muted hover:text-muted-foreground",
-                    ready && "active:scale-90"
+                    "send-icon ml-auto h-9 w-9 shrink-0 rounded-xl transition-transform [transition-duration:100ms] ease-out disabled:!opacity-100",
+                    !ready &&
+                      "bg-border text-muted-foreground hover:bg-border/80",
+                    ready &&
+                      "active:scale-90 shadow-[0_1px_12px_-2px_hsl(var(--foreground)/0.35)]"
                   )}
                 >
                   {sending ? (
