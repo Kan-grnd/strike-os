@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Conversation } from "@/lib/chat-groups";
+import { PromptComposer, PromptTextarea } from "@/components/chat/prompt-composer";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -167,18 +168,6 @@ function ChatPageInner() {
   useEffect(() => () => {
     if (copyTimer.current) clearTimeout(copyTimer.current);
   }, []);
-
-  // Composer autosize: grow with content, cap at 200px, reset when cleared.
-  useEffect(() => {
-    const el = composerRef.current;
-    if (!el) return;
-    if (draft === "") {
-      el.style.height = "";
-      return;
-    }
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
-  }, [draft]);
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
@@ -474,62 +463,63 @@ function ChatPageInner() {
 
         {/* ── composer ── */}
         <form onSubmit={send} className="shrink-0 border-t border-border/40">
-          <div className="mx-auto max-w-[820px] px-4 sm:px-6">
-            <textarea
-              id="chat-composer"
-              ref={composerRef}
+          <div className="mx-auto w-full max-w-[820px] px-4 py-3 sm:px-6">
+            <PromptComposer
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={onComposerKey}
-              placeholder="Ask me anything…"
-              aria-label="Message"
-              rows={1}
-              enterKeyHint="send"
+              onValueChange={setDraft}
               disabled={sending}
-              className="block h-auto min-h-[38px] w-full resize-none overflow-x-hidden bg-transparent px-3.5 pb-1 pt-2 text-base leading-snug text-foreground outline-none [overflow-wrap:anywhere] placeholder:text-muted-foreground disabled:opacity-60"
-            />
-            <div className="flex items-center gap-1.5 px-2 pb-1.5 pt-1">
-              <select
-                value={modelId ?? ""}
-                onChange={(e) => setModelId(e.target.value || null)}
-                disabled={sending || models.length === 0}
-                aria-label="Model"
-                className="h-8 min-w-0 max-w-[46%] shrink rounded-full border border-input bg-background px-2.5 text-[12px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-              >
-                {models.length === 0 ? (
-                  <option value="">No models configured</option>
-                ) : (
-                  models.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} · {m.provider.name}
-                    </option>
-                  ))
-                )}
-              </select>
-              <span className="hidden min-w-0 flex-1 items-center gap-1 text-[11px] text-faint lg:flex">
-                <CornerDownLeft className="h-3 w-3" />
-                Enter to send
-              </span>
-              <Button
-                type="submit"
-                variant="default"
-                size="icon"
-                disabled={!ready}
-                aria-label="Send message"
-                aria-busy={sending}
-                className={cn(
-                  "send-icon ml-auto h-10 w-10 shrink-0 rounded-full transition-transform [transition-duration:100ms] ease-out",
-                  !ready && "bg-muted text-muted-foreground hover:bg-muted hover:text-muted-foreground",
-                  ready && "active:scale-90"
-                )}
-              >
-                {sending ? (
-                  <Loader2 className="spin-icon h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
+              textareaRef={composerRef}
+            >
+              <PromptTextarea
+                id="chat-composer"
+                placeholder="Ask me anything…"
+                aria-label="Message"
+                enterKeyHint="send"
+                onKeyDown={onComposerKey}
+              />
+              <div className="flex items-center gap-1.5 px-2 pb-1 pt-1">
+                <select
+                  value={modelId ?? ""}
+                  onChange={(e) => setModelId(e.target.value || null)}
+                  disabled={sending || models.length === 0}
+                  aria-label="Model"
+                  className="h-8 min-w-0 max-w-[46%] shrink rounded-full border border-input bg-background px-2.5 text-[12px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                >
+                  {models.length === 0 ? (
+                    <option value="">No models configured</option>
+                  ) : (
+                    models.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} · {m.provider.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+                <span className="hidden min-w-0 flex-1 items-center gap-1 text-[11px] text-faint lg:flex">
+                  <CornerDownLeft className="h-3 w-3" />
+                  Enter to send
+                </span>
+                <Button
+                  type="submit"
+                  variant="default"
+                  size="icon"
+                  disabled={!ready}
+                  aria-label="Send message"
+                  aria-busy={sending}
+                  className={cn(
+                    "send-icon ml-auto h-10 w-10 shrink-0 rounded-full transition-transform [transition-duration:100ms] ease-out",
+                    !ready && "bg-muted text-muted-foreground hover:bg-muted hover:text-muted-foreground",
+                    ready && "active:scale-90"
+                  )}
+                >
+                  {sending ? (
+                    <Loader2 className="spin-icon h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </PromptComposer>
           </div>
         </form>
       </main>
