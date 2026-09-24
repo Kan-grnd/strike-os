@@ -9,7 +9,7 @@ export function CommandBar() {
       <div className="relative hidden md:block">
         <Input
           placeholder="What would you like Strike OS to do?…"
-          className="h-10 rounded-full pl-5 pr-11 text-sm shadow-[0_1px_2px_hsl(var(--foreground)/0.12),0_8px_24px_-12px_hsl(var(--foreground)/0.18)] transition-shadow focus-within:shadow-[0_1px_3px_hsl(var(--foreground)/0.2),0_10px_28px_-10px_hsl(var(--foreground)/0.28)]"
+          className="h-10 rounded-full pl-5 pr-11 text-sm shadow-[0_0_2px_hsl(var(--foreground)/0.12),0_0_20px_-8px_hsl(var(--foreground)/0.18)] transition-shadow focus-within:shadow-[0_0_3px_hsl(var(--foreground)/0.2),0_0_26px_-6px_hsl(var(--foreground)/0.28)]"
         />
         <button
           type="button"
