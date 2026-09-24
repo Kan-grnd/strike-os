@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
-import { MessageSquare, Plus, Search, X } from "lucide-react";
+import { ChevronDown, MessageSquare, Plus, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { groupConversations, type Conversation } from "@/lib/chat-groups";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
+const CHAT_NAV_OPEN_KEY = "strikeos.chat-nav-open";
 
 type ChatHistoryListProps = {
   conversations: Conversation[];
@@ -118,6 +120,8 @@ export function ChatHistoryNav({ collapsed }: { collapsed: boolean }) {
   });
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  // Collapsed by default; the user's choice is remembered between reloads.
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [flyTop, setFlyTop] = useState(56);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -157,6 +161,27 @@ export function ChatHistoryNav({ collapsed }: { collapsed: boolean }) {
   useEffect(() => {
     if (open) flySearchRef.current?.focus();
   }, [open]);
+
+  // Restore the collapsed-by-default choice after mount so SSR stays in sync.
+  useEffect(() => {
+    try {
+      setHistoryOpen(window.localStorage.getItem(CHAT_NAV_OPEN_KEY) === "1");
+    } catch {
+      /* storage unavailable — stays collapsed */
+    }
+  }, []);
+
+  const toggleHistory = () => {
+    setHistoryOpen((v) => {
+      const next = !v;
+      try {
+        window.localStorage.setItem(CHAT_NAV_OPEN_KEY, next ? "1" : "0");
+      } catch {
+        /* storage unavailable — state just won't survive reload */
+      }
+      return next;
+    });
+  };
 
   const toggleFlyout = () => {
     if (toggleRef.current) {
@@ -252,31 +277,70 @@ export function ChatHistoryNav({ collapsed }: { collapsed: boolean }) {
   }
 
   const onNewChat = pathname === "/chat" && !activeId;
+  const chatActive = pathname === "/chat" && !historyOpen;
 
   return (
     <div className="space-y-1">
-      <Link
-        href="/chat"
-        title="New chat"
-        aria-label="New chat"
+      <button
+        type="button"
+        onClick={toggleHistory}
+        aria-expanded={historyOpen}
         className={cn(
-          "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-          onNewChat
+          "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+          chatActive
             ? "bg-accent text-accent-foreground"
             : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
         )}
       >
-        <Plus className="h-4 w-4 shrink-0" />
-        <span>New Chat</span>
-      </Link>
+        <MessageSquare className="h-4 w-4 shrink-0" />
+        <span className="min-w-0 flex-1 truncate text-left">AI Chat</span>
+        {!!activeId && !historyOpen && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />}
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none",
+            historyOpen && "rotate-180"
+          )}
+        />
+      </button>
 
-      <ChatHistoryList
-        conversations={conversations}
-        search={search}
-        onSearch={setSearch}
-        activeId={activeId}
-        onDelete={deleteConversation}
-      />
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-200 motion-reduce:transition-none",
+          historyOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        )}
+      >
+        <div className="min-h-0 overflow-hidden" aria-hidden={!historyOpen}>
+          <div
+            className={cn(
+              "space-y-1 pt-1 transition-opacity duration-200 motion-reduce:transition-none",
+              historyOpen ? "opacity-100" : "pointer-events-none opacity-0"
+            )}
+          >
+            <Link
+              href="/chat"
+              title="New chat"
+              aria-label="New chat"
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                onNewChat
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+              )}
+            >
+              <Plus className="h-4 w-4 shrink-0" />
+              <span>New Chat</span>
+            </Link>
+
+            <ChatHistoryList
+              conversations={conversations}
+              search={search}
+              onSearch={setSearch}
+              activeId={activeId}
+              onDelete={deleteConversation}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
