@@ -42,8 +42,10 @@ export function PromptComposer({
   const textareaRef = externalRef ?? internalRef;
 
   const handleBoxClick: React.MouseEventHandler<HTMLDivElement> = (e) => {
-    // Let interactions inside (select, buttons) keep their own target.
-    if ((e.target as HTMLElement).tagName === "TEXTAREA") return;
+    // Let interactions inside (picker, buttons) keep their own target.
+    const t = e.target as HTMLElement;
+    if (t.tagName === "TEXTAREA") return;
+    if (t.closest("button, a, input, [role=combobox], [role=option]")) return;
     if (!disabled) textareaRef.current?.focus();
   };
 

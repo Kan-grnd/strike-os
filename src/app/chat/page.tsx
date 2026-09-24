@@ -14,7 +14,6 @@ import {
   Check,
   ThumbsUp,
   ThumbsDown,
-  CornerDownLeft,
   KeyRound,
   List,
   Code,
@@ -25,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Conversation } from "@/lib/chat-groups";
 import { PromptComposer, PromptTextarea } from "@/components/chat/prompt-composer";
+import { ModelPicker } from "@/components/chat/model-picker";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -478,27 +478,12 @@ function ChatPageInner() {
                 onKeyDown={onComposerKey}
               />
               <div className="flex items-center gap-1.5 px-2 pb-1 pt-1">
-                <select
-                  value={modelId ?? ""}
-                  onChange={(e) => setModelId(e.target.value || null)}
-                  disabled={sending || models.length === 0}
-                  aria-label="Model"
-                  className="h-8 min-w-0 max-w-[46%] shrink rounded-full border border-input bg-background px-2.5 text-[12px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                >
-                  {models.length === 0 ? (
-                    <option value="">No models configured</option>
-                  ) : (
-                    models.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} · {m.provider.name}
-                      </option>
-                    ))
-                  )}
-                </select>
-                <span className="hidden min-w-0 flex-1 items-center gap-1 text-[11px] text-faint lg:flex">
-                  <CornerDownLeft className="h-3 w-3" />
-                  Enter to send
-                </span>
+                <ModelPicker
+                  models={models}
+                  value={modelId}
+                  onChange={setModelId}
+                  disabled={sending}
+                />
                 <Button
                   type="submit"
                   variant="default"
@@ -507,7 +492,7 @@ function ChatPageInner() {
                   aria-label="Send message"
                   aria-busy={sending}
                   className={cn(
-                    "send-icon ml-auto h-10 w-10 shrink-0 rounded-full transition-transform [transition-duration:100ms] ease-out",
+                    "send-icon ml-auto h-9 w-9 shrink-0 rounded-xl transition-transform [transition-duration:100ms] ease-out",
                     !ready && "bg-muted text-muted-foreground hover:bg-muted hover:text-muted-foreground",
                     ready && "active:scale-90"
                   )}
