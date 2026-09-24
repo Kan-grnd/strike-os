@@ -200,7 +200,7 @@ export function Sidebar({ collapsed = false, onCollapsedChange, suppressAnimatio
               onClick={() => onCollapsedChange?.(!collapsed)}
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
               title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               <StrikeMark className="h-5 w-5" />
             </button>
@@ -216,7 +216,7 @@ export function Sidebar({ collapsed = false, onCollapsedChange, suppressAnimatio
             onClick={() => onCollapsedChange?.(!collapsed)}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            className="flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
             <StrikeMark className="h-5 w-5" />
           </button>

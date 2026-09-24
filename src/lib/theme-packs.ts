@@ -1,6 +1,6 @@
 /**
  * Strike OS — Theme packs. Single source of truth for the pack list, used by
- * the header ThemeSwitcher, the Settings → Appearance swatch grid, and the
+ * the header ModeToggle, the Settings → Appearance swatch grid, and the
  * next-themes `themes` prop. Keep the swatch hex values in sync with the
  * `--background` / `--card` / `--primary` tokens in styles/globals.css.
  */

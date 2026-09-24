@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
-import { ThemeSwitcher } from "@/components/layout/theme-switcher";
+import { ModeToggle } from "@/components/layout/mode-toggle";
 import { EditModeProvider } from "@/components/edit-mode/edit-mode-provider";
 import { EditModeToggle } from "@/components/edit-mode/edit-mode-toggle";
 import { CommandBar } from "@/components/shell/command-bar";
@@ -76,7 +76,7 @@ export default function GlobalShell({ children }: { children: React.ReactNode })
             <CommandBar />
             <div className="flex items-center gap-2 shrink-0">
               <EditModeToggle />
-              <ThemeSwitcher />
+              <ModeToggle />
             </div>
           </header>
           <div className={cn(fullBleed ? "flex h-[calc(100dvh-3.5rem)] flex-col" : "p-6")}>
