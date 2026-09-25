@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import type { Conversation } from "@/lib/chat-groups";
 import { PromptComposer, PromptTextarea } from "@/components/chat/prompt-composer";
 import { ModelPicker } from "@/components/chat/model-picker";
-import MatrixOrb from "@/components/ui/matrix-orb";
+import MatrixOrb, { type MatrixOrbState } from "@/components/ui/matrix-orb";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -139,9 +139,36 @@ function useTallScreen(): boolean {
   return tall;
 }
 
+const ORB_CYCLE: { state: MatrixOrbState; holdMs: number }[] = [
+  { state: "idle", holdMs: 6000 },
+  { state: "thinking", holdMs: 3200 },
+];
+
+function WelcomeOrb({ color, active }: { color: string; active?: boolean }) {
+  const tallScreen = useTallScreen();
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    if (active) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const { holdMs } = ORB_CYCLE[step % ORB_CYCLE.length];
+    const t = setTimeout(() => setStep((s) => s + 1), holdMs);
+    return () => clearTimeout(t);
+  }, [step, active]);
+  return (
+    <MatrixOrb
+      state={active ? "thinking" : ORB_CYCLE[step % ORB_CYCLE.length].state}
+      size={tallScreen ? 160 : 144}
+      dots={11}
+      color={color}
+      role="img"
+      aria-label="Strike intelligence orb"
+      className="mb-3 [@media(min-height:640px)]:mb-5"
+    />
+  );
+}
+
 function ChatPageInner() {
   const orbColor = useOrbColor();
-  const tallScreen = useTallScreen();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -307,15 +334,7 @@ function ChatPageInner() {
               <div key={`welcome-${activeId ?? "new"}`} className={cn("rise", entered && "enter")}>
                 {/* welcome hero */}
                 <div className="flex flex-col items-center px-3 pb-2 text-center">
-                  <MatrixOrb
-                    state="idle"
-                    size={tallScreen ? 124 : 112}
-                    dots={11}
-                    color={orbColor}
-                    role="img"
-                    aria-label="Strike intelligence orb"
-                    className="mb-3 [@media(min-height:640px)]:mb-5"
-                  />
+                  <WelcomeOrb color={orbColor} active={sending} />
                   <h1 className="text-[24px] font-extrabold leading-tight tracking-tight sm:text-[30px]">
                     Good {partOfDay()}, Operator
                   </h1>
@@ -440,12 +459,12 @@ function ChatPageInner() {
                   {sending && (
                     <div className="flex w-full gap-3">
                       <div className="flex max-w-[85%] gap-3">
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                          <Bot className="h-3.5 w-3.5" />
-                        </div>
-                        <div className="flex items-center gap-3 px-1 py-1.5">
-                          <span className="shimmer-line text-[13.5px] font-semibold">Thinking…</span>
-                        </div>
+<div aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center">
+                        <MatrixOrb state="thinking" size={28} dots={5} color={orbColor} />
+                      </div>
+                      <div className="flex items-center gap-3 px-1 py-1.5">
+                        <span className="shimmer-line text-[13.5px] font-semibold">Thinking…</span>
+                      </div>
                       </div>
                     </div>
                   )}
