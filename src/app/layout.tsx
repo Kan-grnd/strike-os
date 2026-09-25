@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Toaster } from "sonner";
 import "@/styles/globals.css";
 import GlobalShell from "@/app/(shell)/layout";
+import { THEME_IDS } from "@/lib/theme-packs";
 
 const inter = localFont({
   src: "./fonts/inter.woff2",
@@ -35,18 +36,7 @@ export default function RootLayout({
         <ThemeProvider
           attribute="class"
           defaultTheme="abyssal"
-          themes={[
-            "abyssal",
-            "ember",
-            "ghost",
-            "cobalt",
-            "sandstorm",
-            "abyss-teal",
-            "porcelain",
-            "arctic",
-            "onyx",
-            "high-contrast",
-          ]}
+          themes={[...THEME_IDS]}
           enableSystem
           disableTransitionOnChange
         >

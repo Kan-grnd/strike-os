@@ -10,10 +10,11 @@
      ghost      — light flagship
      cobalt     — deep slate-blue dark, sky accent (clean-slate)
      sandstorm  — warm paper light, burnt-orange accent (solar-dusk)
-     abyss-teal — earthy green dark, sage accent (kodama-grove)
-     porcelain  — crisp light, cobalt accent (clean-slate)
-     arctic     — icy pale blue light, deep-sky accent
-     onyx       — pure black dark, cyan accent
+abyss-teal — earthy green dark, sage accent (kodama-grove)
+      strike     — deep navy dark, brand vivid-orange accent
+      mist       — cool pale blue-grey light
+      forest     — deep green dark
+      onyx       — pure black dark, cyan accent
      high-contrast — pure white light, black, strong borders
    Surface values are taken from curated shadcn presets (tweakcn), kept
    low-saturation; color lives in --primary/--ring. Every pack enforces a
@@ -220,21 +221,52 @@
     color-scheme: dark;
   }
 
-  .porcelain {
-    --background: 210 40% 98%; /* #f8fafc crisp white */
-    --foreground: 217 33% 17%;
-    --card: 210 24% 95%; /* cool card lifted off the near-white page */
-    --card-foreground: 217 33% 17%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 217 33% 17%;
-    --primary: 224 76% 48%; /* #1d4ed8 cobalt */
+  .strike {
+    --background: 226 45% 12%; /* #11172c deep navy */
+    --foreground: 223 30% 91%;
+    --card: 226 34% 17%; /* lifted off the navy page */
+    --card-foreground: 223 30% 91%;
+    --popover: 226 34% 19%;
+    --popover-foreground: 223 30% 91%;
+    --primary: 25 95% 55%; /* #f97a1f brand vivid orange */
+    --primary-foreground: 226 45% 10%;
+    --secondary: 226 20% 24%;
+    --secondary-foreground: 224 18% 86%;
+    --muted: 226 25% 15%;
+    --muted-foreground: 224 12% 65%;
+    --accent: 226 20% 27%;
+    --accent-foreground: 224 18% 86%;
+    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
+    --destructive-foreground: 0 0% 6%;
+    --success: 158 64% 52%; /* #34d399 ok (immutable) */
+    --success-foreground: 0 0% 6%;
+    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
+    --warning-foreground: 0 0% 6%;
+    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
+    --info: 223 70% 58%;
+    --info-foreground: 226 45% 10%;
+    --border: 226 16% 32%;
+    --input: 226 22% 17%;
+    --ring: 25 95% 55%;
+
+    color-scheme: dark;
+  }
+
+  .mist {
+    --background: 202 30% 97%; /* #f5f8fa cool pale */
+    --foreground: 208 14% 20%;
+    --card: 202 24% 93%; /* visibly lifted off the pale page */
+    --card-foreground: 208 14% 20%;
+    --popover: 200 26% 96%;
+    --popover-foreground: 208 14% 20%;
+    --primary: 204 72% 38%; /* #1b6fa7 deep sky — AA 5.4:1 on white */
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 13% 91%;
-    --secondary-foreground: 217 19% 27%;
-    --muted: 220 14% 95%;
-    --muted-foreground: 220 9% 44%;
-    --accent: 223 30% 93%;
-    --accent-foreground: 217 19% 27%;
+    --secondary: 204 16% 89%;
+    --secondary-foreground: 207 12% 30%;
+    --muted: 202 20% 91%;
+    --muted-foreground: 206 9% 40%;
+    --accent: 203 16% 88%;
+    --accent-foreground: 207 12% 30%;
     --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
     --destructive-foreground: 0 0% 10%;
     --success: 158 64% 52%; /* #34d399 ok (immutable) */
@@ -242,44 +274,44 @@
     --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
     --warning-foreground: 0 0% 10%;
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 224 80% 50%;
+    --info: 204 70% 42%;
     --info-foreground: 0 0% 100%;
-    --border: 216 12% 80%;
-    --input: 220 13% 88%;
-    --ring: 224 76% 48%;
+    --border: 204 20% 80%;
+    --input: 204 24% 87%;
+    --ring: 204 72% 38%;
 
     color-scheme: light;
   }
 
-  .arctic {
-    --background: 218 30% 96%; /* desaturated icy pale blue */
-    --foreground: 220 45% 16%;
-    --card: 0 0% 97.5%;
-    --card-foreground: 220 45% 16%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 45% 16%;
-    --primary: 202 70% 40%; /* deep sky — AA 6.4:1 on white text */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 216 18% 92%;
-    --secondary-foreground: 218 28% 24%;
-    --muted: 216 18% 93%;
-    --muted-foreground: 217 12% 43%;
-    --accent: 216 22% 89%;
-    --accent-foreground: 218 28% 24%;
+  .forest {
+    --background: 153 33% 11%; /* #13251d deep green */
+    --foreground: 90 12% 88%;
+    --card: 152 22% 16%; /* lifted off the green page */
+    --card-foreground: 90 12% 88%;
+    --popover: 152 22% 18%;
+    --popover-foreground: 90 12% 88%;
+    --primary: 95 34% 52%; /* #7eae5b sage fir */
+    --primary-foreground: 153 30% 10%;
+    --secondary: 151 14% 22%;
+    --secondary-foreground: 95 10% 86%;
+    --muted: 152 18% 13%;
+    --muted-foreground: 100 9% 62%;
+    --accent: 151 14% 24%;
+    --accent-foreground: 95 10% 86%;
     --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
-    --destructive-foreground: 0 0% 10%;
+    --destructive-foreground: 0 0% 6%;
     --success: 158 64% 52%; /* #34d399 ok (immutable) */
-    --success-foreground: 0 0% 10%;
+    --success-foreground: 0 0% 6%;
     --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
-    --warning-foreground: 0 0% 10%;
+    --warning-foreground: 0 0% 6%;
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 202 65% 42%;
-    --info-foreground: 0 0% 100%;
-    --border: 218 20% 81%;
-    --input: 218 22% 87%;
-    --ring: 202 70% 40%;
+    --info: 151 40% 48%;
+    --info-foreground: 153 30% 10%;
+    --border: 150 12% 30%;
+    --input: 152 16% 14%;
+    --ring: 95 34% 52%;
 
-    color-scheme: light;
+    color-scheme: dark;
   }
 
   .onyx {

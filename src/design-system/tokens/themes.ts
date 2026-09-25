@@ -1,19 +1,19 @@
 /**
  * Strike OS — Theme Definitions
  *
- * Ten real theme packs (see @/lib/theme-packs for the single source of truth
- * of ids/names/swatches): abyssal (refined near-black neutral dark, default),
- * ember (warm charcoal dark/orange), ghost (light flagship), cobalt (deep
- * slate-blue dark/sky), sandstorm (warm paper light/burnt-orange), abyss-teal
- * (earthy green dark/sage), porcelain (crisp light/cobalt), arctic (icy pale
- * blue/deep-sky), onyx (pure black/cyan), high-contrast (pure white/black,
- * strong borders). Applied by
+* Eleven real theme packs (see @/lib/theme-packs for the single source of
+ * truth of ids/names/swatches): abyssal (refined near-black neutral dark,
+ * default), ember (warm charcoal dark/orange), ghost (light flagship), cobalt
+ * (deep slate-blue dark/sky), sandstorm (warm paper light/burnt-orange),
+ * abyss-teal (earthy green dark/sage), onyx (pure black/cyan), high-contrast
+ * (pure white/black, strong borders), strike (deep navy/vivid orange), mist
+ * (cool pale blue-grey light), forest (deep green). Applied by
  * next-themes as class names on <html>; values are the HSL token blocks from
  * globals.css. State colors are IMMUTABLE across packs and match the signal
  * layer's stateHex: failed red (0 91% 71%), blocked amber (43 96% 56%), ok
  * emerald (158 64% 52%), approval violet (255 92% 76%).
  */
-
+ 
 export type ThemeId =
   | "abyssal"
   | "ember"
@@ -21,10 +21,11 @@ export type ThemeId =
   | "cobalt"
   | "sandstorm"
   | "abyss-teal"
-  | "porcelain"
-  | "arctic"
   | "onyx"
-  | "high-contrast";
+  | "high-contrast"
+  | "strike"
+  | "mist"
+  | "forest";
 
 export interface ThemeTokens {
   /** Base surface */
@@ -272,68 +273,6 @@ export const themes: Record<ThemeId, ThemeTokens> = {
     input: "40 10% 24%",
     ring: "95 16% 55%",
   },
-  /** Crisp light — cobalt accent. */
-  porcelain: {
-    background: "210 40% 98%",
-    surface: "210 30% 96%",
-    card: "210 24% 95%",
-    elevated: "215 18% 91%",
-    popover: "0 0% 100%",
-    border: "216 12% 80%",
-    borderStrong: "218 10% 62%",
-    foreground: "217 33% 17%",
-    muted: "220 14% 95%",
-    mutedForeground: "220 9% 44%",
-    faint: "220 8% 58%",
-    disabled: "220 6% 72%",
-    primary: "224 76% 48%",
-    primaryForeground: "0 0% 100%",
-    accent: "223 30% 93%",
-    accentForeground: "217 19% 27%",
-    secondary: "220 13% 91%",
-    secondaryForeground: "217 19% 27%",
-    success: "158 64% 52%",
-    successForeground: "0 0% 10%",
-    warning: "43 96% 56%",
-    warningForeground: "0 0% 10%",
-    destructive: "0 91% 71%",
-    destructiveForeground: "0 0% 10%",
-    info: "224 80% 50%",
-    infoForeground: "0 0% 100%",
-    input: "220 13% 88%",
-    ring: "224 76% 48%",
-  },
-  /** Icy pale blue — deep-sky accent. */
-  arctic: {
-    background: "218 30% 96%",
-    surface: "0 0% 100%",
-    card: "0 0% 97.5%",
-    elevated: "216 18% 90%",
-    popover: "0 0% 100%",
-    border: "218 20% 81%",
-    borderStrong: "217 15% 62%",
-    foreground: "220 45% 16%",
-    muted: "216 18% 93%",
-    mutedForeground: "217 12% 43%",
-    faint: "217 10% 58%",
-    disabled: "217 8% 72%",
-    primary: "202 70% 40%",
-    primaryForeground: "0 0% 100%",
-    accent: "216 22% 89%",
-    accentForeground: "218 28% 24%",
-    secondary: "216 18% 92%",
-    secondaryForeground: "218 28% 24%",
-    success: "158 64% 52%",
-    successForeground: "0 0% 10%",
-    warning: "43 96% 56%",
-    warningForeground: "0 0% 10%",
-    destructive: "0 91% 71%",
-    destructiveForeground: "0 0% 10%",
-    info: "202 65% 42%",
-    infoForeground: "0 0% 100%",
-    input: "218 22% 87%",
-    ring: "202 70% 40%",
-  },
   /** Pure black — cyan accent. */
   onyx: {
     background: "0 0% 0%",
@@ -396,6 +335,99 @@ export const themes: Record<ThemeId, ThemeTokens> = {
     input: "0 0% 85%",
     ring: "0 0% 0%",
   },
+  /** Deep navy dark — brand vivid-orange accent. */
+  strike: {
+    background: "226 45% 12%",
+    surface: "226 40% 15%",
+    card: "226 34% 17%",
+    elevated: "226 26% 23%",
+    popover: "226 34% 19%",
+    border: "226 16% 32%",
+    borderStrong: "226 12% 44%",
+    foreground: "223 30% 91%",
+    muted: "226 25% 15%",
+    mutedForeground: "224 12% 65%",
+    faint: "225 10% 42%",
+    disabled: "226 9% 30%",
+    primary: "25 95% 55%",
+    primaryForeground: "226 45% 10%",
+    accent: "226 20% 27%",
+    accentForeground: "224 18% 86%",
+    secondary: "226 20% 24%",
+    secondaryForeground: "224 18% 86%",
+    success: "158 64% 52%",
+    successForeground: "0 0% 6%",
+    warning: "43 96% 56%",
+    warningForeground: "0 0% 6%",
+    destructive: "0 91% 71%",
+    destructiveForeground: "0 0% 6%",
+    info: "223 70% 58%",
+    infoForeground: "226 45% 10%",
+    input: "226 22% 17%",
+    ring: "25 95% 55%",
+  },
+  /** Cool pale blue-grey light — deep-sky accent. */
+  mist: {
+    background: "202 30% 97%",
+    surface: "202 26% 95%",
+    card: "202 24% 93%",
+    elevated: "203 18% 89%",
+    popover: "200 26% 96%",
+    border: "204 20% 80%",
+    borderStrong: "204 15% 62%",
+    foreground: "208 14% 20%",
+    muted: "202 20% 91%",
+    mutedForeground: "206 9% 40%",
+    faint: "206 8% 56%",
+    disabled: "206 6% 70%",
+    primary: "204 72% 38%",
+    primaryForeground: "0 0% 100%",
+    accent: "203 16% 88%",
+    accentForeground: "207 12% 30%",
+    secondary: "204 16% 89%",
+    secondaryForeground: "207 12% 30%",
+    success: "158 64% 52%",
+    successForeground: "0 0% 10%",
+    warning: "43 96% 56%",
+    warningForeground: "0 0% 10%",
+    destructive: "0 91% 71%",
+    destructiveForeground: "0 0% 10%",
+    info: "204 70% 42%",
+    infoForeground: "0 0% 100%",
+    input: "204 24% 87%",
+    ring: "204 72% 38%",
+  },
+  /** Deep green dark — sage-fir accent. */
+  forest: {
+    background: "153 33% 11%",
+    surface: "152 27% 14%",
+    card: "152 22% 16%",
+    elevated: "151 16% 22%",
+    popover: "152 22% 18%",
+    border: "150 12% 30%",
+    borderStrong: "150 9% 42%",
+    foreground: "90 12% 88%",
+    muted: "152 18% 13%",
+    mutedForeground: "100 9% 62%",
+    faint: "110 6% 40%",
+    disabled: "120 6% 28%",
+    primary: "95 34% 52%",
+    primaryForeground: "153 30% 10%",
+    accent: "151 14% 24%",
+    accentForeground: "95 10% 86%",
+    secondary: "151 14% 22%",
+    secondaryForeground: "95 10% 86%",
+    success: "158 64% 52%",
+    successForeground: "0 0% 6%",
+    warning: "43 96% 56%",
+    warningForeground: "0 0% 6%",
+    destructive: "0 91% 71%",
+    destructiveForeground: "0 0% 6%",
+    info: "151 40% 48%",
+    infoForeground: "153 30% 10%",
+    input: "152 16% 14%",
+    ring: "95 34% 52%",
+  },
 };
 
 export const defaultTheme: ThemeId = "abyssal";
@@ -425,14 +457,6 @@ export const themeLabels: Record<ThemeId, { name: string; description: string }>
     name: "Abyss Teal",
     description: "Earthy green dark — sage accent",
   },
-  porcelain: {
-    name: "Porcelain",
-    description: "Crisp light — cobalt accent",
-  },
-  arctic: {
-    name: "Arctic",
-    description: "Icy pale blue light — deep-sky accent",
-  },
   onyx: {
     name: "Onyx",
     description: "Pure black dark — cyan accent",
@@ -440,5 +464,17 @@ export const themeLabels: Record<ThemeId, { name: string; description: string }>
   "high-contrast": {
     name: "High Contrast",
     description: "Pure white light — black, strong borders",
+  },
+  strike: {
+    name: "Strike",
+    description: "Deep navy dark — vivid orange accent",
+  },
+  mist: {
+    name: "Mist",
+    description: "Cool pale blue-grey light — deep sky accent",
+  },
+  forest: {
+    name: "Forest",
+    description: "Deep green dark — sage fir accent",
   },
 };

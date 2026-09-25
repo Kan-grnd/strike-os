@@ -11,10 +11,11 @@ export const THEME_IDS = [
   "cobalt",
   "sandstorm",
   "abyss-teal",
-  "porcelain",
-  "arctic",
   "onyx",
   "high-contrast",
+  "strike",
+  "mist",
+  "forest",
 ] as const;
 
 export type ThemeId = (typeof THEME_IDS)[number];
@@ -78,22 +79,6 @@ export const THEME_PACKS: ThemePack[] = [
     accent: "#899f7a",
   },
   {
-    id: "porcelain",
-    name: "Porcelain",
-    tagline: "Crisp light",
-    bg: "#f8fafc",
-    surface: "#eff2f5",
-    accent: "#1d4ed8",
-  },
-  {
-    id: "arctic",
-    name: "Arctic",
-    tagline: "Icy pale light",
-    bg: "#f2f4f8",
-    surface: "#ffffff",
-    accent: "#1f79ad",
-  },
-  {
     id: "onyx",
     name: "Onyx",
     tagline: "Pure black",
@@ -108,6 +93,30 @@ export const THEME_PACKS: ThemePack[] = [
     bg: "#ffffff",
     surface: "#ffffff",
     accent: "#000000",
+  },
+  {
+    id: "strike",
+    name: "Strike",
+    tagline: "Brand navy dark",
+    bg: "#11172c",
+    surface: "#1d233a",
+    accent: "#f97a1f",
+  },
+  {
+    id: "mist",
+    name: "Mist",
+    tagline: "Cool pale light",
+    bg: "#f5f8fa",
+    surface: "#e9eef1",
+    accent: "#1b6fa7",
+  },
+  {
+    id: "forest",
+    name: "Forest",
+    tagline: "Deep green dark",
+    bg: "#13251d",
+    surface: "#203229",
+    accent: "#7eae5b",
   },
 ];
 

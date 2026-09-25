@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { THEME_IDS } from "./src/lib/theme-packs";
 
 const config: Config = {
   darkMode: ["class"],
@@ -7,6 +8,10 @@ const config: Config = {
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  // Theme packs live in src/lib (outside the content globs), so Tailwind's
+  // content scan never sees their class names — safelist them so their custom
+  // @layer base token rules are always emitted.
+  safelist: [...THEME_IDS],
   theme: {
     extend: {
       colors: {
