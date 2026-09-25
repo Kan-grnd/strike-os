@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import type { Conversation } from "@/lib/chat-groups";
 import { PromptComposer, PromptTextarea } from "@/components/chat/prompt-composer";
 import { ModelPicker } from "@/components/chat/model-picker";
+import MatrixOrb from "@/components/ui/matrix-orb";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -77,11 +78,6 @@ const MOTION_CSS = `
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
-.orb { animation: orb-breathe 7s ease-in-out infinite; }
-@keyframes orb-breathe {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.025); }
-}
 .shimmer-line {
   background: linear-gradient(100deg, hsl(var(--muted-foreground)) 30%, hsl(var(--foreground)) 50%, hsl(var(--muted-foreground)) 70%);
   background-size: 200% 100%;
@@ -96,7 +92,7 @@ const MOTION_CSS = `
 .msgacts button { transition: background-color .12s ease-out, color .12s ease-out, transform .1s ease-out; }
 .msgacts button:active { transform: scale(.9); }
 @media (prefers-reduced-motion: reduce) {
-  .rise.enter > *, .orb, .shimmer-line, .spin-icon, .msgacts button { animation: none !important; }
+  .rise.enter > *, .shimmer-line, .spin-icon, .msgacts button { animation: none !important; }
   .send-icon, .pressable { transition: none !important; }
   .pressable:active { transform: none !important; }
 }
@@ -111,7 +107,41 @@ function metaLine(m: ChatMessage): string | null {
   return parts.join(" · ");
 }
 
+function currentPrimary(): string {
+  const v = getComputedStyle(document.documentElement)
+    .getPropertyValue("--primary")
+    .trim();
+  return v ? `hsl(${v.replace(/\s+/g, ", ")})` : "hsl(217, 91%, 60%)";
+}
+
+function useOrbColor(): string {
+  const [color, setColor] = useState(() =>
+    typeof window === "undefined" ? "hsl(217, 91%, 60%)" : currentPrimary()
+  );
+  useEffect(() => {
+    const root = document.documentElement;
+    setColor(currentPrimary());
+    const mo = new MutationObserver(() => setColor(currentPrimary()));
+    mo.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => mo.disconnect();
+  }, []);
+  return color;
+}
+
+function useTallScreen(): boolean {
+  const [tall, setTall] = useState(false);
+  useEffect(() => {
+    const update = () => setTall(window.innerHeight >= 640);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return tall;
+}
+
 function ChatPageInner() {
+  const orbColor = useOrbColor();
+  const tallScreen = useTallScreen();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -277,26 +307,15 @@ function ChatPageInner() {
               <div key={`welcome-${activeId ?? "new"}`} className={cn("rise", entered && "enter")}>
                 {/* welcome hero */}
                 <div className="flex flex-col items-center px-3 pb-2 text-center">
-                  <div
+                  <MatrixOrb
+                    state="idle"
+                    size={tallScreen ? 124 : 112}
+                    dots={11}
+                    color={orbColor}
                     role="img"
                     aria-label="Strike intelligence orb"
-                    className="orb mb-3 h-[112px] w-[112px] rounded-full [@media(min-height:640px)]:mb-5 [@media(min-height:640px)]:h-[124px] [@media(min-height:640px)]:w-[124px]"
-                    style={{
-                      background: [
-                        "radial-gradient(circle at 62% 30%, hsl(var(--primary) / 0.65) 0%, transparent 52%)",
-                        "radial-gradient(circle at 38% 62%, hsl(var(--secondary) / 0.5) 0%, transparent 55%)",
-                        "radial-gradient(circle at 55% 55%, hsl(var(--background)) 0%, hsl(var(--card)) 72%)",
-                      ].join(", "),
-                      boxShadow:
-                        "0 0 60px hsl(var(--primary) / 0.16), 0 0 120px hsl(var(--secondary) / 0.1), inset -14px -18px 44px hsl(var(--background) / 0.75)",
-                    }}
-                  >
-                    <span className="absolute left-[30%] top-[40%] h-px w-px rounded-full bg-foreground/60" />
-                    <span className="absolute left-[62%] top-[58%] h-px w-px rounded-full bg-foreground/60" />
-                    <span className="absolute left-[48%] top-[30%] h-[1.5px] w-[1.5px] rounded-full bg-foreground/60" />
-                    <span className="absolute left-[70%] top-[34%] h-px w-px rounded-full bg-foreground/60" />
-                    <span className="absolute left-[40%] top-[66%] h-px w-px rounded-full bg-foreground/60" />
-                  </div>
+                    className="mb-3 [@media(min-height:640px)]:mb-5"
+                  />
                   <h1 className="text-[24px] font-extrabold leading-tight tracking-tight sm:text-[30px]">
                     Good {partOfDay()}, Operator
                   </h1>
