@@ -16,7 +16,11 @@
      onyx       — pure black dark, cyan accent
      high-contrast — pure white light, black, strong borders
    Surface values are taken from curated shadcn presets (tweakcn), kept
-   low-saturation; color lives in --primary/--ring. State colors are
+   low-saturation; color lives in --primary/--ring. Every pack enforces a
+   surface-separation budget so cards never melt into the page: light packs
+   keep card ~2–4% darker than background with visibly darker borders,
+   popover floats above card; dark packs lift card 4–7% above background
+   and brighten borders for definition. State colors are
    IMMUTABLE across every pack and match the signal layer's stateHex
    exactly: failed #f87171 (red), blocked #fbbf24 (amber), ok #34d399
    (emerald), approval #a78bfa (violet). The orange accents
@@ -28,17 +32,17 @@
   .ghost {
     --background: 0 0% 100%;
     --foreground: 0 0% 20%;
-    --card: 0 0% 100%;
+    --card: 0 0% 97.5%;
     --card-foreground: 0 0% 20%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 20%;
     --primary: 0 0% 10%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 96%;
+    --secondary: 220 14% 94%;
     --secondary-foreground: 0 0% 33%;
-    --muted: 0 0% 98%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 0 0% 95%;
+    --muted: 0 0% 97%;
+    --muted-foreground: 220 9% 42%;
+    --accent: 0 0% 92%;
     --accent-foreground: 0 0% 20%;
     --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
     --destructive-foreground: 0 0% 10%;
@@ -49,8 +53,8 @@
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
     --info: 210 80% 45%;
     --info-foreground: 0 0% 100%;
-    --border: 220 13% 91%;
-    --input: 220 13% 93%;
+    --border: 220 14% 87%;
+    --input: 220 13% 84%;
     --ring: 220 9% 20%;
     --radius: 0.5rem;
 
@@ -64,17 +68,17 @@
   .abyssal {
     --background: 0 0% 9%;
     --foreground: 0 0% 90%;
-    --card: 0 0% 15%;
+    --card: 0 0% 16%;
     --card-foreground: 0 0% 90%;
-    --popover: 0 0% 17%;
+    --popover: 0 0% 18%;
     --popover-foreground: 0 0% 90%;
     --primary: 0 0% 90%;
     --primary-foreground: 0 0% 6%;
-    --secondary: 0 0% 16%;
+    --secondary: 0 0% 17%;
     --secondary-foreground: 0 0% 90%;
-    --muted: 0 0% 12%;
+    --muted: 0 0% 13%;
     --muted-foreground: 0 0% 64%;
-    --accent: 0 0% 16%;
+    --accent: 0 0% 17%;
     --accent-foreground: 0 0% 90%;
     --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
     --destructive-foreground: 0 0% 6%;
@@ -85,8 +89,8 @@
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
     --info: 205 82% 55%;
     --info-foreground: 0 0% 8%;
-    --border: 0 0% 25%;
-    --input: 0 0% 20%;
+    --border: 0 0% 28%;
+    --input: 0 0% 21%;
     --ring: 0 0% 90%;
 
     color-scheme: dark;
@@ -95,17 +99,17 @@
   .ember {
     --background: 24 10% 10%; /* #1c1917 warm charcoal */
     --foreground: 60 5% 96%;
-    --card: 12 6% 15%;
+    --card: 12 6% 17%;
     --card-foreground: 60 5% 96%;
-    --popover: 12 6% 17%;
+    --popover: 12 6% 19%;
     --popover-foreground: 60 5% 96%;
     --primary: 25 95% 53%; /* #f97316 orange — dark text keeps AA */
     --primary-foreground: 24 12% 9%;
-    --secondary: 33 5% 32%;
+    --secondary: 33 5% 33%;
     --secondary-foreground: 60 5% 96%;
-    --muted: 30 10% 11%;
+    --muted: 30 10% 12%;
     --muted-foreground: 24 5% 64%;
-    --accent: 198 46% 22%; /* cool teal pop on warm dark (solar-dusk) */
+    --accent: 198 46% 24%; /* cool teal pop on warm dark (solar-dusk) */
     --accent-foreground: 20 6% 90%;
     --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
     --destructive-foreground: 0 0% 6%;
@@ -116,8 +120,8 @@
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
     --info: 197 85% 55%;
     --info-foreground: 0 0% 8%;
-    --border: 30 6% 25%;
-    --input: 30 8% 18%;
+    --border: 30 6% 27%;
+    --input: 30 8% 19%;
     --ring: 25 95% 53%;
 
     color-scheme: dark;
@@ -126,17 +130,17 @@
   .cobalt {
     --background: 222 47% 11%; /* #0f172a slate navy */
     --foreground: 214 32% 91%;
-    --card: 217 33% 17%;
+    --card: 217 33% 19%;
     --card-foreground: 214 32% 91%;
-    --popover: 217 33% 19%;
+    --popover: 217 33% 21%;
     --popover-foreground: 214 32% 91%;
     --primary: 199 89% 60%; /* #38bdf8 sky */
     --primary-foreground: 215 50% 9%;
-    --secondary: 216 23% 23%;
+    --secondary: 216 23% 25%;
     --secondary-foreground: 216 12% 84%;
-    --muted: 217 41% 14%;
+    --muted: 217 41% 15%;
     --muted-foreground: 218 11% 65%;
-    --accent: 217 19% 27%;
+    --accent: 217 19% 29%;
     --accent-foreground: 216 12% 84%;
     --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
     --destructive-foreground: 0 0% 6%;
@@ -147,27 +151,27 @@
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
     --info: 205 82% 55%;
     --info-foreground: 0 0% 8%;
-    --border: 215 14% 34%;
-    --input: 217 33% 17%;
+    --border: 215 14% 37%;
+    --input: 217 33% 19%;
     --ring: 199 89% 60%;
 
     color-scheme: dark;
   }
 
   .sandstorm {
-    --background: 40 47% 98%; /* #fdfbf7 warm paper */
+    --background: 40 47% 97%; /* #fcfaf5 warm paper */
     --foreground: 21 18% 25%;
-    --card: 36 42% 95%;
+    --card: 36 45% 93%; /* visibly lifted off the paper */
     --card-foreground: 21 18% 25%;
-    --popover: 36 42% 96%;
+    --popover: 36 45% 96%;
     --popover-foreground: 21 18% 25%;
     --primary: 26 90% 37%; /* #b45309 burnt balsa — AA 7.5:1 on white */
     --primary-foreground: 0 0% 100%;
-    --secondary: 43 43% 82%;
+    --secondary: 43 43% 80%;
     --secondary-foreground: 33 5% 32%;
     --muted: 39 45% 90%;
-    --muted-foreground: 25 6% 40%;
-    --accent: 36 35% 87%;
+    --muted-foreground: 25 6% 38%;
+    --accent: 36 35% 85%;
     --accent-foreground: 33 5% 32%;
     --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
     --destructive-foreground: 0 0% 10%;
@@ -178,8 +182,8 @@
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
     --info: 21 80% 45%;
     --info-foreground: 0 0% 100%;
-    --border: 43 43% 82%;
-    --input: 39 30% 93%;
+    --border: 36 36% 76%;
+    --input: 35 30% 90%;
     --ring: 26 90% 37%;
 
     color-scheme: light;
@@ -188,17 +192,17 @@
   .abyss-teal {
     --background: 42 17% 19%; /* #3a3529 earthy dark */
     --foreground: 38 41% 88%;
-    --card: 39 12% 23%;
+    --card: 39 12% 25%;
     --card-foreground: 38 41% 88%;
-    --popover: 39 12% 25%;
+    --popover: 39 12% 27%;
     --popover-foreground: 38 41% 88%;
     --primary: 95 16% 55%; /* #8a9f7b sage */
     --primary-foreground: 27 12% 15%;
-    --secondary: 40 13% 31%;
+    --secondary: 40 13% 33%;
     --secondary-foreground: 38 41% 88%;
-    --muted: 39 13% 26%;
-    --muted-foreground: 33 9% 68%;
-    --accent: 44 27% 50%;
+    --muted: 39 13% 27%;
+    --muted-foreground: 33 9% 71%;
+    --accent: 44 27% 52%;
     --accent-foreground: 27 12% 15%;
     --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
     --destructive-foreground: 0 0% 6%;
@@ -209,8 +213,8 @@
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
     --info: 44 22% 42%;
     --info-foreground: 0 0% 100%;
-    --border: 40 13% 31%;
-    --input: 40 10% 22%;
+    --border: 40 13% 34%;
+    --input: 40 10% 24%;
     --ring: 95 16% 55%;
 
     color-scheme: dark;
@@ -219,7 +223,7 @@
   .porcelain {
     --background: 210 40% 98%; /* #f8fafc crisp white */
     --foreground: 217 33% 17%;
-    --card: 0 0% 100%;
+    --card: 210 24% 95%; /* cool card lifted off the near-white page */
     --card-foreground: 217 33% 17%;
     --popover: 0 0% 100%;
     --popover-foreground: 217 33% 17%;
@@ -227,9 +231,9 @@
     --primary-foreground: 0 0% 100%;
     --secondary: 220 13% 91%;
     --secondary-foreground: 217 19% 27%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 223 30% 95%;
+    --muted: 220 14% 95%;
+    --muted-foreground: 220 9% 44%;
+    --accent: 223 30% 93%;
     --accent-foreground: 217 19% 27%;
     --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
     --destructive-foreground: 0 0% 10%;
@@ -240,8 +244,8 @@
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
     --info: 224 80% 50%;
     --info-foreground: 0 0% 100%;
-    --border: 216 12% 84%;
-    --input: 220 13% 91%;
+    --border: 216 12% 80%;
+    --input: 220 13% 88%;
     --ring: 224 76% 48%;
 
     color-scheme: light;
@@ -250,7 +254,7 @@
   .arctic {
     --background: 218 30% 96%; /* desaturated icy pale blue */
     --foreground: 220 45% 16%;
-    --card: 0 0% 100%;
+    --card: 0 0% 97.5%;
     --card-foreground: 220 45% 16%;
     --popover: 0 0% 100%;
     --popover-foreground: 220 45% 16%;
@@ -258,9 +262,9 @@
     --primary-foreground: 0 0% 100%;
     --secondary: 216 18% 92%;
     --secondary-foreground: 218 28% 24%;
-    --muted: 216 18% 94%;
-    --muted-foreground: 217 12% 45%;
-    --accent: 216 22% 91%;
+    --muted: 216 18% 93%;
+    --muted-foreground: 217 12% 43%;
+    --accent: 216 22% 89%;
     --accent-foreground: 218 28% 24%;
     --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
     --destructive-foreground: 0 0% 10%;
@@ -271,8 +275,8 @@
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
     --info: 202 65% 42%;
     --info-foreground: 0 0% 100%;
-    --border: 218 20% 85%;
-    --input: 218 22% 90%;
+    --border: 218 20% 81%;
+    --input: 218 22% 87%;
     --ring: 202 70% 40%;
 
     color-scheme: light;
@@ -281,17 +285,17 @@
   .onyx {
     --background: 0 0% 0%; /* #000000 pure black */
     --foreground: 186 40% 95%;
-    --card: 190 13% 4%;
+    --card: 190 13% 8%;
     --card-foreground: 186 40% 95%;
-    --popover: 190 13% 7%;
+    --popover: 190 13% 11%;
     --popover-foreground: 186 40% 95%;
     --primary: 188 60% 50%; /* desaturated cyan — #22d3ee toned down */
     --primary-foreground: 190 60% 6%;
-    --secondary: 190 10% 12%;
+    --secondary: 190 10% 14%;
     --secondary-foreground: 186 40% 95%;
-    --muted: 190 10% 7%;
+    --muted: 190 10% 9%;
     --muted-foreground: 187 12% 62%;
-    --accent: 190 12% 11%;
+    --accent: 190 12% 13%;
     --accent-foreground: 186 40% 95%;
     --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
     --destructive-foreground: 0 0% 6%;
@@ -302,8 +306,8 @@
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
     --info: 187 55% 55%;
     --info-foreground: 0 0% 8%;
-    --border: 190 8% 14%;
-    --input: 190 10% 5%;
+    --border: 190 12% 21%;
+    --input: 190 10% 12%;
     --ring: 188 60% 50%;
 
     color-scheme: dark;

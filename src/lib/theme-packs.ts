@@ -34,7 +34,7 @@ export const THEME_PACKS: ThemePack[] = [
     name: "Abyssal",
     tagline: "Grey near-black · default",
     bg: "#171717",
-    surface: "#262626",
+    surface: "#292929",
     accent: "#e6e6e6",
   },
   {
@@ -42,7 +42,7 @@ export const THEME_PACKS: ThemePack[] = [
     name: "Ember",
     tagline: "Warm charcoal dark",
     bg: "#1c1917",
-    surface: "#292524",
+    surface: "#2e2a29",
     accent: "#f97415",
   },
   {
@@ -50,7 +50,7 @@ export const THEME_PACKS: ThemePack[] = [
     name: "Ghost",
     tagline: "Light flagship",
     bg: "#ffffff",
-    surface: "#f4f4f5",
+    surface: "#f9f9f9",
     accent: "#1a1a1a",
   },
   {
@@ -58,15 +58,15 @@ export const THEME_PACKS: ThemePack[] = [
     name: "Cobalt",
     tagline: "Deep slate-dark",
     bg: "#0f172a",
-    surface: "#1e293b",
+    surface: "#202d40",
     accent: "#38bdf8",
   },
   {
     id: "sandstorm",
     name: "Sandstorm",
     tagline: "Warm paper light",
-    bg: "#fdfbf7",
-    surface: "#f8f4ee",
+    bg: "#fbf9f4",
+    surface: "#f5efe5",
     accent: "#b45309",
   },
   {
@@ -74,7 +74,7 @@ export const THEME_PACKS: ThemePack[] = [
     name: "Abyss Teal",
     tagline: "Earthy green dark",
     bg: "#3a3529",
-    surface: "#413c33",
+    surface: "#474238",
     accent: "#899f7a",
   },
   {
@@ -82,7 +82,7 @@ export const THEME_PACKS: ThemePack[] = [
     name: "Porcelain",
     tagline: "Crisp light",
     bg: "#f8fafc",
-    surface: "#ffffff",
+    surface: "#eff2f5",
     accent: "#1d4ed8",
   },
   {
@@ -98,7 +98,7 @@ export const THEME_PACKS: ThemePack[] = [
     name: "Onyx",
     tagline: "Pure black",
     bg: "#000000",
-    surface: "#0a0a0a",
+    surface: "#121617",
     accent: "#33b8cc",
   },
   {
