@@ -28,7 +28,7 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
 
   const elevation = cn(
     "relative rounded-lg bg-card px-3 py-2 shadow-sm",
-    small ? "min-w-36" : "min-w-44",
+    small ? "w-32" : "w-40",
     attention && "ring-1 ring-warning/50",
     band === "agents" && "border border-foreground/15 shadow-md",
     band === "operations" && "border-2 border-primary/30 shadow-lg",

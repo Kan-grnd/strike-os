@@ -23,8 +23,8 @@ export function FlashNode({ data }: NodeProps) {
       aria-label={`Operation ${entity.kind}: ${entity.label}`}
       className={`pointer-events-none flex items-center gap-1 rounded-full border bg-background px-2 py-1 text-xs font-semibold ${tone} animate-pulse`}
     >
-      <Icon className="h-3 w-3" aria-hidden />
-      {entity.label}
+      <Icon className="h-3 w-3 shrink-0" aria-hidden />
+      <span className="max-w-40 truncate">{entity.label}</span>
     </div>
   );
 }

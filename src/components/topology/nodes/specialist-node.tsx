@@ -26,7 +26,7 @@ export function SpecialistNode({ id, data }: NodeProps) {
   const detail = band === "metadata";
 
   const elevation = cn(
-    "relative rounded-xl bg-card px-4 py-2.5",
+    "relative max-w-48 rounded-xl bg-card px-3 py-2.5",
     band === "specialist" && "border border-foreground/15 shadow-md",
     band === "agents" && "border-2 border-foreground/20 shadow-lg",
     band === "operations" && "border-2 border-primary/30 shadow-lg",
@@ -50,8 +50,8 @@ export function SpecialistNode({ id, data }: NodeProps) {
       <Handle type="target" position={Position.Top} id="in" />
       <Handle type="source" position={Position.Bottom} id="out" />
       <div className="flex items-center justify-between gap-3">
-        <span className="flex items-center gap-1.5 text-sm font-semibold">
-          <Building2 className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+        <span className="flex items-center gap-1.5 text-sm font-semibold truncate">
+          <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
           {specialistLabel(entity)}
         </span>
         <Badge variant={COLONY_STATUS_VARIANT[entity.status] ?? "secondary"} className="uppercase">

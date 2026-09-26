@@ -27,7 +27,7 @@ export function OperationNode({ id, data }: NodeProps) {
   const metadata = band === "metadata";
 
   const elevation = cn(
-    "relative rounded-lg border border-border bg-background/80 px-3 py-2 shadow-sm min-w-44",
+    "relative rounded-lg border border-border bg-background/80 px-2.5 py-1.5 shadow-sm w-40",
     band === "operations" && "shadow-md",
     band === "metadata" && "border-2 border-primary/30 shadow-lg ring-1 ring-primary/20"
   );

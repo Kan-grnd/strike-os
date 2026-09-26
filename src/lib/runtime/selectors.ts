@@ -322,7 +322,7 @@ export function getTopologyNodes(
         id: flash.id,
         type: "flash",
         data,
-        position: { x: ownerPos.x + 200, y: ownerPos.y + 6 },
+        position: { x: ownerPos.x, y: ownerPos.y + 58 },
         style: { pointerEvents: "none", ...dimStyle(isDimmed(flash.entityId, "agent")) },
         selectable: false,
         focusable: false,

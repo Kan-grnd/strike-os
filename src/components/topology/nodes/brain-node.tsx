@@ -18,7 +18,7 @@ export function BrainNode({ id, data }: NodeProps) {
   const detail = band === "metadata";
 
   const elevation = cn(
-    "relative min-w-64 rounded-2xl bg-card px-5 py-4",
+    "relative min-w-52 rounded-2xl bg-card px-4 py-3",
     band === "specialist" && "border border-foreground/15 shadow-md",
     band === "agents" && "border-2 border-foreground/20 shadow-lg",
     band === "operations" && "border-2 border-primary/30 shadow-lg",
@@ -41,7 +41,7 @@ export function BrainNode({ id, data }: NodeProps) {
     >
       <Handle type="source" position={Position.Bottom} id="out" />
       <div className="flex items-center justify-between gap-4">
-        <span className="text-lg font-bold tracking-tight">
+        <span className="text-base font-bold tracking-tight">
           STRIKE&nbsp;BRAIN
         </span>
         <Badge variant={presenting.variant} className="gap-1.5">

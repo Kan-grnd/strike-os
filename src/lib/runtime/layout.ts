@@ -22,12 +22,12 @@ export interface TopologyLayout {
 }
 
 const Y_BRAIN = 40;
-const Y_SPECIALIST = 250;
-const Y_AGENT = 430;
-const AGENT_ROW_H = 120;
-const SUB_STEP_Y = 150;
-const OP_STEP_Y = 150;
-const OP_STACK = 52;
+const Y_SPECIALIST = 232;
+const Y_AGENT = 400;
+const AGENT_ROW_H = 232;
+const SUB_STEP_Y = 136;
+const OP_STEP_Y = 136;
+const OP_STACK = 68;
 const MAX_AGENTS_PER_ROW = 6;
 
 /** Agents that are no longer part of the live workforce. */
@@ -37,24 +37,24 @@ const gapFor = (narrow: boolean, kind: "territory" | "agent" | "sub" | "pad"): n
   if (narrow) {
     switch (kind) {
       case "territory":
-        return 110;
+        return 100;
       case "agent":
-        return 140;
+        return 168;
       case "sub":
-        return 82;
+        return 144;
       case "pad":
-        return 34;
+        return 32;
     }
   }
   switch (kind) {
     case "territory":
-      return 150;
+      return 140;
     case "agent":
       return 180;
     case "sub":
-      return 110;
+      return 152;
     case "pad":
-      return 44;
+      return 40;
   }
 };
 
@@ -78,6 +78,9 @@ export function buildTopologyLayout(
   );
   const liveSubAgents = runtime.agents.filter(
     (a) => !REMOVED_STATES.has(a.runtimeState) && a.parentId && (!a.colonyId || colonyIds.has(a.colonyId))
+  );
+  const liveOps = runtime.tasks.filter(
+    (t) => t.status !== "COMPLETED" && t.status !== "CANCELLED"
   );
 
   // Ordering is preserved from the runtime (stable sibling ordering).
@@ -152,7 +155,7 @@ export function buildTopologyLayout(
   // ── Transient operations beneath their responsible worker ──
   const operations = new Map<string, { x: number; y: number }>();
   const opStack = new Map<string, number>();
-  runtime.tasks.forEach((task) => {
+  liveOps.forEach((task) => {
     const stackIdx = opStack.get(task.ownerAgentId ?? "") ?? 0;
     if (task.ownerAgentId) {
       const ownerPos = allAgentPos.get(task.ownerAgentId);

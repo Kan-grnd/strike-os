@@ -172,6 +172,7 @@ function TopologyCanvas() {
         fitViewOptions={FIT_VIEW_OPTIONS}
         minZoom={0.2}
         maxZoom={3}
+        nodeOrigin={[0.5, 0]}
         nodesDraggable={false}
         nodesConnectable={false}
         onMove={onMove}
