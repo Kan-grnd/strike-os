@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
-  Background,
-  BackgroundVariant,
   useReactFlow,
   type Node,
 } from "@xyflow/react";
@@ -180,9 +178,7 @@ function TopologyCanvas() {
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={onPaneClick}
-      >
-        <Background variant={BackgroundVariant.Lines} />
-      </ReactFlow>
+      />
 
       {/* Zoom hint chip */}
       {!dismissedZoomHint && (
