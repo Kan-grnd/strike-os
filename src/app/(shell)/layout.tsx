@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 export default function GlobalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const fullBleed = pathname === "/chat";
+  const fullBleed = pathname === "/chat" || pathname === "/topology";
   const { data: settings } = useSettings();
   const [collapsed, setCollapsed] = useState(false);
   // Suppress the sidebar's width transition until the saved start state is

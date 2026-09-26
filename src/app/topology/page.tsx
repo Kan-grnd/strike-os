@@ -18,7 +18,7 @@ import { OperationNode } from "@/components/topology/nodes/operation-node";
 import { FlashNode } from "@/components/topology/nodes/flash-node";
 import { InspectorPanel, type InspectorSelection } from "@/components/topology/inspector-panel";
 import { useSubscribeRuntime, useTopologyGraph, useRuntime, useTempEdges, useFlashes } from "@/lib/runtime/useRuntime";
-import { getHiddenTransientCounts } from "@/lib/runtime/selectors";
+import { getHiddenTransientCounts, bandForZoom } from "@/lib/runtime/selectors";
 import { Loader2, Plus, Zap, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -52,13 +52,39 @@ function TopologyCanvas() {
     () => ({ padding: 0.18, maxZoom: 0.72 } as const),
     []
   );
+  const BAND_MAX_ZOOM = useMemo(
+    () =>
+      ({
+        specialist: 0.72,
+        agents: 1.3,
+        operations: 2.0,
+        metadata: 3,
+      } as const),
+    []
+  );
+  const BAND_MIN_ZOOM = useMemo(
+    () =>
+      ({
+        specialist: 0.2,
+        agents: 0.8,
+        operations: 1.3,
+        metadata: 2.0,
+      } as const),
+    []
+  );
+  const [paneSize, setPaneSize] = useState<{ w: number; h: number } | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? window.innerWidth;
+      const { width, height } = entries[0]?.contentRect ?? { width: 0, height: 0 };
       setNarrow(width < 800);
+      setPaneSize((prev) =>
+        prev && Math.abs(prev.w - width) < 2 && Math.abs(prev.h - height) < 2
+          ? prev
+          : { w: width, h: height }
+      );
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -78,6 +104,34 @@ function TopologyCanvas() {
   );
 
   const { nodes, edges } = useTopologyGraph(zoom, focusAgentId, { narrow, activate });
+
+  // Refit the camera deterministically when the frameable content changes:
+  // zoom band growth, live node add/remove, or pane resize. Keyed on a
+  // structural signature so flash nodes and cursor wobble never trigger it.
+  const structuralCount = useMemo(
+    () => nodes.filter((n) => n.type !== "flash").length,
+    [nodes]
+  );
+  const band = useMemo(() => bandForZoom(zoom), [zoom]);
+  const paneKey = useMemo(
+    () => (paneSize ? `${Math.round(paneSize.w)}:${Math.round(paneSize.h)}` : ""),
+    [paneSize]
+  );
+  const refitKey = `${band}:${structuralCount}:${paneKey}`;
+  const lastRefitKey = useRef<string>("");
+  const fitTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!runtime || lastRefitKey.current === refitKey) return;
+    lastRefitKey.current = refitKey;
+    if (fitTimer.current) window.clearTimeout(fitTimer.current);
+    fitTimer.current = window.setTimeout(() => {
+      fitView({ padding: 0.2, minZoom: BAND_MIN_ZOOM[band], maxZoom: BAND_MAX_ZOOM[band] });
+    }, 350);
+    return () => {
+      if (fitTimer.current) window.clearTimeout(fitTimer.current);
+    };
+  }, [refitKey, runtime, band, fitView]);
 
   const onMove = useCallback((_: unknown, viewport: { x: number; y: number; zoom: number }) => {
     setZoom(viewport.zoom);
@@ -122,7 +176,7 @@ function TopologyCanvas() {
   // Loading state
   if (!runtime) {
     return (
-      <div ref={containerRef} className="h-screen w-full flex items-center justify-center">
+      <div ref={containerRef} className="h-full w-full flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 text-muted-foreground">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm">Loading topology…</p>
@@ -138,7 +192,7 @@ function TopologyCanvas() {
 
   if (isEmpty) {
     return (
-      <div ref={containerRef} className="h-screen w-full flex items-center justify-center p-8">
+      <div ref={containerRef} className="h-full w-full flex items-center justify-center p-8">
         <div className="flex flex-col items-center gap-4 text-center max-w-sm">
           <Zap className="h-12 w-12 text-muted-foreground/50" />
           <div className="space-y-2">
@@ -162,7 +216,7 @@ function TopologyCanvas() {
   }
 
   return (
-    <div ref={containerRef} className="h-screen w-full relative">
+    <div ref={containerRef} className="h-full w-full relative">
       <ConnectionBadge />
       <ReactFlow
         nodes={nodes}

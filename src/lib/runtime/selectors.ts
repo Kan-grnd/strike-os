@@ -53,6 +53,8 @@ const bandFor = (zoom: number): TopologyBand =>
     ? "agents"
     : "specialist";
 
+export const bandForZoom = bandFor;
+
 export function getActiveOperations(runtime: WorkforceRuntime): TaskRuntime[] {
   return runtime.tasks.filter(
     (t) => t.status !== "COMPLETED" && t.status !== "CANCELLED"
