@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo } from "react";
 import { useRuntimeStore } from "./store";
-import type { WorkforceRuntime } from "./types";
+import type { TopologyBand, WorkforceRuntime } from "./types";
 import {
+  BAND_ANCHOR_ZOOM,
   getAttentionRequired,
   getTopologyGraph,
 } from "./selectors";
@@ -41,7 +42,7 @@ export function useSubscribeRuntime() {
 }
 
 export function useTopologyGraph(
-  zoom: number,
+  band: TopologyBand,
   focusAgentId?: string | null,
   opts: { narrow?: boolean; activate?: (id: string, type: string) => void } = {}
 ) {
@@ -50,15 +51,16 @@ export function useTopologyGraph(
   const flashes = useFlashes();
   const narrow = opts.narrow;
   const activate = opts.activate;
+  const anchorZoom = BAND_ANCHOR_ZOOM[band];
   return useMemo(() => {
     if (!runtime) return { nodes: [], edges: [] };
-    return getTopologyGraph(runtime, zoom, focusAgentId ?? undefined, {
+    return getTopologyGraph(runtime, anchorZoom, focusAgentId ?? undefined, {
       narrow,
       flashes,
       tempEdges,
       activate,
     });
-  }, [runtime, zoom, focusAgentId, tempEdges, flashes, narrow, activate]);
+  }, [runtime, anchorZoom, focusAgentId, tempEdges, flashes, narrow, activate]);
 }
 
 export function useAttentionRequired() {

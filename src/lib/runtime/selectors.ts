@@ -55,6 +55,36 @@ const bandFor = (zoom: number): TopologyBand =>
 
 export const bandForZoom = bandFor;
 
+/**
+ * Hysteresis-aware band transition. The visible node set only flips when zoom
+ * crosses a threshold and then travels out of the deadband, so a continuous
+ * wheel gesture (which jitters per frame) never flaps the whole graph at 0.8 /
+ * 1.3 / 2.0. `prev` is the last committed band.
+ */
+const HYST = 0.04;
+const entersAt = (t: number) => t + HYST / 2;
+const leavesAt = (t: number) => t - HYST / 2;
+
+export function nextBand(prev: TopologyBand, zoom: number): TopologyBand {
+  if (zoom >= entersAt(ZOOM_THRESHOLDS.METADATA)) return "metadata";
+  if (prev === "metadata" && zoom >= leavesAt(ZOOM_THRESHOLDS.METADATA)) return "metadata";
+  if (zoom >= entersAt(ZOOM_THRESHOLDS.OPERATIONS)) return "operations";
+  if (prev === "operations" && zoom >= leavesAt(ZOOM_THRESHOLDS.OPERATIONS)) return "operations";
+  if (zoom >= entersAt(ZOOM_THRESHOLDS.AGENTS)) return "agents";
+  if (prev === "agents" && zoom >= leavesAt(ZOOM_THRESHOLDS.AGENTS)) return "agents";
+  return "specialist";
+}
+
+/** A stable zoom inside each band. Graph derivation keys on the band (via this
+ *  anchor) instead of the raw per-frame zoom so node/edge identity survives a
+ *  continuous zoom gesture within a band. */
+export const BAND_ANCHOR_ZOOM: Record<TopologyBand, number> = {
+  specialist: 0.5,
+  agents: 1.0,
+  operations: 1.6,
+  metadata: 2.5,
+};
+
 export function getActiveOperations(runtime: WorkforceRuntime): TaskRuntime[] {
   return runtime.tasks.filter(
     (t) => t.status !== "COMPLETED" && t.status !== "CANCELLED"

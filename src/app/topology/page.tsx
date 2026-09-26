@@ -18,7 +18,8 @@ import { OperationNode } from "@/components/topology/nodes/operation-node";
 import { FlashNode } from "@/components/topology/nodes/flash-node";
 import { InspectorPanel, type InspectorSelection } from "@/components/topology/inspector-panel";
 import { useSubscribeRuntime, useTopologyGraph, useRuntime, useTempEdges, useFlashes } from "@/lib/runtime/useRuntime";
-import { getHiddenTransientCounts, bandForZoom } from "@/lib/runtime/selectors";
+import { getHiddenTransientCounts, nextBand, BAND_ANCHOR_ZOOM } from "@/lib/runtime/selectors";
+import type { TopologyBand } from "@/lib/runtime/types";
 import { Loader2, Plus, Zap, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -35,18 +36,27 @@ const nodeTypes = {
 function TopologyCanvas() {
   useSubscribeRuntime();
   const [zoom, setZoom] = useState(0.6);
+  const [band, setBand] = useState<TopologyBand>("specialist");
+  const bandRef = useRef<TopologyBand>("specialist");
   const [focusAgentId, setFocusAgentId] = useState<string | null>(null);
   const [selection, setSelection] = useState<InspectorSelection | null>(null);
   const [narrow, setNarrow] = useState(false);
   const [dismissedZoomHint, setDismissedZoomHint] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(0.6);
+  const lastMoveRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+  const bandTimerRef = useRef<number | null>(null);
   const { fitView } = useReactFlow();
   const runtime = useRuntime();
   const tempEdges = useTempEdges();
   const flashes = useFlashes();
   const hiddenCounts = useMemo(
-    () => (runtime ? getHiddenTransientCounts(runtime, zoom, tempEdges, flashes) : { tempEdges: 0, flashes: 0 }),
-    [runtime, zoom, tempEdges, flashes]
+    () =>
+      runtime
+        ? getHiddenTransientCounts(runtime, BAND_ANCHOR_ZOOM[band], tempEdges, flashes)
+        : { tempEdges: 0, flashes: 0 },
+    [runtime, band, tempEdges, flashes]
   );
   const FIT_VIEW_OPTIONS = useMemo(
     () => ({ padding: 0.18, maxZoom: 0.72 } as const),
@@ -103,16 +113,33 @@ function TopologyCanvas() {
     [openInspector]
   );
 
-  const { nodes, edges } = useTopologyGraph(zoom, focusAgentId, { narrow, activate });
+  const { nodes, edges } = useTopologyGraph(band, focusAgentId, { narrow, activate });
+
+  // Stabilize the band with hysteresis: the visible set must not flip while a
+  // continuous wheel gesture jitters around a threshold (0.8 / 1.3 / 2.0). The
+  // committed band only changes once zoom settles outside its deadband.
+  useEffect(() => {
+    if (bandTimerRef.current) window.clearTimeout(bandTimerRef.current);
+    bandTimerRef.current = window.setTimeout(() => {
+      const next = nextBand(bandRef.current, zoomRef.current);
+      if (next !== bandRef.current) {
+        bandRef.current = next;
+        setBand(next);
+      }
+    }, 150);
+    return () => {
+      if (bandTimerRef.current) window.clearTimeout(bandTimerRef.current);
+    };
+  }, [zoom]);
 
   // Refit the camera deterministically when the frameable content changes:
   // zoom band growth, live node add/remove, or pane resize. Keyed on a
   // structural signature so flash nodes and cursor wobble never trigger it.
+  // Waits for the gesture to end so the camera never fights the wheel.
   const structuralCount = useMemo(
     () => nodes.filter((n) => n.type !== "flash").length,
     [nodes]
   );
-  const band = useMemo(() => bandForZoom(zoom), [zoom]);
   const paneKey = useMemo(
     () => (paneSize ? `${Math.round(paneSize.w)}:${Math.round(paneSize.h)}` : ""),
     [paneSize]
@@ -122,19 +149,40 @@ function TopologyCanvas() {
   const fitTimer = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!runtime || lastRefitKey.current === refitKey) return;
-    lastRefitKey.current = refitKey;
-    if (fitTimer.current) window.clearTimeout(fitTimer.current);
-    fitTimer.current = window.setTimeout(() => {
+    if (!runtime) return;
+    // Only specialist/agents content is frameable within its band's zoom
+    // window (deeper graphs are wider than the pane at their threshold, so a
+    // "fit" would only yank the camera back down). Leave deeper bands to the
+    // user's deliberate wheel + pan.
+    if (band === "operations" || band === "metadata") return;
+    const attempt = () => {
+      if (performance.now() - lastMoveRef.current < 250) {
+        fitTimer.current = window.setTimeout(attempt, 150);
+        return;
+      }
+      if (lastRefitKey.current === refitKey) return;
+      lastRefitKey.current = refitKey;
       fitView({ padding: 0.2, minZoom: BAND_MIN_ZOOM[band], maxZoom: BAND_MAX_ZOOM[band] });
-    }, 350);
+    };
+    if (fitTimer.current) window.clearTimeout(fitTimer.current);
+    fitTimer.current = window.setTimeout(attempt, 350);
     return () => {
       if (fitTimer.current) window.clearTimeout(fitTimer.current);
     };
   }, [refitKey, runtime, band, fitView]);
 
   const onMove = useCallback((_: unknown, viewport: { x: number; y: number; zoom: number }) => {
-    setZoom(viewport.zoom);
+    zoomRef.current = viewport.zoom;
+    lastMoveRef.current = performance.now();
+    if (rafRef.current !== null) return;
+    rafRef.current = window.requestAnimationFrame(() => {
+      rafRef.current = null;
+      setZoom(zoomRef.current);
+    });
+  }, []);
+
+  const onMoveEnd = useCallback(() => {
+    lastMoveRef.current = 0;
   }, []);
 
   const onNodeClick = useCallback(
@@ -230,6 +278,7 @@ function TopologyCanvas() {
         nodesDraggable={false}
         nodesConnectable={false}
         onMove={onMove}
+        onMoveEnd={onMoveEnd}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={onPaneClick}
@@ -307,7 +356,7 @@ function TopologyCanvas() {
           <span className="w-5 h-5 rounded border border-dashed border-muted-foreground/30 flex items-center justify-center">
             <span className="text-[9px]">~</span>
           </span>
-          <span>zoom band: {zoom < 0.8 ? "overview" : zoom < 1.3 ? "agents" : zoom < 2.0 ? "operations" : "metadata"}</span>
+          <span>zoom band: {band}</span>
         </span>
         <button
           type="button"
