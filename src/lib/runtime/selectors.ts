@@ -86,6 +86,34 @@ export function getVisibleOperations(runtime: WorkforceRuntime, zoom: number): T
   return getActiveOperations(runtime);
 }
 
+export function getHiddenTransientCounts(
+  runtime: WorkforceRuntime,
+  zoom: number,
+  tempEdges: TempEdge[],
+  flashes: CompletionFlash[]
+): { tempEdges: number; flashes: number } {
+  const visibleNodeIds = new Set<string>([BRAIN_NODE_ID]);
+  for (const colony of runtime.colonies) {
+    if (colony.status !== "ARCHIVED") visibleNodeIds.add(colony.id);
+  }
+  if (zoom >= ZOOM_THRESHOLDS.AGENTS) {
+    for (const agent of getLiveAgents(runtime).filter((a) => !a.parentId)) visibleNodeIds.add(agent.id);
+  }
+  if (zoom >= ZOOM_THRESHOLDS.OPERATIONS) {
+    for (const agent of getLiveAgents(runtime).filter((a) => a.parentId)) visibleNodeIds.add(agent.id);
+    for (const task of getActiveOperations(runtime)) visibleNodeIds.add(task.id);
+  }
+  let hiddenTempEdges = 0;
+  let hiddenFlashes = 0;
+  for (const e of tempEdges) {
+    if (!visibleNodeIds.has(e.source) || !visibleNodeIds.has(e.target)) hiddenTempEdges++;
+  }
+  for (const f of flashes) {
+    if (!visibleNodeIds.has(f.entityId)) hiddenFlashes++;
+  }
+  return { tempEdges: hiddenTempEdges, flashes: hiddenFlashes };
+}
+
 export interface TerritoryStats {
   total: number;
   active: number;

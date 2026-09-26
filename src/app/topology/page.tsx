@@ -5,7 +5,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
   Background,
-  MiniMap,
+  BackgroundVariant,
   useReactFlow,
   type Node,
 } from "@xyflow/react";
@@ -19,7 +19,11 @@ import { SubAgentNode } from "@/components/topology/nodes/subagent-node";
 import { OperationNode } from "@/components/topology/nodes/operation-node";
 import { FlashNode } from "@/components/topology/nodes/flash-node";
 import { InspectorPanel, type InspectorSelection } from "@/components/topology/inspector-panel";
-import { useSubscribeRuntime, useTopologyGraph } from "@/lib/runtime/useRuntime";
+import { useSubscribeRuntime, useTopologyGraph, useRuntime, useTempEdges, useFlashes } from "@/lib/runtime/useRuntime";
+import { getHiddenTransientCounts } from "@/lib/runtime/selectors";
+import { Loader2, Plus, Zap, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const nodeTypes = {
   brain: BrainNode,
@@ -36,8 +40,16 @@ function TopologyCanvas() {
   const [focusAgentId, setFocusAgentId] = useState<string | null>(null);
   const [selection, setSelection] = useState<InspectorSelection | null>(null);
   const [narrow, setNarrow] = useState(false);
+  const [dismissedZoomHint, setDismissedZoomHint] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { fitView } = useReactFlow();
+  const runtime = useRuntime();
+  const tempEdges = useTempEdges();
+  const flashes = useFlashes();
+  const hiddenCounts = useMemo(
+    () => (runtime ? getHiddenTransientCounts(runtime, zoom, tempEdges, flashes) : { tempEdges: 0, flashes: 0 }),
+    [runtime, zoom, tempEdges, flashes]
+  );
   const FIT_VIEW_OPTIONS = useMemo(
     () => ({ padding: 0.18, maxZoom: 0.72 } as const),
     []
@@ -88,6 +100,13 @@ function TopologyCanvas() {
       if (node.type === "agent" || node.type === "subagent") {
         setFocusAgentId((current) => (current === node.id ? null : (node.id as string)));
       }
+      if (node.type === "specialist") {
+        setFocusAgentId(null);
+        fitView({ ...FIT_VIEW_OPTIONS, maxZoom: 0.9 });
+      }
+      if (node.type === "operation") {
+        setSelection({ type: "operation", id: node.id as string });
+      }
     },
     [fitView]
   );
@@ -102,8 +121,50 @@ function TopologyCanvas() {
     fitView(FIT_VIEW_OPTIONS);
   }, [fitView, FIT_VIEW_OPTIONS]);
 
+  // Loading state
+  if (!runtime) {
+    return (
+      <div ref={containerRef} className="h-screen w-full flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4 text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm">Loading topology…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty state - no territories, no agents
+  const hasTerritories = runtime.colonies.some((c) => c.status !== "ARCHIVED");
+  const hasAgents = runtime.agents.some((a) => !["cancelled", "stopped"].includes(a.runtimeState));
+  const isEmpty = !hasTerritories && !hasAgents;
+
+  if (isEmpty) {
+    return (
+      <div ref={containerRef} className="h-screen w-full flex items-center justify-center p-8">
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+          <Zap className="h-12 w-12 text-muted-foreground/50" />
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold">No topology yet</h2>
+            <p className="text-sm text-muted-foreground">
+              Create a territory or start a mission to see the workforce graph.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => window.location.href = "/chat"}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              New mission
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => window.location.href = "/admin"}>
+              Admin panel
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div ref={containerRef} className="h-screen w-full">
+    <div ref={containerRef} className="h-screen w-full relative">
       <ConnectionBadge />
       <ReactFlow
         nodes={nodes}
@@ -120,35 +181,87 @@ function TopologyCanvas() {
         onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={onPaneClick}
       >
-        <Background />
-        {!narrow && <MiniMap pannable zoomable className="!bg-muted/40" />}
+        <Background variant={BackgroundVariant.Lines} />
       </ReactFlow>
+
+      {/* Zoom hint chip */}
+      {!dismissedZoomHint && (
+        <div className="fixed top-16 left-4 z-40 animate-in slide-in-from-top-2 duration-200">
+          <div className={cn(
+            "flex items-center gap-2 rounded-lg border border-border bg-background/95 px-3 py-2 text-sm text-muted-foreground shadow-lg",
+            narrow && "max-w-[calc(100vw-2rem)]"
+          )}>
+            <span className="flex-1">
+              Zoom in for agents → operations → details
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDismissedZoomHint(true)}
+              aria-label="Dismiss zoom hint"
+            >
+              <span className="text-xs">✕</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden transient indicator */}
+      {(hiddenCounts.tempEdges > 0 || hiddenCounts.flashes > 0) && (
+        <div className="fixed top-16 right-4 z-40 animate-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2 rounded-lg border border-warning/50 bg-warning/10 px-3 py-2 text-sm text-warning shadow-lg">
+            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+            <span>
+              {hiddenCounts.tempEdges > 0 && <>{hiddenCounts.tempEdges} delegation{hiddenCounts.tempEdges > 1 ? "s" : ""} hidden</>}
+              {hiddenCounts.tempEdges > 0 && hiddenCounts.flashes > 0 && " · "}
+              {hiddenCounts.flashes > 0 && <>{hiddenCounts.flashes} completion{hiddenCounts.flashes > 1 ? "s" : ""} hidden</>}
+              <span className="ml-2 text-xs text-muted-foreground">— zoom in to see</span>
+            </span>
+          </div>
+        </div>
+      )}
 
       {selection && (
         <InspectorPanel
           selection={selection}
           onClose={() => setSelection(null)}
           onOpenAgent={(id) => openInspector(id, "agent")}
+          narrow={narrow}
         />
       )}
 
-      <div className="pointer-events-none absolute bottom-4 left-4 z-40 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-background/90 px-3 py-2 text-[11px] text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-5 bg-border" /> ownership
+      <div className={cn(
+        "pointer-events-none absolute bottom-4 left-4 z-40 rounded-lg border border-border bg-background/90 px-3 py-2 text-[11px] text-muted-foreground",
+        narrow
+          ? "flex items-center gap-x-2"
+          : "flex flex-wrap items-center gap-x-3 gap-y-1"
+      )}>
+        <span className={cn("flex items-center gap-1.5", narrow && "gap-1")}>
+          <span className="inline-block h-0.5 w-5 bg-border" />
+          {!narrow && <span>ownership</span>}
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-5 border-t-2 border-dotted border-info" /> delegation
+        <span className={cn("flex items-center gap-1.5", narrow && "gap-1")}>
+          <span className="inline-block h-0.5 w-5 border-t-2 border-dotted border-info" />
+          {!narrow && <span>delegation</span>}
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-5 bg-success" /> communication
+        <span className={cn("flex items-center gap-1.5", narrow && "gap-1")}>
+          <span className="inline-block h-0.5 w-5 bg-success" />
+          {!narrow && <span>communication</span>}
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-5 bg-warning" /> verification
+        <span className={cn("flex items-center gap-1.5", narrow && "gap-1")}>
+          <span className="inline-block h-0.5 w-5 bg-warning" />
+          {!narrow && <span>verification</span>}
+        </span>
+        <span className={cn("flex items-center gap-1.5 px-2", narrow && "hidden")}>
+          <span className="w-5 h-5 rounded border border-dashed border-muted-foreground/30 flex items-center justify-center">
+            <span className="text-[9px]">~</span>
+          </span>
+          <span>zoom band: {zoom < 0.8 ? "overview" : zoom < 1.3 ? "agents" : zoom < 2.0 ? "operations" : "metadata"}</span>
         </span>
         <button
           type="button"
           onClick={resetView}
-          className="pointer-events-auto text-foreground/70 underline underline-offset-2 hover:text-foreground"
+          className={cn("pointer-events-auto text-foreground/70 underline underline-offset-2 hover:text-foreground", narrow && "hidden")}
         >
           reset view
         </button>

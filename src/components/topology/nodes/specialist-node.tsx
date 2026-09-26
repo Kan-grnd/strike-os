@@ -4,6 +4,7 @@ import { Building2 } from "lucide-react";
 import type { ColonyRuntime, TopologyBand } from "@/lib/runtime/types";
 import type { TopologyNodeData } from "@/lib/runtime/selectors";
 import { specialistLabel } from "@/lib/runtime/layout";
+import { cn } from "@/lib/utils";
 
 interface SpecialistNodeData extends TopologyNodeData<ColonyRuntime> {
   stats?: { total: number; active: number; waiting: number; errors: number };
@@ -24,6 +25,14 @@ export function SpecialistNode({ id, data }: NodeProps) {
   const band: TopologyBand = d.band ?? "specialist";
   const detail = band === "metadata";
 
+  const elevation = cn(
+    "relative rounded-xl bg-card px-4 py-2.5",
+    band === "specialist" && "border border-foreground/15 shadow-md",
+    band === "agents" && "border-2 border-foreground/20 shadow-lg",
+    band === "operations" && "border-2 border-primary/30 shadow-lg",
+    band === "metadata" && "border-2 border-primary/40 shadow-xl ring-1 ring-primary/20"
+  );
+
   return (
     <div
       role="button"
@@ -36,7 +45,7 @@ export function SpecialistNode({ id, data }: NodeProps) {
           d.activate?.(id, "specialist");
         }
       }}
-      className="relative rounded-xl border border-border bg-card px-4 py-2.5 shadow-sm"
+      className={elevation}
     >
       <Handle type="target" position={Position.Top} id="in" />
       <Handle type="source" position={Position.Bottom} id="out" />

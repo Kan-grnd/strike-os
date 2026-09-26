@@ -18,7 +18,9 @@ export function FlashNode({ data }: NodeProps) {
 
   return (
     <div
-      aria-hidden
+      role="status"
+      aria-live="polite"
+      aria-label={`Operation ${entity.kind}: ${entity.label}`}
       className={`pointer-events-none flex items-center gap-1 rounded-full border bg-background px-2 py-1 text-xs font-semibold ${tone} animate-pulse`}
     >
       <Icon className="h-3 w-3" aria-hidden />

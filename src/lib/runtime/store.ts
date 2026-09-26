@@ -92,6 +92,7 @@ interface RuntimeStore {
   setConnection: (connection: ConnectionState) => void;
   subscribeToEvents: () => () => void;
   unsubscribe: () => void;
+  resync: () => Promise<void>;
   getVisibleEntities: () => WorkforceRuntime | null;
 }
 
@@ -365,6 +366,20 @@ export const useRuntimeStore = create<RuntimeStore>((set, get) => ({
   unsubscribe: () => {
     clearPoll();
     clearSweep();
+  },
+
+  resync: async () => {
+    const { setConnection } = get();
+    setConnection("RECONNECTING");
+    try {
+      const res = await fetch("/api/runtime/snapshot", { cache: "no-store" });
+      if (!res.ok) throw new Error(`snapshot failed: ${res.status}`);
+      const data = (await res.json()) as { runtime: WorkforceRuntime };
+      get().initializeWithSnapshot(data.runtime);
+    } catch {
+      setConnection("DISCONNECTED");
+      set({ needsResync: true });
+    }
   },
 
   getVisibleEntities: () => get().runtime,

@@ -12,6 +12,7 @@ export const useRuntime = () => useRuntimeStore((state) => state.runtime);
 export const useConnection = () => useRuntimeStore((state) => state.connection);
 export const useTempEdges = () => useRuntimeStore((state) => state.tempEdges);
 export const useFlashes = () => useRuntimeStore((state) => state.flashes);
+export const useResync = () => useRuntimeStore((state) => state.resync);
 
 export function useSubscribeRuntime() {
   useEffect(() => {

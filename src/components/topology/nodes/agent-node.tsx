@@ -26,6 +26,15 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
   const attention = entity.runtimeState === "waiting_for_approval" || entity.runtimeState === "blocked";
   const small = nodeType === "subagent";
 
+  const elevation = cn(
+    "relative rounded-lg bg-card px-3 py-2 shadow-sm",
+    small ? "min-w-36" : "min-w-44",
+    attention && "ring-1 ring-warning/50",
+    band === "agents" && "border border-foreground/15 shadow-md",
+    band === "operations" && "border-2 border-primary/30 shadow-lg",
+    band === "metadata" && "border-2 border-primary/40 shadow-xl ring-1 ring-primary/20"
+  );
+
   return (
     <div
       role="button"
@@ -38,11 +47,7 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
           activate?.(id, nodeType);
         }
       }}
-      className={cn(
-        "relative rounded-lg border bg-card px-3 py-2 shadow-sm",
-        small ? "min-w-36" : "min-w-44",
-        attention && "ring-1 ring-warning/50"
-      )}
+      className={elevation}
     >
       <Handle type="target" position={Position.Top} id="in" />
       <Handle type="source" position={Position.Bottom} id="out" />
@@ -55,7 +60,7 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
             className={cn("h-3 w-3", entity.runtimeState === "initializing" && "animate-spin")}
             aria-hidden
           />
-          {small ? presenting.label.charAt(0) : presenting.label}
+          {small ? presenting.label.slice(0, 2).toUpperCase() : presenting.label}
         </Badge>
       </div>
       {operational && (

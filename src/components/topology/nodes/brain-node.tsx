@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import type { BrainRuntime, SystemRuntime, TopologyBand } from "@/lib/runtime/types";
 import type { TopologyNodeData } from "@/lib/runtime/selectors";
 import { brainStatePresentation } from "@/lib/runtime/presentation";
+import { cn } from "@/lib/utils";
 
 interface BrainNodeData extends TopologyNodeData<BrainRuntime> {
   system?: SystemRuntime;
@@ -16,6 +17,14 @@ export function BrainNode({ id, data }: NodeProps) {
   const band: TopologyBand = d.band ?? "specialist";
   const detail = band === "metadata";
 
+  const elevation = cn(
+    "relative min-w-64 rounded-2xl bg-card px-5 py-4",
+    band === "specialist" && "border border-foreground/15 shadow-md",
+    band === "agents" && "border-2 border-foreground/20 shadow-lg",
+    band === "operations" && "border-2 border-primary/30 shadow-lg",
+    band === "metadata" && "border-2 border-primary/40 shadow-xl ring-1 ring-primary/20"
+  );
+
   return (
     <div
       role="button"
@@ -28,7 +37,7 @@ export function BrainNode({ id, data }: NodeProps) {
           d.activate?.(id, "brain");
         }
       }}
-      className="relative min-w-64 rounded-2xl border-2 border-foreground/20 bg-card px-5 py-4 shadow-lg"
+      className={elevation}
     >
       <Handle type="source" position={Position.Bottom} id="out" />
       <div className="flex items-center justify-between gap-4">

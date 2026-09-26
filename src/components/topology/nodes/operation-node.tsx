@@ -26,6 +26,12 @@ export function OperationNode({ id, data }: NodeProps) {
   const band: TopologyBand = d.band ?? "operations";
   const metadata = band === "metadata";
 
+  const elevation = cn(
+    "relative rounded-lg border border-border bg-background/80 px-3 py-2 shadow-sm min-w-44",
+    band === "operations" && "shadow-md",
+    band === "metadata" && "border-2 border-primary/30 shadow-lg ring-1 ring-primary/20"
+  );
+
   return (
     <div
       role="button"
@@ -38,7 +44,7 @@ export function OperationNode({ id, data }: NodeProps) {
           d.activate?.(id, "operation");
         }
       }}
-      className="relative rounded-lg border border-border bg-background/80 px-3 py-2 shadow-sm min-w-44"
+      className={elevation}
     >
       <Handle type="target" position={Position.Top} id="in" />
       <div className="flex items-center justify-between gap-2">
@@ -47,7 +53,7 @@ export function OperationNode({ id, data }: NodeProps) {
           <span className="truncate">{entity.description}</span>
         </span>
         <Badge variant={STATUS_VARIANT[entity.status] ?? "secondary"} className="shrink-0 uppercase">
-          {entity.status === "RUNNING" ? "active" : formatState(entity.status).slice(0, 6)}
+          {entity.status === "RUNNING" ? "active" : formatState(entity.status)}
         </Badge>
       </div>
       {metadata && (

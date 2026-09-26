@@ -15,6 +15,7 @@ import {
 } from "@/lib/runtime/presentation";
 import { getTerritoryStats } from "@/lib/runtime/selectors";
 import type { AgentRuntime, ColonyRuntime, TaskRuntime, WorkforceRuntime } from "@/lib/runtime/types";
+import { cn } from "@/lib/utils";
 
 export type InspectorSelection =
   | { type: "system" }
@@ -70,10 +71,12 @@ export function InspectorPanel({
   selection,
   onClose,
   onOpenAgent,
+  narrow = false,
 }: {
   selection: InspectorSelection;
   onClose: () => void;
   onOpenAgent?: (id: string) => void;
+  narrow?: boolean;
 }) {
   const runtime = useRuntime();
   const tempEdges = useTempEdges();
@@ -91,10 +94,48 @@ export function InspectorPanel({
     return { byAgent, byColony, byTask, subAgents, taskTitle, runtime };
   }, [runtime]);
 
-  if (!data || !runtime) return null;
+  if (!data || !runtime) {
+    return (
+      <div
+        role="dialog"
+        aria-label="Topology inspector"
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onClose();
+        }}
+        className={cn(
+          "flex flex-col rounded-xl border border-border bg-card shadow-lg transition-all duration-200",
+          narrow
+            ? "fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] w-full rounded-t-2xl border-b-0"
+            : "absolute top-20 right-4 z-40 max-h-[calc(100vh-6rem)] w-72"
+        )}
+      >
+        {narrow && (
+          <div className="flex items-center justify-center py-2 border-b border-border">
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+          </div>
+        )}
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <span className="text-sm font-semibold text-muted-foreground">Loading…</span>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close inspector" className="h-7 w-7 p-0">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="px-4 py-4 space-y-3">
+            <div className="h-4 w-3/4 animate-pulse bg-muted rounded" />
+            <div className="h-4 w-1/2 animate-pulse bg-muted rounded" />
+            <div className="h-4 w-5/6 animate-pulse bg-muted rounded" />
+            <div className="h-4 w-1/3 animate-pulse bg-muted rounded" />
+          </div>
+        </ScrollArea>
+      </div>
+    );
+  }
 
   const ICON = { system: Brain, territory: Building2, agent: Cpu, subagent: Bot, operation: Play }[selection.type];
   const HeaderIcon = ICON;
+
+  const isOpen = true; // controlled by parent
 
   return (
     <div
@@ -103,9 +144,20 @@ export function InspectorPanel({
       onKeyDown={(e) => {
         if (e.key === "Escape") onClose();
       }}
-      className="absolute top-20 right-4 z-40 flex max-h-[calc(100vh-6rem)] w-72 flex-col rounded-xl border border-border bg-card shadow-lg"
+      className={cn(
+        "flex flex-col rounded-xl border border-border bg-card shadow-lg transition-all duration-200",
+        narrow
+          ? "fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] w-full rounded-t-2xl border-b-0"
+          : "absolute top-20 right-4 z-40 max-h-[calc(100vh-6rem)] w-72"
+      )}
     >
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+      {/* Drag handle for bottom sheet */}
+      {narrow && (
+        <div className="flex items-center justify-center py-2 border-b border-border">
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+        </div>
+      )}
+      <div className="flex items-center justify-between border-b border-border px-4 py-3 flex-shrink-0">
         <span className="flex items-center gap-2 text-sm font-semibold">
           <HeaderIcon className="h-4 w-4 text-muted-foreground" aria-hidden />
           {selection.type === "system"
@@ -122,7 +174,7 @@ export function InspectorPanel({
           <X className="h-4 w-4" />
         </Button>
       </div>
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="px-4 py-4">
           {selection.type === "system" && <SystemInspector runtime={runtime} />}
           {selection.type === "territory" && (
