@@ -6,6 +6,7 @@ import type { ColonyRuntime } from "@/lib/runtime/types";
 import type { TopologyNodeData } from "@/lib/runtime/selectors";
 import { specialistLabel } from "@/lib/runtime/layout";
 import { CardButton } from "./card-button";
+import { ActionRow } from "./action-row";
 
 interface SpecialistNodeData extends TopologyNodeData<ColonyRuntime> {
   stats?: { total: number; active: number; waiting: number; errors: number };
@@ -39,7 +40,7 @@ export function SpecialistNode({ id, data }: NodeProps) {
           d.activate?.(id, "specialist");
         }
       }}
-      className="node-list-in group relative w-64 cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40"
+      className="node-list-in group relative w-64 cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <Handle type="target" position={Position.Top} id="in" />
       <Handle type="source" position={Position.Bottom} id="out" />
@@ -56,7 +57,7 @@ export function SpecialistNode({ id, data }: NodeProps) {
       <p className="font-mono text-xs text-muted-foreground">
         {stats.total} agents, {stats.active} active
       </p>
-      <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+      <ActionRow className="mt-2 flex flex-wrap items-center justify-end gap-2">
         {stats.total > 0 && (
           <CardButton
             variant="outline"
@@ -77,7 +78,7 @@ export function SpecialistNode({ id, data }: NodeProps) {
         >
           Details
         </CardButton>
-      </div>
+      </ActionRow>
     </div>
   );
 }

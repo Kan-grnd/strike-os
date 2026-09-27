@@ -6,6 +6,7 @@ import type { TaskRuntime } from "@/lib/runtime/types";
 import type { TopologyNodeData } from "@/lib/runtime/selectors";
 import { formatState } from "@/lib/runtime/presentation";
 import { CardButton } from "./card-button";
+import { ActionRow } from "./action-row";
 
 interface OperationNodeData extends TopologyNodeData<TaskRuntime> {
   ownerName?: string;
@@ -37,7 +38,7 @@ export function OperationNode({ id, data }: NodeProps) {
           d.activate?.(id, "operation");
         }
       }}
-      className="node-list-in group relative w-48 cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40"
+      className="node-list-in group relative w-48 cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <Handle type="target" position={Position.Top} id="in" />
       <div className="flex items-center justify-between gap-3">
@@ -53,7 +54,7 @@ export function OperationNode({ id, data }: NodeProps) {
       <p className="truncate font-mono text-[11px] text-muted-foreground">
         {d.ownerName ? `by ${d.ownerName}` : "operation"}
       </p>
-      <div className="mt-2 flex justify-end">
+      <ActionRow className="mt-2 flex justify-end">
         <CardButton
           variant="ghost"
           size="sm"
@@ -62,7 +63,7 @@ export function OperationNode({ id, data }: NodeProps) {
         >
           Details
         </CardButton>
-      </div>
+      </ActionRow>
     </div>
   );
 }

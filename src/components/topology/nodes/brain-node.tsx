@@ -5,6 +5,7 @@ import type { BrainRuntime, SystemRuntime } from "@/lib/runtime/types";
 import type { TopologyNodeData } from "@/lib/runtime/selectors";
 import { brainStatePresentation } from "@/lib/runtime/presentation";
 import { CardButton } from "./card-button";
+import { ActionRow } from "./action-row";
 
 interface BrainNodeData extends TopologyNodeData<BrainRuntime> {
   system?: SystemRuntime;
@@ -33,11 +34,11 @@ export function BrainNode({ id, data }: NodeProps) {
           d.activate?.(id, "brain");
         }
       }}
-      className="node-list-in group relative w-72 cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40"
+      className="node-list-in group relative w-72 cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <Handle type="source" position={Position.Bottom} id="out" />
       <div className="flex items-center justify-between gap-3">
-        <span className="truncate text-base font-bold tracking-tight">STRIKE BRAIN</span>
+        <span className="min-w-0 truncate text-base font-bold tracking-tight">STRIKE BRAIN</span>
         <Badge variant={presenting.variant} className="shrink-0 gap-1.5">
           <Icon className="h-3 w-3" aria-hidden />
           {presenting.label}
@@ -48,7 +49,7 @@ export function BrainNode({ id, data }: NodeProps) {
         {entity.activeCount}/{entity.agentCount} active, {entity.operationCount} operations,{" "}
         {entity.missionCount} mission{entity.missionCount === 1 ? "" : "s"}
       </p>
-      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
+      <ActionRow className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           {territoryCount > 0 && (
             <CardButton
@@ -70,7 +71,7 @@ export function BrainNode({ id, data }: NodeProps) {
             Details
           </CardButton>
         </div>
-      </div>
+      </ActionRow>
     </div>
   );
 }

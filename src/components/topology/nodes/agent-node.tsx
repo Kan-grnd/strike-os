@@ -7,6 +7,7 @@ import type { TopologyNodeData } from "@/lib/runtime/selectors";
 import { agentStatePresentation } from "@/lib/runtime/presentation";
 import { cn } from "@/lib/utils";
 import { CardButton } from "./card-button";
+import { ActionRow } from "./action-row";
 
 export interface AgentNodeData extends TopologyNodeData<AgentRuntime> {
   operation?: string;
@@ -73,7 +74,7 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
         }
       }}
       className={cn(
-        "node-list-in group relative cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40",
+        "node-list-in group relative cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         small ? "w-60" : "w-64",
         attention && "ring-1 ring-warning/50"
       )}
@@ -81,7 +82,7 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
       <Handle type="target" position={Position.Top} id="in" />
       <Handle type="source" position={Position.Bottom} id="out" />
       <div className="flex items-center justify-between gap-3">
-        <span className={cn("truncate font-semibold", small ? "text-xs" : "text-sm")}>
+        <span className={cn("min-w-0 truncate font-semibold", small ? "text-xs" : "text-sm")}>
           {entity.name}
         </span>
         <Badge variant={presenting.variant} className="shrink-0 gap-1">
@@ -98,7 +99,7 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
           {data.operation}
         </p>
       ) : null}
-      <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+      <ActionRow className="mt-2 flex flex-wrap items-center justify-end gap-2">
         {(data.subCount ?? 0) > 0 && (
           <AgentToggle
             expanded={expandedSub}
@@ -123,7 +124,7 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
         >
           Details
         </CardButton>
-      </div>
+      </ActionRow>
     </div>
   );
 }

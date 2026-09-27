@@ -147,6 +147,20 @@ const stable = posNodes.every((n) => {
 });
 check("layout determinism: identical across calls", stable);
 
+// ── Flash placement: without a DOM (SSR / tests) falls back to owner +150 ──
+const flashNodes = getTopologyNodes(runtime, agentsExpanded, undefined, {
+  flashes: [
+    { id: "flash:f1", entityId: "ag-1", label: "done", kind: "success", occurredAt: Date.now() },
+  ],
+});
+const flashNode = flashNodes.find((n) => n.id === "flash:f1");
+const flashOwnerY = flashNodes.find((n) => n.id === "ag-1")?.position.y ?? 0;
+check(
+  "flash: no-DOM fallback = owner y + 150",
+  flashNode?.position.y === flashOwnerY + 150,
+  `flashY=${flashNode?.position.y} ownerY=${flashOwnerY}`
+);
+
 // ── Focus: dim unrelated, keep the tree ──
 const focusNodes = getTopologyNodes(runtime, agentsExpanded, "ag-1");
 const focusedAgent = focusNodes.find((n) => n.id === "ag-1");

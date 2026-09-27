@@ -181,6 +181,22 @@ function visibleNodeIds(
   return visible;
 }
 
+/** Where a transient completion pill sits below its owner card. Cards are
+ *  ~120px+ tall now, well beyond the old assumed 58px, so measure the rendered
+ *  node when a browser is available (offsetHeight — the pill and card share
+ *  the same scaled plane). Falls back when there is no DOM (SSR / tests). */
+const FLASH_FALLBACK_OFFSET_PX = 150;
+function flashOffset(ownerId: string): number {
+  if (typeof document === "undefined") return FLASH_FALLBACK_OFFSET_PX;
+  try {
+    const el = document.querySelector(`.react-flow__node[data-id="${ownerId}"]`);
+    const h = el instanceof HTMLElement ? el.offsetHeight : 0;
+    return h > 0 ? h + 12 : FLASH_FALLBACK_OFFSET_PX;
+  } catch {
+    return FLASH_FALLBACK_OFFSET_PX;
+  }
+}
+
 export function getTopologyNodes(
   runtime: WorkforceRuntime,
   expanded: ReadonlySet<string>,
@@ -230,7 +246,7 @@ export function getTopologyNodes(
     position: layout.brain,
     style: dimStyle(isDimmed(BRAIN_NODE_ID, "brain")),
     selectable: true,
-    focusable: true,
+    focusable: false,
   });
 
   for (const colony of territories) {
@@ -250,7 +266,7 @@ export function getTopologyNodes(
       position: layout.territories.get(colony.id) ?? { x: 0, y: 0 },
       style: dimStyle(isDimmed(colony.id, "specialist")),
       selectable: true,
-      focusable: true,
+      focusable: false,
     });
   }
 
@@ -281,7 +297,7 @@ export function getTopologyNodes(
       position: layout.operations.get(task.id) ?? { x: 0, y: 0 },
       style: dimStyle(isDimmed(task.id, "operation")),
       selectable: true,
-      focusable: true,
+      focusable: false,
     });
   }
 
@@ -296,7 +312,7 @@ export function getTopologyNodes(
       id: flash.id,
       type: "flash",
       data,
-      position: { x: ownerPos.x, y: ownerPos.y + 58 },
+      position: { x: ownerPos.x, y: ownerPos.y + flashOffset(flash.entityId) },
       style: {
         pointerEvents: "none",
         ...dimStyle(focus ? !focus.agentIds.has(flash.entityId) : false),
@@ -346,7 +362,7 @@ function pushAgentNode(
     position: position ?? { x: 0, y: 0 },
     style: dimStyle(focus ? !focus.agentIds.has(agent.id) : false),
     selectable: true,
-    focusable: true,
+    focusable: false,
   });
 }
 

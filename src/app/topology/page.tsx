@@ -17,9 +17,9 @@ import { SubAgentNode } from "@/components/topology/nodes/subagent-node";
 import { OperationNode } from "@/components/topology/nodes/operation-node";
 import { FlashNode } from "@/components/topology/nodes/flash-node";
 import { InspectorPanel, type InspectorSelection } from "@/components/topology/inspector-panel";
-import { useSubscribeRuntime, useTopologyGraph, useRuntime, useTempEdges, useFlashes } from "@/lib/runtime/useRuntime";
+import { useSubscribeRuntime, useTopologyGraph, useRuntime, useConnection, useResync, useTempEdges, useFlashes } from "@/lib/runtime/useRuntime";
 import { getLiveAgents } from "@/lib/runtime/selectors";
-import { Loader2, Plus, X, Zap } from "lucide-react";
+import { Loader2, Plus, RefreshCw, WifiOff, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +43,8 @@ function TopologyCanvas() {
   const lastMoveRef = useRef(0);
   const { fitView } = useReactFlow();
   const runtime = useRuntime();
+  const connection = useConnection();
+  const resync = useResync();
   const tempEdges = useTempEdges();
   const flashes = useFlashes();
   const FIT_VIEW_OPTIONS = useMemo(
@@ -66,6 +68,17 @@ function TopologyCanvas() {
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  // Escape closes the inspector wherever focus lives (the dialog keeps its own
+  // handler as a backup; both do the same thing).
+  useEffect(() => {
+    if (!selection) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelection(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selection]);
 
   const openInspector = useCallback((id: string, type: string) => {
     if (type === "brain") setSelection({ type: "system" });
@@ -205,6 +218,25 @@ function TopologyCanvas() {
 
   // Loading state
   if (!runtime) {
+    if (connection === "DISCONNECTED") {
+      return (
+        <div ref={containerRef} className="h-full w-full flex items-center justify-center p-8">
+          <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+            <WifiOff className="h-12 w-12 text-muted-foreground/50" />
+            <div className="space-y-2">
+              <h2 className="text-lg font-semibold">Couldn't load the workforce</h2>
+              <p className="text-sm text-muted-foreground">
+                Check your connection and try again.
+              </p>
+            </div>
+            <Button size="sm" onClick={() => resync()}>
+              <RefreshCw className="h-4 w-4 mr-1.5" />
+              Retry
+            </Button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div ref={containerRef} className="h-full w-full flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 text-muted-foreground">
@@ -236,9 +268,6 @@ function TopologyCanvas() {
               <Plus className="h-4 w-4 mr-1.5" />
               New mission
             </Button>
-            <Button variant="outline" size="sm" onClick={() => window.location.href = "/admin"}>
-              Admin panel
-            </Button>
           </div>
         </div>
       </div>
@@ -265,6 +294,7 @@ function TopologyCanvas() {
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={onPaneClick}
+        zoomOnDoubleClick={false}
       />
 
       {/* Hint chip */}
@@ -296,6 +326,24 @@ function TopologyCanvas() {
           onOpenAgent={(id) => openInspector(id, "agent")}
           narrow={narrow}
         />
+      )}
+
+      {focusAgentId && (
+        <div className="absolute bottom-4 right-4 z-40 flex items-center gap-2 rounded-lg border border-border bg-background/90 px-3 py-2 text-xs shadow-lg">
+          <span className="text-muted-foreground">Focused:</span>
+          <span className="max-w-40 truncate font-medium">
+            {runtime.agents.find((a) => a.id === focusAgentId)?.name ?? "agent"}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setFocusAgentId(null)}
+            aria-label="Exit focus"
+            className="h-6 w-6 p-0"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       )}
 
       <div className={cn(
