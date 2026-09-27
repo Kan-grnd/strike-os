@@ -7,32 +7,26 @@ import type {
   SystemRuntime,
   TaskRuntime,
   TempEdge,
-  TopologyBand,
   WorkforceRuntime,
 } from "./types";
 import { buildTopologyLayout, type TopologyLayout } from "./layout";
 
 /**
- * Zoom = information density, not scaling.
- *  < 0.8  → Brain + Specialist territories (overview)
- *  0.8+   → Agents (+ active states)
- *  1.3+   → Sub-agents + transient Operations + delegation
- *  2.0+   → deep operational metadata, verification, recovery
+ * Manual disclosure: zoom is pure scale; the visible node set is decided only
+ * by the user's expand/collapse actions. Expanding a node reveals its direct
+ * children (territory → agents, agent/sub-agent → sub-agents + operations).
  */
-export const ZOOM_THRESHOLDS = {
-  AGENTS: 0.8,
-  OPERATIONS: 1.3,
-  METADATA: 2.0,
-} as const;
-
 export const BRAIN_NODE_ID = "brain";
 
 export type TopologyNodeType = "brain" | "specialist" | "agent" | "subagent" | "operation" | "flash";
+export type TopologyLevel = "core" | "territory" | "agent" | "sub" | "op";
 
 export interface TopologyNodeData<T = unknown> extends Record<string, unknown> {
   entity: T;
-  band: TopologyBand;
+  level: TopologyLevel;
   activate?: (id: string, type: string) => void;
+  expanded?: boolean;
+  toggle?: (id: string) => void;
 }
 
 const REMOVED_STATES = new Set(["cancelled", "stopped"]);
@@ -44,51 +38,8 @@ const isLiveAgent = (a: AgentRuntime) => !REMOVED_STATES.has(a.runtimeState);
 
 const dimStyle = (dimmed: boolean) => (dimmed ? { opacity: 0.2 } : undefined);
 
-const bandFor = (zoom: number): TopologyBand =>
-  zoom >= ZOOM_THRESHOLDS.OPERATIONS
-    ? zoom >= ZOOM_THRESHOLDS.METADATA
-      ? "metadata"
-      : "operations"
-    : zoom >= ZOOM_THRESHOLDS.AGENTS
-    ? "agents"
-    : "specialist";
-
-export const bandForZoom = bandFor;
-
-/**
- * Hysteresis-aware band transition. The visible node set only flips when zoom
- * crosses a threshold and then travels out of the deadband, so a continuous
- * wheel gesture (which jitters per frame) never flaps the whole graph at 0.8 /
- * 1.3 / 2.0. `prev` is the last committed band.
- */
-const HYST = 0.04;
-const entersAt = (t: number) => t + HYST / 2;
-const leavesAt = (t: number) => t - HYST / 2;
-
-export function nextBand(prev: TopologyBand, zoom: number): TopologyBand {
-  if (zoom >= entersAt(ZOOM_THRESHOLDS.METADATA)) return "metadata";
-  if (prev === "metadata" && zoom >= leavesAt(ZOOM_THRESHOLDS.METADATA)) return "metadata";
-  if (zoom >= entersAt(ZOOM_THRESHOLDS.OPERATIONS)) return "operations";
-  if (prev === "operations" && zoom >= leavesAt(ZOOM_THRESHOLDS.OPERATIONS)) return "operations";
-  if (zoom >= entersAt(ZOOM_THRESHOLDS.AGENTS)) return "agents";
-  if (prev === "agents" && zoom >= leavesAt(ZOOM_THRESHOLDS.AGENTS)) return "agents";
-  return "specialist";
-}
-
-/** A stable zoom inside each band. Graph derivation keys on the band (via this
- *  anchor) instead of the raw per-frame zoom so node/edge identity survives a
- *  continuous zoom gesture within a band. */
-export const BAND_ANCHOR_ZOOM: Record<TopologyBand, number> = {
-  specialist: 0.5,
-  agents: 1.0,
-  operations: 1.6,
-  metadata: 2.5,
-};
-
 export function getActiveOperations(runtime: WorkforceRuntime): TaskRuntime[] {
-  return runtime.tasks.filter(
-    (t) => t.status !== "COMPLETED" && t.status !== "CANCELLED"
-  );
+  return runtime.tasks.filter((t) => t.status !== "COMPLETED" && t.status !== "CANCELLED");
 }
 
 export function getAttentionRequired(runtime: WorkforceRuntime): AgentRuntime[] {
@@ -103,47 +54,32 @@ export function getVisibleTerritories(runtime: WorkforceRuntime): ColonyRuntime[
   return runtime.colonies.filter((c) => c.status !== "ARCHIVED");
 }
 
-export function getVisibleAgents(runtime: WorkforceRuntime, zoom: number): AgentRuntime[] {
-  if (zoom < ZOOM_THRESHOLDS.AGENTS) return [];
-  return getLiveAgents(runtime).filter((a) => !a.parentId);
+/** Live root agents whose territory is expanded. */
+export function getVisibleAgents(runtime: WorkforceRuntime, expanded: ReadonlySet<string>): AgentRuntime[] {
+  return getLiveAgents(runtime).filter((a) => !a.parentId && !!a.colonyId && expanded.has(a.colonyId));
 }
 
-export function getVisibleSubAgents(runtime: WorkforceRuntime, zoom: number): AgentRuntime[] {
-  if (zoom < ZOOM_THRESHOLDS.OPERATIONS) return [];
-  return getLiveAgents(runtime).filter((a) => a.parentId);
+/** Live sub-agents whose direct parent is expanded. */
+export function getVisibleSubAgents(runtime: WorkforceRuntime, expanded: ReadonlySet<string>): AgentRuntime[] {
+  return getLiveAgents(runtime).filter((a) => !!a.parentId && expanded.has(a.parentId));
 }
 
-export function getVisibleOperations(runtime: WorkforceRuntime, zoom: number): TaskRuntime[] {
-  if (zoom < ZOOM_THRESHOLDS.OPERATIONS) return [];
-  return getActiveOperations(runtime);
+/** Active operations whose owning worker is expanded. */
+export function getVisibleOperations(runtime: WorkforceRuntime, expanded: ReadonlySet<string>): TaskRuntime[] {
+  return getActiveOperations(runtime).filter((t) => !!t.ownerAgentId && expanded.has(t.ownerAgentId));
 }
 
-export function getHiddenTransientCounts(
-  runtime: WorkforceRuntime,
-  zoom: number,
-  tempEdges: TempEdge[],
-  flashes: CompletionFlash[]
-): { tempEdges: number; flashes: number } {
-  const visibleNodeIds = new Set<string>([BRAIN_NODE_ID]);
-  for (const colony of runtime.colonies) {
-    if (colony.status !== "ARCHIVED") visibleNodeIds.add(colony.id);
+/** Live children (sub-agents + active operations) count per worker, for expand buttons. */
+export function getAgentExpandCounts(runtime: WorkforceRuntime, agentId: string): { sub: number; ops: number } {
+  let sub = 0;
+  let ops = 0;
+  for (const a of runtime.agents) {
+    if (a.parentId === agentId && !REMOVED_STATES.has(a.runtimeState)) sub += 1;
   }
-  if (zoom >= ZOOM_THRESHOLDS.AGENTS) {
-    for (const agent of getLiveAgents(runtime).filter((a) => !a.parentId)) visibleNodeIds.add(agent.id);
+  for (const t of runtime.tasks) {
+    if (t.ownerAgentId === agentId && t.status !== "COMPLETED" && t.status !== "CANCELLED") ops += 1;
   }
-  if (zoom >= ZOOM_THRESHOLDS.OPERATIONS) {
-    for (const agent of getLiveAgents(runtime).filter((a) => a.parentId)) visibleNodeIds.add(agent.id);
-    for (const task of getActiveOperations(runtime)) visibleNodeIds.add(task.id);
-  }
-  let hiddenTempEdges = 0;
-  let hiddenFlashes = 0;
-  for (const e of tempEdges) {
-    if (!visibleNodeIds.has(e.source) || !visibleNodeIds.has(e.target)) hiddenTempEdges++;
-  }
-  for (const f of flashes) {
-    if (!visibleNodeIds.has(f.entityId)) hiddenFlashes++;
-  }
-  return { tempEdges: hiddenTempEdges, flashes: hiddenFlashes };
+  return { sub, ops };
 }
 
 export interface TerritoryStats {
@@ -207,24 +143,61 @@ function focusContext(runtime: WorkforceRuntime, focusAgentId: string): FocusCon
   return { agentIds, territoryIds, operationIds };
 }
 
+/**
+ * Resolve the visible node set from the expansion state. Ancestors that were
+ * collapsed mid-tree leave orphaned expansion ids behind, so a node is only
+ * visible when its whole parent chain is visible AND expanded.
+ */
+function visibleNodeIds(
+  runtime: WorkforceRuntime,
+  expanded: ReadonlySet<string>
+): Set<string> {
+  const visible = new Set<string>([BRAIN_NODE_ID]);
+  const colonies = getVisibleTerritories(runtime);
+  for (const c of colonies) visible.add(c.id);
+
+  const expandedRoots = getLiveAgents(runtime).filter(
+    (a) => !a.parentId && !!a.colonyId && expanded.has(a.colonyId)
+  );
+  for (const a of expandedRoots) visible.add(a.id);
+
+  // Sub-agents: repeat until fixed-point (parents may themselves be sub-agents).
+  const subs = getLiveAgents(runtime).filter((a) => !!a.parentId);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const s of subs) {
+      if (!visible.has(s.id) && s.parentId && expanded.has(s.parentId) && visible.has(s.parentId)) {
+        visible.add(s.id);
+        changed = true;
+      }
+    }
+  }
+
+  for (const t of getVisibleOperations(runtime, expanded)) {
+    if (t.ownerAgentId && visible.has(t.ownerAgentId)) visible.add(t.id);
+  }
+  return visible;
+}
+
 export function getTopologyNodes(
   runtime: WorkforceRuntime,
-  zoom: number,
+  expanded: ReadonlySet<string>,
   focusAgentId?: string,
   opts: {
     narrow?: boolean;
     flashes?: CompletionFlash[];
     activate?: (id: string, type: string) => void;
+    expandAll?: () => void;
+    toggle?: (id: string) => void;
     layout?: TopologyLayout;
   } = {}
 ): Node[] {
   const layout = opts.layout ?? buildTopologyLayout(runtime, opts.narrow ?? false);
-  const band = bandFor(zoom);
   const focus = focusAgentId ? focusContext(runtime, focusAgentId) : null;
+  const visible = visibleNodeIds(runtime, expanded);
 
   const nodes: Node[] = [];
-  const visibleIds = new Set<string>([BRAIN_NODE_ID]);
-
   const isDimmed = (id: string, type: string): boolean => {
     if (!focus || id === BRAIN_NODE_ID) return false;
     if (type === "specialist") return !focus.territoryIds.has(id);
@@ -234,16 +207,19 @@ export function getTopologyNodes(
   };
 
   const pushNode = (node: Node) => {
-    visibleIds.add(node.id);
     nodes.push(node);
   };
 
   const activate = opts.activate;
+  const territories = getVisibleTerritories(runtime);
 
   const brainData: TopologyNodeData<BrainRuntime> = {
     entity: runtime.brain,
-    band,
+    level: "core",
     system: runtime.system as SystemRuntime,
+    territoryCount: territories.length,
+    allExpanded: territories.length > 0 && territories.every((c) => expanded.has(c.id)),
+    expandAll: opts.expandAll,
     activate,
   };
   pushNode({
@@ -256,12 +232,14 @@ export function getTopologyNodes(
     focusable: true,
   });
 
-  for (const colony of getVisibleTerritories(runtime)) {
+  for (const colony of territories) {
     const stats = getTerritoryStats(runtime, colony.id);
     const data: TopologyNodeData<ColonyRuntime> = {
       entity: colony,
-      band,
+      level: "territory",
       stats: { ...stats },
+      expanded: expanded.has(colony.id),
+      toggle: opts.toggle,
       activate,
     };
     pushNode({
@@ -275,116 +253,117 @@ export function getTopologyNodes(
     });
   }
 
-  if (zoom >= ZOOM_THRESHOLDS.AGENTS) {
-    for (const agent of getVisibleAgents(runtime, zoom)) {
-      const currentTask = agent.currentTaskId
-        ? runtime.tasks.find((t) => t.id === agent.currentTaskId)
-        : undefined;
-      const data: TopologyNodeData<AgentRuntime> = {
-        entity: agent,
-        band,
-        operation: currentTask?.description,
-        activate,
-      };
-      pushNode({
-        id: agent.id,
-        type: "agent",
-        data: data as Record<string, unknown>,
-        position: layout.agents.get(agent.id) ?? { x: 0, y: 0 },
-        style: dimStyle(isDimmed(agent.id, "agent")),
-        selectable: true,
-        focusable: true,
-      });
-    }
+  for (const agent of getVisibleAgents(runtime, expanded)) {
+    pushAgentNode(runtime, agent, "agent", layout, expanded, activate, opts.toggle, focus, pushNode);
   }
 
-  if (zoom >= ZOOM_THRESHOLDS.OPERATIONS) {
-    for (const sub of getVisibleSubAgents(runtime, zoom)) {
-      const currentTask = sub.currentTaskId
-        ? runtime.tasks.find((t) => t.id === sub.currentTaskId)
-        : undefined;
-      const data: TopologyNodeData<AgentRuntime> = {
-        entity: sub,
-        band,
-        operation: currentTask?.description,
-        activate,
-      };
-      pushNode({
-        id: sub.id,
-        type: "subagent",
-        data: data as Record<string, unknown>,
-        position: layout.subAgents.get(sub.id) ?? { x: 0, y: 0 },
-        style: dimStyle(isDimmed(sub.id, "subagent")),
-        selectable: true,
-        focusable: true,
-      });
-    }
-
-    for (const task of getVisibleOperations(runtime, zoom)) {
-      const owner = task.ownerAgentId
-        ? runtime.agents.find((a) => a.id === task.ownerAgentId)
-        : undefined;
-      const data: TopologyNodeData<TaskRuntime> = {
-        entity: task,
-        band,
-        ownerName: owner?.name,
-        activate,
-      };
-      pushNode({
-        id: task.id,
-        type: "operation",
-        data: data as Record<string, unknown>,
-        position: layout.operations.get(task.id) ?? { x: 0, y: 0 },
-        style: dimStyle(isDimmed(task.id, "operation")),
-        selectable: true,
-        focusable: true,
-      });
-    }
+  for (const sub of getVisibleSubAgents(runtime, expanded)) {
+    if (!visible.has(sub.id)) continue;
+    pushAgentNode(runtime, sub, "subagent", layout, expanded, activate, opts.toggle, focus, pushNode);
   }
 
-  // Ephemeral completion/error transitions — swept by the runtime store.
+  for (const task of getVisibleOperations(runtime, expanded)) {
+    if (!visible.has(task.id)) continue;
+    const owner = task.ownerAgentId
+      ? runtime.agents.find((a) => a.id === task.ownerAgentId)
+      : undefined;
+    const data: TopologyNodeData<TaskRuntime> = {
+      entity: task,
+      level: "op",
+      ownerName: owner?.name,
+      activate,
+    };
+    pushNode({
+      id: task.id,
+      type: "operation",
+      data: data as Record<string, unknown>,
+      position: layout.operations.get(task.id) ?? { x: 0, y: 0 },
+      style: dimStyle(isDimmed(task.id, "operation")),
+      selectable: true,
+      focusable: true,
+    });
+  }
+
+  // Ephemeral completion/error transitions — only when their owner is visible.
   const flashes = opts.flashes ?? [];
-  if (zoom >= ZOOM_THRESHOLDS.OPERATIONS && flashes.length > 0) {
-    for (const flash of flashes) {
-      const ownerPos =
-        layout.agents.get(flash.entityId) ?? layout.subAgents.get(flash.entityId);
-      if (!ownerPos) continue;
-      const data = { entity: flash, band, activate } as Record<string, unknown>;
-      pushNode({
-        id: flash.id,
-        type: "flash",
-        data,
-        position: { x: ownerPos.x, y: ownerPos.y + 58 },
-        style: { pointerEvents: "none", ...dimStyle(isDimmed(flash.entityId, "agent")) },
-        selectable: false,
-        focusable: false,
-      });
-    }
+  for (const flash of flashes) {
+    if (!visible.has(flash.entityId)) continue;
+    const ownerPos = layout.agents.get(flash.entityId) ?? layout.subAgents.get(flash.entityId);
+    if (!ownerPos) continue;
+    const data = { entity: flash, level: "agent", activate } as Record<string, unknown>;
+    pushNode({
+      id: flash.id,
+      type: "flash",
+      data,
+      position: { x: ownerPos.x, y: ownerPos.y + 58 },
+      style: {
+        pointerEvents: "none",
+        ...dimStyle(focus ? !focus.agentIds.has(flash.entityId) : false),
+      },
+      selectable: false,
+      focusable: false,
+    });
   }
 
   return nodes;
 }
 
-const OWNERSHIP = "hsl(var(--border))";
+function pushAgentNode(
+  runtime: WorkforceRuntime,
+  agent: AgentRuntime,
+  type: "agent" | "subagent",
+  layout: TopologyLayout,
+  expanded: ReadonlySet<string>,
+  activate: ((id: string, t: string) => void) | undefined,
+  toggle: ((id: string) => void) | undefined,
+  focus: FocusContext | null,
+  pushNode: (node: Node) => void
+) {
+  const currentTask = agent.currentTaskId
+    ? runtime.tasks.find((t) => t.id === agent.currentTaskId)
+    : undefined;
+  const counts = getAgentExpandCounts(runtime, agent.id);
+  const data: TopologyNodeData<AgentRuntime> = {
+    entity: agent,
+    level: type === "agent" ? "agent" : "sub",
+    expanded: expanded.has(agent.id),
+    toggle,
+    subCount: counts.sub,
+    opCount: counts.ops,
+    operation: currentTask?.description,
+    activate,
+  };
+  const position =
+    type === "subagent"
+      ? layout.subAgents.get(agent.id)
+      : layout.agents.get(agent.id);
+  pushNode({
+    id: agent.id,
+    type,
+    data: data as Record<string, unknown>,
+    position: position ?? { x: 0, y: 0 },
+    style: dimStyle(focus ? !focus.agentIds.has(agent.id) : false),
+    selectable: true,
+    focusable: true,
+  });
+}
+
+const LEVEL_STROKES: Record<Exclude<TopologyLevel, "core">, string> = {
+  territory: "hsl(var(--level-territory))",
+  agent: "hsl(var(--level-agent))",
+  sub: "hsl(var(--level-sub))",
+  op: "hsl(var(--level-op))",
+};
 
 export function getTopologyEdges(
   runtime: WorkforceRuntime,
-  zoom: number,
+  expanded: ReadonlySet<string>,
   focusAgentId?: string,
   opts: { narrow?: boolean; tempEdges?: TempEdge[]; layout?: TopologyLayout } = {}
 ): Edge[] {
   const layout = opts.layout ?? buildTopologyLayout(runtime, opts.narrow ?? false);
   const focus = focusAgentId ? focusContext(runtime, focusAgentId) : null;
-
-  const visibleNodeIds = new Set<string>([BRAIN_NODE_ID]);
-  for (const id of Array.from(layout.territories.keys())) visibleNodeIds.add(id);
-  if (zoom >= ZOOM_THRESHOLDS.AGENTS) {
-    for (const id of Array.from(layout.agents.keys())) visibleNodeIds.add(id);
-  }
-  if (zoom >= ZOOM_THRESHOLDS.OPERATIONS) {
-    for (const id of Array.from(layout.subAgents.keys())) visibleNodeIds.add(id);
-    for (const id of Array.from(layout.operations.keys())) visibleNodeIds.add(id);
-  }
+  const visible = visibleNodeIds(runtime, expanded);
 
   const edgeInFocus = (source: string, target: string): boolean => {
     if (!focus) return true;
@@ -400,65 +379,61 @@ export function getTopologyEdges(
 
   const edges: Edge[] = [];
   const dimTrue = () => ({ opacity: 0.2 });
-  const push = (id: string, source: string, target: string) => {
-    if (!visibleNodeIds.has(source) || !visibleNodeIds.has(target)) return;
+  const push = (id: string, source: string, target: string, stroke: string) => {
+    if (!visible.has(source) || !visible.has(target)) return;
     edges.push({
       id,
       source,
       target,
       type: "default",
       style: {
-        stroke: OWNERSHIP,
+        stroke,
         strokeWidth: 1,
         ...(focus && !edgeInFocus(source, target) ? dimTrue() : undefined),
       },
     });
   };
 
-  // Structural ownership spine: thin, minimal — hierarchy is spatial.
-  layout.territories.forEach((_, colonyId) => push(`owns:brain-spec-${colonyId}`, BRAIN_NODE_ID, colonyId));
-  if (zoom >= ZOOM_THRESHOLDS.AGENTS) {
-    for (const [agentId] of Array.from(layout.agents)) {
-      const agent = runtime.agents.find((a) => a.id === agentId);
-      if (agent?.colonyId) push(`owns:spec-agent-${agent.colonyId}-${agentId}`, agent.colonyId, agentId);
-    }
+  // Structural ownership spine: tinted by the child's level.
+  layout.territories.forEach((_, colonyId) =>
+    push(`owns:brain-spec-${colonyId}`, BRAIN_NODE_ID, colonyId, LEVEL_STROKES.territory)
+  );
+  for (const [agentId] of Array.from(layout.agents)) {
+    const agent = runtime.agents.find((a) => a.id === agentId);
+    if (agent?.colonyId) push(`owns:spec-agent-${agent.colonyId}-${agentId}`, agent.colonyId, agentId, LEVEL_STROKES.agent);
   }
-  if (zoom >= ZOOM_THRESHOLDS.OPERATIONS) {
-    for (const [subId] of Array.from(layout.subAgents)) {
-      const sub = runtime.agents.find((a) => a.id === subId);
-      if (sub?.parentId) push(`owns:agent-sub-${sub.parentId}-${subId}`, sub.parentId, subId);
-    }
-    for (const task of getVisibleOperations(runtime, zoom)) {
-      if (task.ownerAgentId) push(`owns:agent-op-${task.ownerAgentId}-${task.id}`, task.ownerAgentId, task.id);
-    }
+  for (const [subId] of Array.from(layout.subAgents)) {
+    const sub = runtime.agents.find((a) => a.id === subId);
+    if (sub?.parentId) push(`owns:agent-sub-${sub.parentId}-${subId}`, sub.parentId, subId, LEVEL_STROKES.sub);
+  }
+  for (const task of getVisibleOperations(runtime, expanded)) {
+    if (task.ownerAgentId) push(`owns:agent-op-${task.ownerAgentId}-${task.id}`, task.ownerAgentId, task.id, LEVEL_STROKES.op);
   }
 
   // Transient relationships: only from real runtime events, always animated,
   // always age out (swept by the store).
-  if (zoom >= ZOOM_THRESHOLDS.OPERATIONS) {
-    for (const t of opts.tempEdges ?? []) {
-      if (!visibleNodeIds.has(t.source) || !visibleNodeIds.has(t.target)) continue;
-      const style =
-        t.kind === "verification"
-          ? { stroke: "hsl(var(--warning))", strokeWidth: 1.75 }
-          : t.kind === "delegation"
-          ? { stroke: "hsl(var(--info))", strokeWidth: 1.75, strokeDasharray: "6 4" }
-          : { stroke: "hsl(var(--success))", strokeWidth: 1.75 };
-      edges.push({
-        id: `temp:${t.id}`,
-        source: t.source,
-        target: t.target,
-        type: "default",
-        animated: true,
-        label: t.label,
-        labelStyle: { fill: "hsl(var(--muted-foreground))", fontSize: 9 },
-        style: {
-          ...style,
-          ...(focus && !edgeInFocus(t.source, t.target) ? dimTrue() : undefined),
-        },
-        data: { kind: t.kind, label: t.label },
-      });
-    }
+  for (const t of opts.tempEdges ?? []) {
+    if (!visible.has(t.source) || !visible.has(t.target)) continue;
+    const style =
+      t.kind === "verification"
+        ? { stroke: "hsl(var(--warning))", strokeWidth: 1.75 }
+        : t.kind === "delegation"
+        ? { stroke: "hsl(var(--info))", strokeWidth: 1.75, strokeDasharray: "6 4" }
+        : { stroke: "hsl(var(--success))", strokeWidth: 1.75 };
+    edges.push({
+      id: `temp:${t.id}`,
+      source: t.source,
+      target: t.target,
+      type: "default",
+      animated: true,
+      label: t.label,
+      labelStyle: { fill: "hsl(var(--muted-foreground))", fontSize: 11 },
+      style: {
+        ...style,
+        ...(focus && !edgeInFocus(t.source, t.target) ? dimTrue() : undefined),
+      },
+      data: { kind: t.kind, label: t.label },
+    });
   }
 
   return edges;
@@ -466,23 +441,25 @@ export function getTopologyEdges(
 
 /**
  * Single-pass graph derivation: the deterministic layout is computed once and
- * shared by the node and edge builders. Avoids running the layout engine twice
- * on every render/zoom frame.
+ * shared by the node and edge builders. Visibility is driven entirely by the
+ * user's expand/collapse set, never by zoom.
  */
 export function getTopologyGraph(
   runtime: WorkforceRuntime,
-  zoom: number,
+  expanded: ReadonlySet<string>,
   focusAgentId?: string,
   opts: {
     narrow?: boolean;
     flashes?: CompletionFlash[];
     tempEdges?: TempEdge[];
     activate?: (id: string, type: string) => void;
+    expandAll?: () => void;
+    toggle?: (id: string) => void;
   } = {}
 ): { nodes: Node[]; edges: Edge[] } {
   const layout = buildTopologyLayout(runtime, opts.narrow ?? false);
   return {
-    nodes: getTopologyNodes(runtime, zoom, focusAgentId, { ...opts, layout }),
-    edges: getTopologyEdges(runtime, zoom, focusAgentId, { ...opts, layout }),
+    nodes: getTopologyNodes(runtime, expanded, focusAgentId, { ...opts, layout }),
+    edges: getTopologyEdges(runtime, expanded, focusAgentId, { ...opts, layout }),
   };
 }

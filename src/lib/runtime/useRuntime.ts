@@ -2,12 +2,8 @@
 
 import { useEffect, useMemo } from "react";
 import { useRuntimeStore } from "./store";
-import type { TopologyBand, WorkforceRuntime } from "./types";
-import {
-  BAND_ANCHOR_ZOOM,
-  getAttentionRequired,
-  getTopologyGraph,
-} from "./selectors";
+import type { WorkforceRuntime } from "./types";
+import { getAttentionRequired, getTopologyGraph } from "./selectors";
 
 export const useRuntime = () => useRuntimeStore((state) => state.runtime);
 export const useConnection = () => useRuntimeStore((state) => state.connection);
@@ -42,25 +38,33 @@ export function useSubscribeRuntime() {
 }
 
 export function useTopologyGraph(
-  band: TopologyBand,
+  expanded: ReadonlySet<string>,
   focusAgentId?: string | null,
-  opts: { narrow?: boolean; activate?: (id: string, type: string) => void } = {}
+  opts: {
+    narrow?: boolean;
+    activate?: (id: string, type: string) => void;
+    expandAll?: () => void;
+    toggle?: (id: string) => void;
+  } = {}
 ) {
   const runtime = useRuntime();
   const tempEdges = useTempEdges();
   const flashes = useFlashes();
   const narrow = opts.narrow;
   const activate = opts.activate;
-  const anchorZoom = BAND_ANCHOR_ZOOM[band];
+  const expandAll = opts.expandAll;
+  const toggle = opts.toggle;
   return useMemo(() => {
     if (!runtime) return { nodes: [], edges: [] };
-    return getTopologyGraph(runtime, anchorZoom, focusAgentId ?? undefined, {
+    return getTopologyGraph(runtime, expanded, focusAgentId ?? undefined, {
       narrow,
       flashes,
       tempEdges,
       activate,
+      expandAll,
+      toggle,
     });
-  }, [runtime, anchorZoom, focusAgentId, tempEdges, flashes, narrow, activate]);
+  }, [runtime, expanded, focusAgentId, tempEdges, flashes, narrow, activate, expandAll, toggle]);
 }
 
 export function useAttentionRequired() {

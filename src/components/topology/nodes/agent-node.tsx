@@ -1,12 +1,17 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Badge } from "@/components/ui/badge";
-import type { AgentRuntime, TopologyBand } from "@/lib/runtime/types";
+import type { AgentRuntime } from "@/lib/runtime/types";
 import type { TopologyNodeData } from "@/lib/runtime/selectors";
 import { agentStatePresentation } from "@/lib/runtime/presentation";
 import { cn } from "@/lib/utils";
+import { ExpandToggleButton, LevelBar, LevelTag, NodeButton } from "./node-parts";
 
 export interface AgentNodeData extends TopologyNodeData<AgentRuntime> {
   operation?: string;
+  expanded?: boolean;
+  subCount?: number;
+  opCount?: number;
+  toggle?: (id: string) => void;
 }
 
 interface AgentShellProps {
@@ -20,19 +25,12 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
   const entity = data.entity as AgentRuntime;
   const presenting = agentStatePresentation(entity.runtimeState);
   const Icon = presenting.icon;
-  const band: TopologyBand = data.band ?? "agents";
-  const attention = entity.runtimeState === "waiting_for_approval" || entity.runtimeState === "blocked";
+  const attention =
+    entity.runtimeState === "waiting_for_approval" || entity.runtimeState === "blocked";
   const small = nodeType === "subagent";
-
-  const elevation = cn(
-    "group relative rounded-lg bg-card px-3 py-2 shadow-sm",
-    small ? "w-32" : "w-40",
-    "cursor-pointer hover:ring-1 hover:ring-primary/30",
-    attention && "ring-1 ring-warning/50",
-    band === "agents" && "border border-foreground/15 shadow-md",
-    band === "operations" && "border border-primary/40 shadow-lg",
-    band === "metadata" && "border border-primary/50 shadow-xl ring-1 ring-primary/20"
-  );
+  const level = nodeType === "subagent" ? "sub" : "agent";
+  const expandable = (data.subCount ?? 0) + (data.opCount ?? 0);
+  const expanded = data.expanded ?? false;
 
   return (
     <div
@@ -46,14 +44,18 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
           activate?.(id, nodeType);
         }
       }}
-      className={elevation}
+      className={cn(
+        "node-list-in group relative rounded-lg border border-foreground/15 bg-card px-3 py-2 shadow-sm",
+        small ? "w-44" : "w-48",
+        "cursor-pointer transition-colors hover:ring-1 hover:ring-primary/30",
+        attention && "ring-1 ring-warning/50"
+      )}
     >
+      <LevelBar level={level} />
       <Handle type="target" position={Position.Top} id="in" />
       <Handle type="source" position={Position.Bottom} id="out" />
       <div className="flex items-center justify-between gap-2">
-        <span className={cn("truncate font-semibold", small ? "text-xs" : "text-sm")}>
-          {entity.name}
-        </span>
+        <LevelTag level={level} />
         <Badge variant={presenting.variant} className="shrink-0 gap-1">
           <Icon
             className={cn("h-3 w-3", entity.runtimeState === "initializing" && "animate-spin")}
@@ -62,23 +64,26 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
           {small ? presenting.label.slice(0, 2).toUpperCase() : presenting.label}
         </Badge>
       </div>
+      <div className="mt-1">
+        <span className={cn("block truncate font-semibold", small ? "text-xs" : "text-sm")}>
+          {entity.name}
+        </span>
+      </div>
       {data.operation && (
         <p className="mt-0.5 truncate text-xs text-muted-foreground" title={data.operation}>
           ↳ {data.operation}
         </p>
       )}
-      <div className="mt-1.5 flex justify-end">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            activate?.(id, nodeType);
-          }}
-          onKeyDown={(e) => e.stopPropagation()}
-          className="rounded-md border border-border bg-background/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
-        >
-          Inspect
-        </button>
+      <div className="mt-1.5 flex flex-wrap items-center justify-end gap-2">
+        {expandable > 0 && (
+          <ExpandToggleButton
+            expanded={expanded}
+            count={expandable}
+            label="Expand"
+            onToggle={() => data.toggle?.(id)}
+          />
+        )}
+        <NodeButton onClick={() => activate?.(id, nodeType)}>Inspect</NodeButton>
       </div>
     </div>
   );

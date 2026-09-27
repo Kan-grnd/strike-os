@@ -1,13 +1,11 @@
 import { type NodeProps } from "@xyflow/react";
 import { Check, X, Info } from "lucide-react";
-import type { CompletionFlash, TopologyBand } from "@/lib/runtime/types";
+import type { CompletionFlash } from "@/lib/runtime/types";
 import type { TopologyNodeData } from "@/lib/runtime/selectors";
 
 export function FlashNode({ data }: NodeProps) {
   const d = data as unknown as TopologyNodeData<CompletionFlash>;
   const entity = d.entity as CompletionFlash;
-  const band: TopologyBand = d.band ?? "operations";
-  void band;
   const Icon = entity.kind === "success" ? Check : entity.kind === "error" ? X : Info;
   const tone =
     entity.kind === "success"

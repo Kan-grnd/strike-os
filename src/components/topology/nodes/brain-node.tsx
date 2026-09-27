@@ -1,12 +1,15 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Badge } from "@/components/ui/badge";
-import type { BrainRuntime, SystemRuntime, TopologyBand } from "@/lib/runtime/types";
+import type { BrainRuntime, SystemRuntime } from "@/lib/runtime/types";
 import type { TopologyNodeData } from "@/lib/runtime/selectors";
 import { brainStatePresentation } from "@/lib/runtime/presentation";
-import { cn } from "@/lib/utils";
+import { LevelTag, NodeButton } from "./node-parts";
 
 interface BrainNodeData extends TopologyNodeData<BrainRuntime> {
   system?: SystemRuntime;
+  territoryCount?: number;
+  allExpanded?: boolean;
+  expandAll?: () => void;
 }
 
 export function BrainNode({ id, data }: NodeProps) {
@@ -14,16 +17,8 @@ export function BrainNode({ id, data }: NodeProps) {
   const entity = d.entity as BrainRuntime;
   const presenting = brainStatePresentation(entity.state);
   const Icon = presenting.icon;
-  const band: TopologyBand = d.band ?? "specialist";
-
-  const elevation = cn(
-    "group relative min-w-52 rounded-2xl bg-card px-4 py-3",
-    "cursor-pointer hover:ring-1 hover:ring-primary/30",
-    band === "specialist" && "border border-foreground/15 shadow-md",
-    band === "agents" && "border border-foreground/30 shadow-lg",
-    band === "operations" && "border border-primary/40 shadow-lg",
-    band === "metadata" && "border border-primary/50 shadow-xl ring-1 ring-primary/20"
-  );
+  const territoryCount = d.territoryCount ?? 0;
+  const allExpanded = d.allExpanded ?? false;
 
   return (
     <div
@@ -37,10 +32,13 @@ export function BrainNode({ id, data }: NodeProps) {
           d.activate?.(id, "brain");
         }
       }}
-      className={elevation}
+      className="node-list-in group relative min-w-56 cursor-pointer rounded-full border border-[hsl(var(--level-core))/60] bg-card px-7 py-3 text-center transition-colors hover:border-[hsl(var(--level-core))] glow-core"
     >
       <Handle type="source" position={Position.Bottom} id="out" />
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-center gap-2">
+        <LevelTag level="core" />
+      </div>
+      <div className="mt-1 flex items-center justify-between gap-4">
         <span className="text-base font-bold tracking-tight">
           STRIKE&nbsp;BRAIN
         </span>
@@ -53,18 +51,17 @@ export function BrainNode({ id, data }: NodeProps) {
         {entity.activeCount}/{entity.agentCount} active · {entity.operationCount} operations ·{" "}
         {entity.missionCount} missions
       </p>
-      <div className="mt-2 flex justify-end">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            d.activate?.(id, "brain");
-          }}
-          onKeyDown={(e) => e.stopPropagation()}
-          className="rounded-md border border-border bg-background/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
-        >
-          Inspect
-        </button>
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+        {territoryCount > 0 && (
+          <NodeButton
+            active={!allExpanded}
+            onClick={() => d.expandAll?.()}
+            aria-expanded={allExpanded}
+          >
+            {allExpanded ? "Collapse all" : "Expand all"}
+          </NodeButton>
+        )}
+        <NodeButton onClick={() => d.activate?.(id, "brain")}>Inspect</NodeButton>
       </div>
     </div>
   );

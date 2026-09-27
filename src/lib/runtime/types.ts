@@ -122,6 +122,3 @@ export interface CompletionFlash {
   kind: "success" | "error" | "info";
   occurredAt: number;
 }
-
-/** Information-density tier attached to each node (zoom = depth). */
-export type TopologyBand = "specialist" | "agents" | "operations" | "metadata";

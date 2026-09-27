@@ -60,41 +60,49 @@ const results: string[] = [];
 const check = (label: string, ok: boolean, detail?: string) => {
   results.push(`${ok ? "PASS" : "FAIL"} ${label}${detail ? ` — ${detail}` : ""}`);
 };
-const bandOf = (s: unknown) => {
+const levelOf = (s: unknown) => {
   if (s && typeof s === "object") {
-    return (s as Record<string, unknown>).band as string;
+    return (s as Record<string, unknown>).level as string;
   }
   return undefined;
 };
 
-// ── Overview band (< 0.8): Brain + Specialist territories only ──
-const overviewNodes = getTopologyNodes(runtime, 0.5);
+// Expansion-state helpers. Collapsed = 3 nodes (brain + territories). Expanding
+// a node reveals its direct children.
+const collapsed = new Set<string>();
+const territoriesOnly = new Set(["col-a", "col-b"]);
+const agentsExpanded = new Set(["col-a", "col-b", "ag-1", "ag-2", "ag-4"]);
+
+// ── Collapsed: Brain + Specialist territories only ──
+const overviewNodes = getTopologyNodes(runtime, collapsed);
 const overviewTypes = overviewNodes.map((n) => n.type as string);
-check("overview: brain present", overviewNodes.some((n) => n.id === BRAIN_NODE_ID));
-check("overview: only brain+specialist", overviewTypes.every((t) => t === "brain" || t === "specialist"), overviewTypes.join(","));
-check("overview: both territories", overviewTypes.filter((t) => t === "specialist").length === 2);
-check("overview: agents hidden", getVisibleAgents(runtime, 0.5).length === 0);
-check("overview: sub-agents hidden", getVisibleSubAgents(runtime, 0.5).length === 0);
-check("overview: operations hidden", getVisibleOperations(runtime, 0.5).length === 0);
-check("overview: cancelled agent excluded", getVisibleAgents(runtime, 1.0).every((a) => a.id !== "ag-6"));
+check("collapsed: brain present", overviewNodes.some((n) => n.id === BRAIN_NODE_ID));
+check("collapsed: only brain+specialist", overviewTypes.every((t) => t === "brain" || t === "specialist"), overviewTypes.join(","));
+check("collapsed: both territories", overviewTypes.filter((t) => t === "specialist").length === 2);
+check("collapsed: agents hidden", getVisibleAgents(runtime, collapsed).length === 0);
+check("collapsed: sub-agents hidden", getVisibleSubAgents(runtime, collapsed).length === 0);
+check("collapsed: operations hidden", getVisibleOperations(runtime, collapsed).length === 0);
+check("collapsed: cancelled agent excluded", getVisibleAgents(runtime, territoriesOnly).every((a) => a.id !== "ag-6"));
 
-// ── Agents band (0.8–1.3): agents appear, sub-agents/ops stay hidden ──
-const agentsTypes = getTopologyNodes(runtime, 1.0).map((n) => n.type as string);
-check("agents band: root agents visible", agentsTypes.filter((t) => t === "agent").length === 4, agentsTypes.join(","));
-check("agents band: sub-agents hidden", agentsTypes.filter((t) => t === "subagent").length === 0);
-check("agents band: ops hidden", agentsTypes.filter((t) => t === "operation").length === 0);
+// ── Territories expanded: root agents appear, sub-agents/ops stay hidden ──
+const agentTypes = getTopologyNodes(runtime, territoriesOnly).map((n) => n.type as string);
+check("territories expanded: root agents visible", agentTypes.filter((t) => t === "agent").length === 4, agentTypes.join(","));
+check("territories expanded: sub-agents hidden", agentTypes.filter((t) => t === "subagent").length === 0);
+check("territories expanded: ops hidden", agentTypes.filter((t) => t === "operation").length === 0);
 
-// ── Operations band (≥1.3): sub-agents + operations appear ──
-const deepNodes = getTopologyNodes(runtime, 1.5);
+// ── Agents expanded: sub-agents + operations appear ──
+const deepNodes = getTopologyNodes(runtime, agentsExpanded);
 const deepTypes = deepNodes.map((n) => n.type as string);
-check("operations band: sub-agent visible", deepNodes.some((n) => n.id === "ag-4"));
-check("operations band: ops visible", ["t1", "t4", "t5"].every((id) => deepNodes.some((n) => n.id === id)));
-check("operations band: completed excluded", !deepNodes.some((n) => n.id === "t2"));
-check("operations band: cancelled excluded", !deepNodes.some((n) => n.id === "t3"));
+check("agents expanded: sub-agent visible", deepNodes.some((n) => n.id === "ag-4"));
+check("agents expanded: ops visible", ["t1", "t4", "t5"].every((id) => deepNodes.some((n) => n.id === id)));
+check("agents expanded: completed excluded", !deepNodes.some((n) => n.id === "t2"));
+check("agents expanded: cancelled excluded", !deepNodes.some((n) => n.id === "t3"));
 
-// ── Metadata band (≥2.0): nodes carry metadata band ──
-const metaNodes = getTopologyNodes(runtime, 2.2);
-check("metadata band: band flag present", bandOf(metaNodes.find((n) => n.type === "agent")?.data) === "metadata", String(bandOf(metaNodes.find((n) => n.type === "agent")?.data)));
+// ── Level data attached to each node ──
+const agentNodeData = deepNodes.find((n) => n.id === "ag-1");
+check("level: brain carries core", levelOf(deepNodes.find((n) => n.id === BRAIN_NODE_ID)?.data) === "core", String(levelOf(deepNodes.find((n) => n.id === BRAIN_NODE_ID)?.data)));
+check("level: agent carries level + expand counts", levelOf(agentNodeData?.data) === "agent" && (agentNodeData?.data as Record<string, unknown>).subCount === 1 && (agentNodeData?.data as Record<string, unknown>).opCount === 1, JSON.stringify(levelOf(agentNodeData?.data)));
+check("level: op carries op level", levelOf(deepNodes.find((n) => n.id === "t1")?.data) === "op", String(levelOf(deepNodes.find((n) => n.id === "t1")?.data)));
 
 // ── Active operations / attention ──
 const active = getActiveOperations(runtime);
@@ -111,7 +119,7 @@ check("territory alpha waiting=2", alpha.waiting === 2, String(alpha.waiting));
 check("territory beta errors=1", beta.errors === 1, String(beta.errors));
 
 // ── Top-down positioning ──
-const posNodes = getTopologyNodes(runtime, 1.5);
+const posNodes = getTopologyNodes(runtime, agentsExpanded);
 const posOf = (id: string) => posNodes.find((n) => n.id === id)?.position ?? { x: 0, y: 0 };
 const yOf = (type: string) => posNodes.filter((n) => n.type === type).map((n) => posOf(n.id as string).y);
 check("top-down: brain x=0", posOf(BRAIN_NODE_ID).x === 0 && posOf(BRAIN_NODE_ID).y === 40, JSON.stringify(posOf(BRAIN_NODE_ID)));
@@ -123,7 +131,7 @@ const territoryXs = posNodes.filter((n) => n.type === "specialist").map((n) => p
 check("top-down: territories balanced about brain", Math.abs(territoryXs.reduce((a, b) => a + b, 0)) < 1, territoryXs.join(","));
 
 // ── Determinism ──
-const posNodesAgain = getTopologyNodes(runtime, 1.5);
+const posNodesAgain = getTopologyNodes(runtime, agentsExpanded);
 const stable = posNodes.every((n) => {
   const other = posNodesAgain.find((m) => m.id === n.id);
   return other && other.position.x === n.position.x && other.position.y === n.position.y;
@@ -131,7 +139,7 @@ const stable = posNodes.every((n) => {
 check("layout determinism: identical across calls", stable);
 
 // ── Focus: dim unrelated, keep the tree ──
-const focusNodes = getTopologyNodes(runtime, 1.5, "ag-1");
+const focusNodes = getTopologyNodes(runtime, agentsExpanded, "ag-1");
 const focusedAgent = focusNodes.find((n) => n.id === "ag-1");
 const subAgent = focusNodes.find((n) => n.id === "ag-4");
 const dimmedAnalyst = focusNodes.find((n) => n.id === "ag-2");
@@ -147,8 +155,8 @@ check("focus: own territory not dimmed", alphaColony?.style === undefined, JSON.
 check("focus: sub's op not dimmed", focusedOp?.style === undefined, JSON.stringify(focusedOp?.style));
 check("focus: analyst's op dimmed", dimmedOp?.style !== undefined, JSON.stringify(dimmedOp?.style));
 
-// ── Edges: temp edges animated, ownership thin ──
-const edgesDeep = getTopologyEdges(runtime, 1.5, undefined, {
+// ── Edges: temp edges animated, ownership thin, tinted by child level ──
+const edgesDeep = getTopologyEdges(runtime, agentsExpanded, undefined, {
   tempEdges: [
     { id: "temp:delegation:e1", kind: "delegation", source: "ag-1", target: "ag-4", taskId: "t1", eventId: "e1", label: "Delegated", occurredAt: Date.now() },
     { id: "temp:verification:v1", kind: "verification", source: "ag-1", target: "t1", taskId: "t1", eventId: "v1", label: "Verifying", occurredAt: Date.now() },
@@ -157,10 +165,15 @@ const edgesDeep = getTopologyEdges(runtime, 1.5, undefined, {
 const tempAnimated = edgesDeep.filter((e) => e.animated === true);
 check("edges: temp edges animated", tempAnimated.length === 2, `animated=${tempAnimated.length}`);
 check("edges: ownership edges present", edgesDeep.some((e) => e.source === BRAIN_NODE_ID));
-const edgesOverview = getTopologyEdges(runtime, 0.5, undefined, {
+const ownershipStrokes = edgesDeep
+  .filter((e) => e.id.startsWith("owns:"))
+  .map((e) => (e.style as { stroke?: string } | undefined)?.stroke ?? "");
+const levelPrefix = "hsl(var(--level-";
+check("edges: ownership tinted by child level", ownershipStrokes.every((s) => s.startsWith(levelPrefix)), ownershipStrokes.join("|"));
+const edgesOverview = getTopologyEdges(runtime, collapsed, undefined, {
   tempEdges: [{ id: "temp:delegation:e1", kind: "delegation", source: "ag-1", target: "ag-4", eventId: "e1", occurredAt: Date.now() }],
 });
-check("edges: temp edges withheld below operations band", !edgesOverview.some((e) => e.animated));
+check("edges: temp edges withheld while endpoints collapsed", !edgesOverview.some((e) => e.animated));
 
 // ── Brain health derivation (§14: aggregate, not node-propagation) ──
 const states = (list: string[]): InstanceType<typeof Array> => list;
