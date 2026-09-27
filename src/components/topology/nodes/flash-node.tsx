@@ -19,7 +19,7 @@ export function FlashNode({ data }: NodeProps) {
       role="status"
       aria-live="polite"
       aria-label={`Operation ${entity.kind}: ${entity.label}`}
-      className={`pointer-events-none flex items-center gap-1 rounded-full border bg-background px-2 py-1 text-xs font-semibold ${tone} animate-pulse`}
+      className={`pointer-events-none flex items-center gap-1 rounded-full border bg-background px-2 py-1 text-xs font-semibold ${tone} animate-pulse motion-reduce:animate-none`}
     >
       <Icon className="h-3 w-3 shrink-0" aria-hidden />
       <span className="max-w-40 truncate">{entity.label}</span>

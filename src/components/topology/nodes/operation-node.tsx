@@ -27,18 +27,10 @@ export function OperationNode({ id, data }: NodeProps) {
   const entity = d.entity as TaskRuntime;
 
   return (
+    /* Shell only — Details below is the real, focusable control. */
     <div
-      role="button"
-      tabIndex={0}
-      aria-label={`Operation ${entity.description}`}
       title={`${entity.description} — inspect for details`}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          d.activate?.(id, "operation");
-        }
-      }}
-      className="node-list-in group relative w-48 cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="node-list-in group relative w-48 cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40"
     >
       <Handle type="target" position={Position.Top} id="in" />
       <div className="flex items-center justify-between gap-3">

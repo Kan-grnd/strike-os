@@ -103,17 +103,14 @@ export function InspectorPanel({
           if (e.key === "Escape") onClose();
         }}
         className={cn(
-          "flex flex-col rounded-xl border border-border bg-card shadow-lg transition-all duration-200",
+          "flex flex-col rounded-xl border border-border bg-card shadow-lg transition-all motion-reduce:transition-none duration-200 motion-reduce:transition-none",
           narrow
             ? "fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] w-full rounded-t-2xl border-b-0"
             : "absolute top-20 right-4 z-40 max-h-[calc(100vh-6rem)] w-72"
         )}
       >
-        {narrow && (
-          <div className="flex items-center justify-center py-2 border-b border-border">
-            <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
-          </div>
-        )}
+        {/* The sheet has no drag behaviour, so the grab-bar affordance is gone
+            rather than left on screen as a control that does nothing. */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <span className="text-sm font-semibold text-muted-foreground">Loading…</span>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close inspector" className="h-7 w-7 p-0">
@@ -122,10 +119,10 @@ export function InspectorPanel({
         </div>
         <ScrollArea className="flex-1 min-h-0">
           <div className="px-4 py-4 space-y-3">
-            <div className="h-4 w-3/4 animate-pulse bg-muted rounded" />
-            <div className="h-4 w-1/2 animate-pulse bg-muted rounded" />
-            <div className="h-4 w-5/6 animate-pulse bg-muted rounded" />
-            <div className="h-4 w-1/3 animate-pulse bg-muted rounded" />
+            <div className="h-4 w-3/4 animate-pulse motion-reduce:animate-none bg-muted rounded" />
+            <div className="h-4 w-1/2 animate-pulse motion-reduce:animate-none bg-muted rounded" />
+            <div className="h-4 w-5/6 animate-pulse motion-reduce:animate-none bg-muted rounded" />
+            <div className="h-4 w-1/3 animate-pulse motion-reduce:animate-none bg-muted rounded" />
           </div>
         </ScrollArea>
       </div>
@@ -145,18 +142,12 @@ export function InspectorPanel({
         if (e.key === "Escape") onClose();
       }}
       className={cn(
-        "flex flex-col rounded-xl border border-border bg-card shadow-lg transition-all duration-200",
+        "flex flex-col rounded-xl border border-border bg-card shadow-lg transition-all motion-reduce:transition-none duration-200 motion-reduce:transition-none",
         narrow
           ? "fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] w-full rounded-t-2xl border-b-0"
           : "absolute top-20 right-4 z-40 max-h-[calc(100vh-6rem)] w-72"
       )}
     >
-      {/* Drag handle for bottom sheet */}
-      {narrow && (
-        <div className="flex items-center justify-center py-2 border-b border-border">
-          <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
-        </div>
-      )}
       <div className="flex items-center justify-between border-b border-border px-4 py-3 flex-shrink-0">
         <span className="flex items-center gap-2 text-sm font-semibold">
           <HeaderIcon className="h-4 w-4 text-muted-foreground" aria-hidden />
@@ -326,7 +317,7 @@ function AgentInspector({
             {parent.name}
           </button>
         ) : (
-          sub ? "—" : "Root worker"
+          sub ? "—" : "Root agent"
         )}
       </Row>
       <Row label={sub ? "Sub-agents" : "Sub-agents"}>{children.length}</Row>
@@ -346,7 +337,7 @@ function AgentInspector({
           {recoveryNotes && <Row label="Recovery">{recoveryNotes}</Row>}
         </>
       )}
-      <p className="mt-3 text-xs text-muted-foreground">Total cost ${agent.totalCost.toFixed(2)} · {allAgents.length} workers live</p>
+      <p className="mt-3 text-xs text-muted-foreground">Total cost ${agent.totalCost.toFixed(2)} · {allAgents.length} agents live</p>
     </>
   );
 }

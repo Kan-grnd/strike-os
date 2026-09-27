@@ -44,6 +44,7 @@ export function useTopologyGraph(
     narrow?: boolean;
     activate?: (id: string, type: string) => void;
     expandAll?: () => void;
+    allExpanded?: boolean;
     toggle?: (id: string, dim?: "sub" | "ops") => void;
   } = {}
 ) {
@@ -53,6 +54,7 @@ export function useTopologyGraph(
   const narrow = opts.narrow;
   const activate = opts.activate;
   const expandAll = opts.expandAll;
+  const allExpanded = opts.allExpanded;
   const toggle = opts.toggle;
   return useMemo(() => {
     if (!runtime) return { nodes: [], edges: [] };
@@ -62,9 +64,10 @@ export function useTopologyGraph(
       tempEdges,
       activate,
       expandAll,
+      allExpanded,
       toggle,
     });
-  }, [runtime, expanded, focusAgentId, tempEdges, flashes, narrow, activate, expandAll, toggle]);
+  }, [runtime, expanded, focusAgentId, tempEdges, flashes, narrow, activate, expandAll, allExpanded, toggle]);
 }
 
 export function useAttentionRequired() {

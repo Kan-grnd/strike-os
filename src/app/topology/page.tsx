@@ -19,7 +19,7 @@ import { FlashNode } from "@/components/topology/nodes/flash-node";
 import { InspectorPanel, type InspectorSelection } from "@/components/topology/inspector-panel";
 import { useSubscribeRuntime, useTopologyGraph, useRuntime, useConnection, useResync, useTempEdges, useFlashes } from "@/lib/runtime/useRuntime";
 import { getLiveAgents } from "@/lib/runtime/selectors";
-import { Loader2, Plus, RefreshCw, WifiOff, X, Zap } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Scan, WifiOff, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +52,15 @@ function TopologyCanvas() {
     []
   );
   const [paneSize, setPaneSize] = useState<{ w: number; h: number } | null>(null);
+
+  // A focus that outlives its worker leaves the graph permanently dimmed with
+  // no card to un-dim, so drop the focus the moment that agent is gone.
+  useEffect(() => {
+    if (!focusAgentId) return;
+    if (!runtime) return;
+    if (getLiveAgents(runtime).some((a) => a.id === focusAgentId)) return;
+    setFocusAgentId(null);
+  }, [focusAgentId, runtime]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -136,6 +145,7 @@ function TopologyCanvas() {
     activate,
     toggle: toggleNode,
     expandAll,
+    allExpanded,
   });
 
   // Refit the camera deterministically when the frameable content changes:
@@ -240,7 +250,7 @@ function TopologyCanvas() {
     return (
       <div ref={containerRef} className="h-full w-full flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 text-muted-foreground">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Loader2 className="h-8 w-8 animate-spin motion-reduce:animate-none text-primary" />
           <p className="text-sm">Loading topology…</p>
         </div>
       </div>
@@ -299,7 +309,7 @@ function TopologyCanvas() {
 
       {/* Hint chip */}
       {!dismissedHint && (
-        <div className="fixed top-16 left-4 z-40 animate-in slide-in-from-top-2 duration-200">
+        <div className="fixed top-16 left-4 z-40 animate-in motion-reduce:animate-none slide-in-from-top-2 duration-200">
           <div className={cn(
             "flex items-center gap-2 rounded-lg border border-border bg-background/95 px-3 py-2 text-sm text-muted-foreground shadow-lg",
             narrow && "max-w-[calc(100vw-2rem)]"
@@ -364,12 +374,24 @@ function TopologyCanvas() {
           <span className="inline-block h-0.5 w-5 bg-warning" />
           {!narrow && <span>verification</span>}
         </span>
+        {/* Reset must exist on every size: on a phone the graph is far taller
+            than the screen, so losing the way back to "everything" is a trap.
+            Narrow gets an icon-only control (still 24px+, still labelled). */}
         <button
           type="button"
           onClick={resetView}
-          className={cn("pointer-events-auto text-foreground/70 underline underline-offset-2 hover:text-foreground", narrow && "hidden")}
+          aria-label="Reset view"
+          title="Reset view"
+          className={cn(
+            "pointer-events-auto inline-flex items-center justify-center text-foreground/70 underline underline-offset-2 hover:text-foreground",
+            narrow ? "h-6 w-6 rounded-md border border-border" : "h-auto"
+          )}
         >
-          reset view
+          {narrow ? (
+            <Scan className="h-3.5 w-3.5" aria-hidden />
+          ) : (
+            <span className="text-xs">reset view</span>
+          )}
         </button>
       </div>
     </div>

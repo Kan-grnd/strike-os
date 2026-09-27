@@ -29,18 +29,10 @@ export function SpecialistNode({ id, data }: NodeProps) {
   const expanded = d.expanded ?? false;
 
   return (
+    /* Shell only — the expand toggle and Details below are real buttons. */
     <div
-      role="button"
-      tabIndex={0}
-      aria-label={`Territory ${entity.name} — ${stats.total} agents, ${stats.active} active`}
       title={entity.name}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          d.activate?.(id, "specialist");
-        }
-      }}
-      className="node-list-in group relative w-64 cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="node-list-in group relative w-64 cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40"
     >
       <Handle type="target" position={Position.Top} id="in" />
       <Handle type="source" position={Position.Bottom} id="out" />

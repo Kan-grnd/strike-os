@@ -206,6 +206,7 @@ export function getTopologyNodes(
     flashes?: CompletionFlash[];
     activate?: (id: string, type: string) => void;
     expandAll?: () => void;
+    allExpanded?: boolean;
     toggle?: (id: string, dim?: "sub" | "ops") => void;
     layout?: TopologyLayout;
   } = {}
@@ -235,7 +236,7 @@ export function getTopologyNodes(
     level: "core",
     system: runtime.system as SystemRuntime,
     territoryCount: territories.length,
-    allExpanded: territories.length > 0 && territories.every((c) => expanded.has(c.id)),
+    allExpanded: opts.allExpanded ?? (territories.length > 0 && territories.every((c) => expanded.has(c.id))),
     expandAll: opts.expandAll,
     activate,
   };
@@ -469,6 +470,7 @@ export function getTopologyGraph(
     tempEdges?: TempEdge[];
     activate?: (id: string, type: string) => void;
     expandAll?: () => void;
+    allExpanded?: boolean;
     toggle?: (id: string, dim?: "sub" | "ops") => void;
   } = {}
 ): { nodes: Node[]; edges: Edge[] } {

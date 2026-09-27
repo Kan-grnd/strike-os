@@ -62,19 +62,15 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
   const expandedOps = data.expandedOps ?? false;
 
   return (
+    /* Not a button: the card holds real buttons (Details, Sub-agents,
+     * Operations), and a role="button" wrapper would nest one interactive
+     * element inside another and swallow their keyboard events. Clicking the
+     * card body still works (React Flow owns that); keyboard users reach the
+     * same inspector through the Details button. */
     <div
-      role="button"
-      tabIndex={0}
-      aria-label={`${nodeType === "subagent" ? "Sub-agent" : "Agent"} ${entity.name} — ${presenting.label}`}
       title={`${entity.name} — ${presenting.label}${entity.type ? ` (${entity.type})` : ""}; inspect for details`}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          activate?.(id, nodeType);
-        }
-      }}
       className={cn(
-        "node-list-in group relative cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        "node-list-in group relative cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40",
         small ? "w-60" : "w-64",
         attention && "ring-1 ring-warning/50"
       )}
@@ -87,7 +83,7 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
         </span>
         <Badge variant={presenting.variant} className="shrink-0 gap-1">
           <Icon
-            className={cn("h-3 w-3", entity.runtimeState === "initializing" && "animate-spin")}
+            className={cn("h-3 w-3", entity.runtimeState === "initializing" && "animate-spin motion-reduce:animate-none")}
             aria-hidden
           />
           {presenting.label}

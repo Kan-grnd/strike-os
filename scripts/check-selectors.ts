@@ -139,6 +139,84 @@ check("top-down: operations below owners", yOf("operation").every((y) => y > Mat
 const territoryXs = posNodes.filter((n) => n.type === "specialist").map((n) => posOf(n.id as string).x);
 check("top-down: territories balanced about brain", Math.abs(territoryXs.reduce((a, b) => a + b, 0)) < 1, territoryXs.join(","));
 
+// ── No card may overlap another card (the P2 that ordering checks missed) ──
+// "Below" is not the same as "clear of": the old constants put operation cards
+// 68px apart while the cards are 117px tall. Reproduce the worst case by using
+// the tallest measured card for every kind, and check real rectangles.
+const CARD_W: Record<string, number> = {
+  brain: 288,
+  specialist: 256,
+  agent: 256,
+  subagent: 240,
+  operation: 192,
+};
+const CARD_H: Record<string, number> = {
+  brain: 131,
+  specialist: 131,
+  agent: 161, // tallest: action row wraps when both toggles show
+  subagent: 161,
+  operation: 117, // every line truncates, so this is a true ceiling
+};
+type Placed = { id: string; type: string; x: number; y: number };
+const overlaps = (a: Placed, b: Placed): boolean => {
+  const dx = Math.abs(a.x - b.x) < (CARD_W[a.type] + CARD_W[b.type]) / 2;
+  const dy = Math.abs(a.y - b.y) < (CARD_H[a.type] + CARD_H[b.type]) / 2;
+  return dx && dy;
+};
+const worstCasePos: Placed[] = [
+  { id: "brain", type: "brain", ...posOf(BRAIN_NODE_ID) },
+  ...posNodes
+    .filter((n) => n.type !== "brain")
+    .map((n) => ({ id: n.id as string, type: n.type as string, x: posOf(n.id as string).x, y: posOf(n.id as string).y })),
+];
+const collisions: string[] = [];
+for (let i = 0; i < worstCasePos.length; i += 1) {
+  for (let j = i + 1; j < worstCasePos.length; j += 1) {
+    if (overlaps(worstCasePos[i], worstCasePos[j])) {
+      collisions.push(`${worstCasePos[i].id}(${worstCasePos[i].type}) x ${worstCasePos[j].id}(${worstCasePos[j].type})`);
+    }
+  }
+}
+check("geometry: no card overlaps another at measured heights", collisions.length === 0, collisions.join(" | "));
+// The specific regression: two operations under one owner must be spaced by the
+// full card height, and a sub-agent row must clear its parent's own card.
+const opSameOwner = worstCasePos.filter((n) => n.type === "operation");
+const stackedOpGap = opSameOwner.length > 1 ? Math.min(...opSameOwner.map((n) => n.y)) : 0;
+check("geometry: stacked operations spaced by full card height", opSameOwner.length <= 1 || (stackedOpGap >= 117 || opSameOwner.every((n, i, a) => i === 0 || Math.abs(a[i].y - a[i - 1].y) >= 117)), opSameOwner.map((n) => `${n.id}@${n.y}`).join(","));
+const subPos = worstCasePos.find((n) => n.type === "subagent");
+const ownerPos = subPos ? worstCasePos.find((n) => n.id === "ag-1") : undefined;
+check("geometry: sub-agent row clears its parent card (161px + gap)", subPos && ownerPos ? subPos.y - ownerPos.y >= 161 : true, subPos && ownerPos ? `subY=${subPos.y} ownerY=${ownerPos.y} delta=${subPos.y - ownerPos.y}` : "n/a");
+
+// ── Same guarantee at phone width, where colonies stack instead of sitting
+// side by side. Narrow used to share the wide column grid, which forced the
+// whole graph down to a 0.22 zoom and let a territory card land on an agent.
+const narrowNodes = getTopologyNodes(runtime, agentsExpanded, undefined, { narrow: true });
+const narrowPos: Placed[] = narrowNodes.map((n) => ({
+  id: n.id as string,
+  type: n.type as string,
+  x: n.position.x,
+  y: n.position.y,
+}));
+const narrowCollisions: string[] = [];
+for (let i = 0; i < narrowPos.length; i += 1) {
+  for (let j = i + 1; j < narrowPos.length; j += 1) {
+    if (overlaps(narrowPos[i], narrowPos[j])) {
+      narrowCollisions.push(`${narrowPos[i].id} x ${narrowPos[j].id}`);
+    }
+  }
+}
+check("geometry: narrow (phone) layout has no overlaps either", narrowCollisions.length === 0, narrowCollisions.join(" | "));
+const narrowColonies = narrowPos.filter((n) => n.type === "specialist").map((n) => n.y);
+check(
+  "geometry: narrow stacks territories instead of overlapping them",
+  narrowColonies.every((y, i) => i === 0 || y > narrowColonies[i - 1]),
+  narrowColonies.join(",")
+);
+const narrowGraphW =
+  Math.max(...narrowPos.map((n) => n.x + CARD_W[n.type] / 2)) -
+  Math.min(...narrowPos.map((n) => n.x - CARD_W[n.type] / 2));
+check("geometry: narrow model stays narrow enough to read", narrowGraphW <= 700, `width=${Math.round(narrowGraphW)}`);
+
 // ── Determinism ──
 const posNodesAgain = getTopologyNodes(runtime, agentsExpanded);
 const stable = posNodes.every((n) => {
@@ -159,6 +237,37 @@ check(
   "flash: no-DOM fallback = owner y + 150",
   flashNode?.position.y === flashOwnerY + 150,
   `flashY=${flashNode?.position.y} ownerY=${flashOwnerY}`
+);
+
+// ── Brain expand-all contract: label and click must share ONE definition ──
+// The P1 bug: the card label used "all territories expanded" while the click
+// used "territories AND every live worker's :sub/:ops". With territories open
+// but some worker dims closed, the label said "Collapse all" but the click
+// expanded. The page now passes its single strict `allExpanded` down, so the
+// node must honour that value instead of recomputing a looser one.
+const brainAllExpandedOf = (nodes: typeof deepNodes) =>
+  (nodes.find((n) => n.id === BRAIN_NODE_ID)?.data as Record<string, unknown> | undefined)?.allExpanded;
+
+// Fallback (opt omitted) keeps the territories-only reading.
+check(
+  "expand-all: fallback = all territories expanded",
+  brainAllExpandedOf(getTopologyNodes(runtime, territoriesOnly)) === true
+);
+check(
+  "expand-all: fallback false when a territory is closed",
+  brainAllExpandedOf(getTopologyNodes(runtime, collapsed)) === false
+);
+// The decisive case: territories all open, worker dims NOT all open. The
+// fallback would say true here; the page's strict value (false) must win.
+const strictBrain = getTopologyNodes(runtime, territoriesOnly, undefined, { allExpanded: false });
+check(
+  "expand-all: page value overrides looser fallback (P1)",
+  brainAllExpandedOf(strictBrain) === false,
+  `got=${brainAllExpandedOf(strictBrain)} want=false`
+);
+check(
+  "expand-all: page value true is honoured",
+  brainAllExpandedOf(getTopologyNodes(runtime, agentsExpanded, undefined, { allExpanded: true })) === true
 );
 
 // ── Focus: dim unrelated, keep the tree ──
