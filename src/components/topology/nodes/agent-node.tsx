@@ -2,7 +2,7 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Badge } from "@/components/ui/badge";
 import type { AgentRuntime, TopologyBand } from "@/lib/runtime/types";
 import type { TopologyNodeData } from "@/lib/runtime/selectors";
-import { agentStatePresentation, formatDate } from "@/lib/runtime/presentation";
+import { agentStatePresentation } from "@/lib/runtime/presentation";
 import { cn } from "@/lib/utils";
 
 export interface AgentNodeData extends TopologyNodeData<AgentRuntime> {
@@ -21,18 +21,17 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
   const presenting = agentStatePresentation(entity.runtimeState);
   const Icon = presenting.icon;
   const band: TopologyBand = data.band ?? "agents";
-  const metadata = band === "metadata";
-  const operational = band === "operations" || metadata;
   const attention = entity.runtimeState === "waiting_for_approval" || entity.runtimeState === "blocked";
   const small = nodeType === "subagent";
 
   const elevation = cn(
-    "relative rounded-lg bg-card px-3 py-2 shadow-sm",
+    "group relative rounded-lg bg-card px-3 py-2 shadow-sm",
     small ? "w-32" : "w-40",
+    "cursor-pointer hover:ring-1 hover:ring-primary/30",
     attention && "ring-1 ring-warning/50",
     band === "agents" && "border border-foreground/15 shadow-md",
-    band === "operations" && "border-2 border-primary/30 shadow-lg",
-    band === "metadata" && "border-2 border-primary/40 shadow-xl ring-1 ring-primary/20"
+    band === "operations" && "border border-primary/40 shadow-lg",
+    band === "metadata" && "border border-primary/50 shadow-xl ring-1 ring-primary/20"
   );
 
   return (
@@ -40,7 +39,7 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
       role="button"
       tabIndex={0}
       aria-label={`${nodeType === "subagent" ? "Sub-agent" : "Agent"} ${entity.name} — ${presenting.label}`}
-      title={`${entity.name} — ${presenting.label}${entity.type ? ` (${entity.type})` : ""}; double-click to focus`}
+      title={`${entity.name} — ${presenting.label}${entity.type ? ` (${entity.type})` : ""}; inspect for details`}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -63,21 +62,24 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
           {small ? presenting.label.slice(0, 2).toUpperCase() : presenting.label}
         </Badge>
       </div>
-      {operational && (
-        <p className={cn("mt-1 text-xs text-muted-foreground font-mono truncate", small && "hidden")}>
-          {entity.type.toLowerCase()}
-        </p>
-      )}
       {data.operation && (
         <p className="mt-0.5 truncate text-xs text-muted-foreground" title={data.operation}>
           ↳ {data.operation}
         </p>
       )}
-      {metadata && (
-        <p className="mt-0.5 text-xs text-muted-foreground font-mono">
-          {Math.round(entity.successRate)}% ok · {formatDate(entity.lastActiveAt)}
-        </p>
-      )}
+      <div className="mt-1.5 flex justify-end">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            activate?.(id, nodeType);
+          }}
+          onKeyDown={(e) => e.stopPropagation()}
+          className="rounded-md border border-border bg-background/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
+        >
+          Inspect
+        </button>
+      </div>
     </div>
   );
 }

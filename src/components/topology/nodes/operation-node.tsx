@@ -24,12 +24,12 @@ export function OperationNode({ id, data }: NodeProps) {
   const d = data as unknown as OperationNodeData;
   const entity = d.entity as TaskRuntime;
   const band: TopologyBand = d.band ?? "operations";
-  const metadata = band === "metadata";
 
   const elevation = cn(
-    "relative rounded-lg border border-border bg-background/80 px-2.5 py-1.5 shadow-sm w-40",
-    band === "operations" && "shadow-md",
-    band === "metadata" && "border-2 border-primary/30 shadow-lg ring-1 ring-primary/20"
+    "group relative rounded-lg border border-border bg-background/80 px-2.5 py-1.5 shadow-sm w-40",
+    "cursor-pointer hover:ring-1 hover:ring-primary/30",
+    band === "operations" && "border-border shadow-md",
+    band === "metadata" && "border-primary/40 shadow-lg ring-1 ring-primary/20"
   );
 
   return (
@@ -37,7 +37,7 @@ export function OperationNode({ id, data }: NodeProps) {
       role="button"
       tabIndex={0}
       aria-label={`Operation ${entity.description}`}
-      title={`${entity.description}`}
+      title={`${entity.description} — inspect for details`}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -56,13 +56,19 @@ export function OperationNode({ id, data }: NodeProps) {
           {entity.status === "RUNNING" ? "active" : formatState(entity.status)}
         </Badge>
       </div>
-      {metadata && (
-        <p className={cn("mt-1 text-xs text-muted-foreground font-mono truncate")}>
-          {d.ownerName ? `${d.ownerName} · ` : ""}
-          {entity.retryCount}/{entity.maxRetries} retries{" "}
-          {entity.dependencies.length > 0 && `· ${entity.dependencies.length} deps`}
-        </p>
-      )}
+      <div className="mt-1.5 flex justify-end">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            d.activate?.(id, "operation");
+          }}
+          onKeyDown={(e) => e.stopPropagation()}
+          className="rounded-md border border-border bg-background/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
+        >
+          Inspect
+        </button>
+      </div>
     </div>
   );
 }

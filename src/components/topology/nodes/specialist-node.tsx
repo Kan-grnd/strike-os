@@ -23,14 +23,14 @@ export function SpecialistNode({ id, data }: NodeProps) {
   const entity = d.entity as ColonyRuntime;
   const stats = d.stats ?? { total: 0, active: 0, waiting: 0, errors: 0 };
   const band: TopologyBand = d.band ?? "specialist";
-  const detail = band === "metadata";
 
   const elevation = cn(
-    "relative max-w-48 rounded-xl bg-card px-3 py-2.5",
+    "group relative max-w-48 rounded-xl bg-card px-3 py-2.5",
+    "cursor-pointer hover:ring-1 hover:ring-primary/30",
     band === "specialist" && "border border-foreground/15 shadow-md",
-    band === "agents" && "border-2 border-foreground/20 shadow-lg",
-    band === "operations" && "border-2 border-primary/30 shadow-lg",
-    band === "metadata" && "border-2 border-primary/40 shadow-xl ring-1 ring-primary/20"
+    band === "agents" && "border border-foreground/30 shadow-lg",
+    band === "operations" && "border border-primary/40 shadow-lg",
+    band === "metadata" && "border border-primary/50 shadow-xl ring-1 ring-primary/20"
   );
 
   return (
@@ -60,13 +60,20 @@ export function SpecialistNode({ id, data }: NodeProps) {
       </div>
       <p className="mt-1 text-xs text-muted-foreground font-mono">
         {stats.total} agents · {stats.active} active
-        {detail && (stats.waiting > 0 || stats.errors > 0) && (
-          <>
-            {stats.waiting > 0 && ` · ${stats.waiting} waiting`}
-            {stats.errors > 0 && ` · ${stats.errors} errors`}
-          </>
-        )}
       </p>
+      <div className="mt-2 flex justify-end">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            d.activate?.(id, "specialist");
+          }}
+          onKeyDown={(e) => e.stopPropagation()}
+          className="rounded-md border border-border bg-background/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
+        >
+          Inspect
+        </button>
+      </div>
     </div>
   );
 }

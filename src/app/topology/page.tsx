@@ -277,6 +277,7 @@ function TopologyCanvas() {
         nodeOrigin={[0.5, 0]}
         nodesDraggable={false}
         nodesConnectable={false}
+        proOptions={{ hideAttribution: true }}
         onMove={onMove}
         onMoveEnd={onMoveEnd}
         onNodeClick={onNodeClick}

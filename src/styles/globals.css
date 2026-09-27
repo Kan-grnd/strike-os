@@ -567,10 +567,3 @@ body > div.h-screen.flex.bg-background {
 .react-flow__handle-right {
   right: 0;
 }
-
-.react-flow__minimap {
-  --xy-minimap-background-color: rgba(9, 9, 11, 0.85);
-  background: rgba(9, 9, 11, 0.85);
-  border-radius: 10px;
-  border: 1px solid #27272a;
-}
