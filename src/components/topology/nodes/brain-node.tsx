@@ -1,9 +1,10 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import type { BrainRuntime, SystemRuntime } from "@/lib/runtime/types";
 import type { TopologyNodeData } from "@/lib/runtime/selectors";
 import { brainStatePresentation } from "@/lib/runtime/presentation";
-import { LevelTag, NodeButton } from "./node-parts";
+import { CardButton } from "./card-button";
 
 interface BrainNodeData extends TopologyNodeData<BrainRuntime> {
   system?: SystemRuntime;
@@ -32,36 +33,43 @@ export function BrainNode({ id, data }: NodeProps) {
           d.activate?.(id, "brain");
         }
       }}
-      className="node-list-in group relative min-w-56 cursor-pointer rounded-full border border-[hsl(var(--level-core))/60] bg-card px-7 py-3 text-center transition-colors hover:border-[hsl(var(--level-core))] glow-core"
+      className="node-list-in group relative w-72 cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40"
     >
       <Handle type="source" position={Position.Bottom} id="out" />
-      <div className="flex items-center justify-center gap-2">
-        <LevelTag level="core" />
-      </div>
-      <div className="mt-1 flex items-center justify-between gap-4">
-        <span className="text-base font-bold tracking-tight">
-          STRIKE&nbsp;BRAIN
-        </span>
-        <Badge variant={presenting.variant} className="gap-1.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="truncate text-base font-bold tracking-tight">STRIKE BRAIN</span>
+        <Badge variant={presenting.variant} className="shrink-0 gap-1.5">
           <Icon className="h-3 w-3" aria-hidden />
           {presenting.label}
         </Badge>
       </div>
-      <p className="mt-1.5 text-xs text-muted-foreground font-mono">
-        {entity.activeCount}/{entity.agentCount} active · {entity.operationCount} operations ·{" "}
-        {entity.missionCount} missions
+      <Separator className="my-2.5" />
+      <p className="font-mono text-xs leading-relaxed text-muted-foreground">
+        {entity.activeCount}/{entity.agentCount} active, {entity.operationCount} operations,{" "}
+        {entity.missionCount} mission{entity.missionCount === 1 ? "" : "s"}
       </p>
-      <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-        {territoryCount > 0 && (
-          <NodeButton
-            active={!allExpanded}
-            onClick={() => d.expandAll?.()}
-            aria-expanded={allExpanded}
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {territoryCount > 0 && (
+            <CardButton
+              variant="outline"
+              size="sm"
+              className="h-8 px-2.5 text-xs"
+              onClick={() => d.expandAll?.()}
+              aria-expanded={allExpanded}
+            >
+              {allExpanded ? "Collapse all" : "Expand all"}
+            </CardButton>
+          )}
+          <CardButton
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2.5 text-xs"
+            onClick={() => d.activate?.(id, "brain")}
           >
-            {allExpanded ? "Collapse all" : "Expand all"}
-          </NodeButton>
-        )}
-        <NodeButton onClick={() => d.activate?.(id, "brain")}>Inspect</NodeButton>
+            Details
+          </CardButton>
+        </div>
       </div>
     </div>
   );

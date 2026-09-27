@@ -44,7 +44,7 @@ export function useTopologyGraph(
     narrow?: boolean;
     activate?: (id: string, type: string) => void;
     expandAll?: () => void;
-    toggle?: (id: string) => void;
+    toggle?: (id: string, dim?: "sub" | "ops") => void;
   } = {}
 ) {
   const runtime = useRuntime();

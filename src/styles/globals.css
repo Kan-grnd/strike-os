@@ -59,14 +59,6 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
     --ring: 220 9% 20%;
     --radius: 0.5rem;
 
-    /* Topology hierarchy levels (light). Distinct from the immutable
-       status colors above; level = what a node IS, status = how it is doing. */
-    --level-core: 263 65% 47%; /* purple  — STRIKE BRAIN           */
-    --level-territory: 174 60% 34%; /* teal   — specialist territory */
-    --level-agent: 217 70% 42%; /* blue   — agent                   */
-    --level-sub: 218 12% 46%; /* gray-blue — sub-agent             */
-    --level-op: 0 0% 44%; /* gray  — operation               */
-
     --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --font-mono: "JetBrains Mono", "SF Mono", Menlo, Monaco, Consolas, monospace;
 
@@ -101,14 +93,6 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
     --border: 0 0% 28%;
     --input: 0 0% 21%;
     --ring: 0 0% 90%;
-
-    /* Topology hierarchy levels (dark). Brightened for contrast on dark
-       surfaces; keep away from status hues (red/amber/emerald/cyan/violet). */
-    --level-core: 262 70% 68%;
-    --level-territory: 172 62% 56%;
-    --level-agent: 216 72% 60%;
-    --level-sub: 220 22% 60%;
-    --level-op: 0 0% 62%;
 
     color-scheme: dark;
   }
@@ -532,31 +516,7 @@ body > div.h-screen.flex.bg-background {
   outline-offset: -2px;
 }
 
-/* Topology hierarchy levels — dark packs share the dark branch of the level
-   palette. Light packs inherit the :root values above. */
-.dark,
-.abyssal,
-.ember,
-.cobalt,
-.abyss-teal,
-.strike,
-.onyx,
-.forest {
-  --level-core: 262 70% 68%;
-  --level-territory: 172 62% 56%;
-  --level-agent: 216 72% 60%;
-  --level-sub: 220 22% 60%;
-  --level-op: 0 0% 62%;
-}
-
-/* Soft purple glow + 2px halo behind the STRIKE BRAIN pill (zero layout
-   impact; box-shadow only), plus the soft fade-in for expanding nodes. */
-.glow-core {
-  box-shadow:
-    0 0 0 2px hsl(var(--level-core) / 0.45),
-    0 0 32px -6px hsl(var(--level-core) / 0.55);
-}
-
+/* Soft fade-in for newly revealed nodes; switched off for reduced motion. */
 @keyframes node-list-in {
   from {
     opacity: 0;

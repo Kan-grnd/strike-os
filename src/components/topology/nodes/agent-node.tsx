@@ -1,17 +1,20 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { FoldVertical, Plus } from "lucide-react";
 import type { AgentRuntime } from "@/lib/runtime/types";
 import type { TopologyNodeData } from "@/lib/runtime/selectors";
 import { agentStatePresentation } from "@/lib/runtime/presentation";
 import { cn } from "@/lib/utils";
-import { ExpandToggleButton, LevelBar, LevelTag, NodeButton } from "./node-parts";
+import { CardButton } from "./card-button";
 
 export interface AgentNodeData extends TopologyNodeData<AgentRuntime> {
   operation?: string;
-  expanded?: boolean;
+  expandedSub?: boolean;
+  expandedOps?: boolean;
   subCount?: number;
   opCount?: number;
-  toggle?: (id: string) => void;
+  toggle?: (id: string, dim?: "sub" | "ops") => void;
 }
 
 interface AgentShellProps {
@@ -21,6 +24,32 @@ interface AgentShellProps {
   nodeType: "agent" | "subagent";
 }
 
+function AgentToggle({
+  expanded,
+  count,
+  label,
+  onToggle,
+}: {
+  expanded: boolean;
+  count: number;
+  label: string;
+  onToggle: () => void;
+}) {
+  const Icon = expanded ? FoldVertical : Plus;
+  return (
+    <CardButton
+      variant="outline"
+      size="sm"
+      className="h-8 px-2.5 text-xs"
+      onClick={onToggle}
+      aria-expanded={expanded}
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      {expanded ? "Hide" : `${label} (${count})`}
+    </CardButton>
+  );
+}
+
 export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
   const entity = data.entity as AgentRuntime;
   const presenting = agentStatePresentation(entity.runtimeState);
@@ -28,9 +57,8 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
   const attention =
     entity.runtimeState === "waiting_for_approval" || entity.runtimeState === "blocked";
   const small = nodeType === "subagent";
-  const level = nodeType === "subagent" ? "sub" : "agent";
-  const expandable = (data.subCount ?? 0) + (data.opCount ?? 0);
-  const expanded = data.expanded ?? false;
+  const expandedSub = data.expandedSub ?? false;
+  const expandedOps = data.expandedOps ?? false;
 
   return (
     <div
@@ -45,45 +73,56 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
         }
       }}
       className={cn(
-        "node-list-in group relative rounded-lg border border-foreground/15 bg-card px-3 py-2 shadow-sm",
-        small ? "w-44" : "w-48",
-        "cursor-pointer transition-colors hover:ring-1 hover:ring-primary/30",
+        "node-list-in group relative cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40",
+        small ? "w-60" : "w-64",
         attention && "ring-1 ring-warning/50"
       )}
     >
-      <LevelBar level={level} />
       <Handle type="target" position={Position.Top} id="in" />
       <Handle type="source" position={Position.Bottom} id="out" />
-      <div className="flex items-center justify-between gap-2">
-        <LevelTag level={level} />
+      <div className="flex items-center justify-between gap-3">
+        <span className={cn("truncate font-semibold", small ? "text-xs" : "text-sm")}>
+          {entity.name}
+        </span>
         <Badge variant={presenting.variant} className="shrink-0 gap-1">
           <Icon
             className={cn("h-3 w-3", entity.runtimeState === "initializing" && "animate-spin")}
             aria-hidden
           />
-          {small ? presenting.label.slice(0, 2).toUpperCase() : presenting.label}
+          {presenting.label}
         </Badge>
       </div>
-      <div className="mt-1">
-        <span className={cn("block truncate font-semibold", small ? "text-xs" : "text-sm")}>
-          {entity.name}
-        </span>
-      </div>
-      {data.operation && (
-        <p className="mt-0.5 truncate text-xs text-muted-foreground" title={data.operation}>
-          ↳ {data.operation}
+      <Separator className="my-2" />
+      {data.operation ? (
+        <p className="truncate font-mono text-xs text-muted-foreground" title={data.operation}>
+          {data.operation}
         </p>
-      )}
-      <div className="mt-1.5 flex flex-wrap items-center justify-end gap-2">
-        {expandable > 0 && (
-          <ExpandToggleButton
-            expanded={expanded}
-            count={expandable}
-            label="Expand"
-            onToggle={() => data.toggle?.(id)}
+      ) : null}
+      <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+        {(data.subCount ?? 0) > 0 && (
+          <AgentToggle
+            expanded={expandedSub}
+            count={data.subCount ?? 0}
+            label="Sub-agents"
+            onToggle={() => data.toggle?.(id, "sub")}
           />
         )}
-        <NodeButton onClick={() => activate?.(id, nodeType)}>Inspect</NodeButton>
+        {(data.opCount ?? 0) > 0 && (
+          <AgentToggle
+            expanded={expandedOps}
+            count={data.opCount ?? 0}
+            label="Operations"
+            onToggle={() => data.toggle?.(id, "ops")}
+          />
+        )}
+        <CardButton
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2.5 text-xs"
+          onClick={() => activate?.(id, nodeType)}
+        >
+          Details
+        </CardButton>
       </div>
     </div>
   );

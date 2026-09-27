@@ -26,7 +26,7 @@ export type InspectorSelection =
 
 function Row({ label, children }: { label: string; children?: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-3 py-1">
+    <div className="flex items-start justify-between gap-3 py-1.5">
       <span className="text-xs text-muted-foreground shrink-0">{label}</span>
       <span className="text-xs font-medium text-right truncate">{children ?? "—"}</span>
     </div>
@@ -35,7 +35,7 @@ function Row({ label, children }: { label: string; children?: React.ReactNode })
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h4 className="mt-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground first:mt-0">
+    <h4 className="mt-3 text-[11px] font-semibold text-muted-foreground first:mt-0">
       {children}
     </h4>
   );
@@ -240,8 +240,8 @@ function SystemInspector({ runtime }: { runtime: WorkforceRuntime }) {
       <Row label="Connection">{connection}</Row>
       <Row label="Last sync">{formatDate(runtime.generatedAt)}</Row>
       <p className="mt-3 text-xs text-muted-foreground">
-        Double-click the brain to reset the view. Zoom to change information
-        density.
+        Double-click the brain to reset the view. Use the buttons on a card to
+        show or hide what's inside it.
       </p>
     </>
   );

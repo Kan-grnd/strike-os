@@ -26,7 +26,8 @@ export interface TopologyNodeData<T = unknown> extends Record<string, unknown> {
   level: TopologyLevel;
   activate?: (id: string, type: string) => void;
   expanded?: boolean;
-  toggle?: (id: string) => void;
+  /** Toggle disclosure. dim selects which child kind expands for worker nodes. */
+  toggle?: (id: string, dim?: "sub" | "ops") => void;
 }
 
 const REMOVED_STATES = new Set(["cancelled", "stopped"]);
@@ -59,14 +60,14 @@ export function getVisibleAgents(runtime: WorkforceRuntime, expanded: ReadonlySe
   return getLiveAgents(runtime).filter((a) => !a.parentId && !!a.colonyId && expanded.has(a.colonyId));
 }
 
-/** Live sub-agents whose direct parent is expanded. */
+/** Live sub-agents whose direct parent is expanded via its "Sub-agents" toggle. */
 export function getVisibleSubAgents(runtime: WorkforceRuntime, expanded: ReadonlySet<string>): AgentRuntime[] {
-  return getLiveAgents(runtime).filter((a) => !!a.parentId && expanded.has(a.parentId));
+  return getLiveAgents(runtime).filter((a) => !!a.parentId && expanded.has(a.parentId + ":sub"));
 }
 
-/** Active operations whose owning worker is expanded. */
+/** Active operations whose owning worker is expanded via its "Operations" toggle. */
 export function getVisibleOperations(runtime: WorkforceRuntime, expanded: ReadonlySet<string>): TaskRuntime[] {
-  return getActiveOperations(runtime).filter((t) => !!t.ownerAgentId && expanded.has(t.ownerAgentId));
+  return getActiveOperations(runtime).filter((t) => !!t.ownerAgentId && expanded.has(t.ownerAgentId + ":ops"));
 }
 
 /** Live children (sub-agents + active operations) count per worker, for expand buttons. */
@@ -167,7 +168,7 @@ function visibleNodeIds(
   while (changed) {
     changed = false;
     for (const s of subs) {
-      if (!visible.has(s.id) && s.parentId && expanded.has(s.parentId) && visible.has(s.parentId)) {
+      if (!visible.has(s.id) && s.parentId && expanded.has(s.parentId + ":sub") && visible.has(s.parentId)) {
         visible.add(s.id);
         changed = true;
       }
@@ -189,7 +190,7 @@ export function getTopologyNodes(
     flashes?: CompletionFlash[];
     activate?: (id: string, type: string) => void;
     expandAll?: () => void;
-    toggle?: (id: string) => void;
+    toggle?: (id: string, dim?: "sub" | "ops") => void;
     layout?: TopologyLayout;
   } = {}
 ): Node[] {
@@ -315,7 +316,7 @@ function pushAgentNode(
   layout: TopologyLayout,
   expanded: ReadonlySet<string>,
   activate: ((id: string, t: string) => void) | undefined,
-  toggle: ((id: string) => void) | undefined,
+  toggle: ((id: string, dim?: "sub" | "ops") => void) | undefined,
   focus: FocusContext | null,
   pushNode: (node: Node) => void
 ) {
@@ -326,7 +327,8 @@ function pushAgentNode(
   const data: TopologyNodeData<AgentRuntime> = {
     entity: agent,
     level: type === "agent" ? "agent" : "sub",
-    expanded: expanded.has(agent.id),
+    expandedSub: expanded.has(agent.id + ":sub"),
+    expandedOps: expanded.has(agent.id + ":ops"),
     toggle,
     subCount: counts.sub,
     opCount: counts.ops,
@@ -348,12 +350,9 @@ function pushAgentNode(
   });
 }
 
-const LEVEL_STROKES: Record<Exclude<TopologyLevel, "core">, string> = {
-  territory: "hsl(var(--level-territory))",
-  agent: "hsl(var(--level-agent))",
-  sub: "hsl(var(--level-sub))",
-  op: "hsl(var(--level-op))",
-};
+/** Structural ownership edges stay theme-neutral: color is reserved for
+ *  status meaning (temp edges). Level is carried by position and size. */
+const OWNERSHIP_STROKE = "hsl(var(--muted-foreground) / 0.5)";
 
 export function getTopologyEdges(
   runtime: WorkforceRuntime,
@@ -394,20 +393,20 @@ export function getTopologyEdges(
     });
   };
 
-  // Structural ownership spine: tinted by the child's level.
+  // Structural ownership spine: theme-neutral, thin.
   layout.territories.forEach((_, colonyId) =>
-    push(`owns:brain-spec-${colonyId}`, BRAIN_NODE_ID, colonyId, LEVEL_STROKES.territory)
+    push(`owns:brain-spec-${colonyId}`, BRAIN_NODE_ID, colonyId, OWNERSHIP_STROKE)
   );
   for (const [agentId] of Array.from(layout.agents)) {
     const agent = runtime.agents.find((a) => a.id === agentId);
-    if (agent?.colonyId) push(`owns:spec-agent-${agent.colonyId}-${agentId}`, agent.colonyId, agentId, LEVEL_STROKES.agent);
+    if (agent?.colonyId) push(`owns:spec-agent-${agent.colonyId}-${agentId}`, agent.colonyId, agentId, OWNERSHIP_STROKE);
   }
   for (const [subId] of Array.from(layout.subAgents)) {
     const sub = runtime.agents.find((a) => a.id === subId);
-    if (sub?.parentId) push(`owns:agent-sub-${sub.parentId}-${subId}`, sub.parentId, subId, LEVEL_STROKES.sub);
+    if (sub?.parentId) push(`owns:agent-sub-${sub.parentId}-${subId}`, sub.parentId, subId, OWNERSHIP_STROKE);
   }
   for (const task of getVisibleOperations(runtime, expanded)) {
-    if (task.ownerAgentId) push(`owns:agent-op-${task.ownerAgentId}-${task.id}`, task.ownerAgentId, task.id, LEVEL_STROKES.op);
+    if (task.ownerAgentId) push(`owns:agent-op-${task.ownerAgentId}-${task.id}`, task.ownerAgentId, task.id, OWNERSHIP_STROKE);
   }
 
   // Transient relationships: only from real runtime events, always animated,
@@ -454,7 +453,7 @@ export function getTopologyGraph(
     tempEdges?: TempEdge[];
     activate?: (id: string, type: string) => void;
     expandAll?: () => void;
-    toggle?: (id: string) => void;
+    toggle?: (id: string, dim?: "sub" | "ops") => void;
   } = {}
 ): { nodes: Node[]; edges: Edge[] } {
   const layout = buildTopologyLayout(runtime, opts.narrow ?? false);

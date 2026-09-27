@@ -68,10 +68,18 @@ const levelOf = (s: unknown) => {
 };
 
 // Expansion-state helpers. Collapsed = 3 nodes (brain + territories). Expanding
-// a node reveals its direct children.
+// a node reveals its direct children: a territory reveals agents, a worker
+// reveals sub-agents via "<id>:sub" and operations via "<id>:ops".
 const collapsed = new Set<string>();
 const territoriesOnly = new Set(["col-a", "col-b"]);
-const agentsExpanded = new Set(["col-a", "col-b", "ag-1", "ag-2", "ag-4"]);
+const agentsExpanded = new Set([
+  "col-a",
+  "col-b",
+  "ag-1:sub",
+  "ag-1:ops",
+  "ag-2:ops",
+  "ag-4:ops",
+]);
 
 // ── Collapsed: Brain + Specialist territories only ──
 const overviewNodes = getTopologyNodes(runtime, collapsed);
@@ -102,6 +110,7 @@ check("agents expanded: cancelled excluded", !deepNodes.some((n) => n.id === "t3
 const agentNodeData = deepNodes.find((n) => n.id === "ag-1");
 check("level: brain carries core", levelOf(deepNodes.find((n) => n.id === BRAIN_NODE_ID)?.data) === "core", String(levelOf(deepNodes.find((n) => n.id === BRAIN_NODE_ID)?.data)));
 check("level: agent carries level + expand counts", levelOf(agentNodeData?.data) === "agent" && (agentNodeData?.data as Record<string, unknown>).subCount === 1 && (agentNodeData?.data as Record<string, unknown>).opCount === 1, JSON.stringify(levelOf(agentNodeData?.data)));
+check("level: worker carries per-kind expand flags", (agentNodeData?.data as Record<string, unknown>).expandedSub === true && (agentNodeData?.data as Record<string, unknown>).expandedOps === true, JSON.stringify(agentNodeData?.data));
 check("level: op carries op level", levelOf(deepNodes.find((n) => n.id === "t1")?.data) === "op", String(levelOf(deepNodes.find((n) => n.id === "t1")?.data)));
 
 // ── Active operations / attention ──
@@ -168,8 +177,8 @@ check("edges: ownership edges present", edgesDeep.some((e) => e.source === BRAIN
 const ownershipStrokes = edgesDeep
   .filter((e) => e.id.startsWith("owns:"))
   .map((e) => (e.style as { stroke?: string } | undefined)?.stroke ?? "");
-const levelPrefix = "hsl(var(--level-";
-check("edges: ownership tinted by child level", ownershipStrokes.every((s) => s.startsWith(levelPrefix)), ownershipStrokes.join("|"));
+const neutralPrefix = "hsl(var(--muted-foreground)";
+check("edges: ownership neutral (no level tint)", ownershipStrokes.every((s) => s.startsWith(neutralPrefix)), ownershipStrokes.join("|"));
 const edgesOverview = getTopologyEdges(runtime, collapsed, undefined, {
   tempEdges: [{ id: "temp:delegation:e1", kind: "delegation", source: "ag-1", target: "ag-4", eventId: "e1", occurredAt: Date.now() }],
 });

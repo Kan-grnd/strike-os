@@ -1,10 +1,11 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { Play } from "lucide-react";
 import type { TaskRuntime } from "@/lib/runtime/types";
 import type { TopologyNodeData } from "@/lib/runtime/selectors";
 import { formatState } from "@/lib/runtime/presentation";
-import { LevelBar, LevelTag, NodeButton } from "./node-parts";
+import { CardButton } from "./card-button";
 
 interface OperationNodeData extends TopologyNodeData<TaskRuntime> {
   ownerName?: string;
@@ -36,22 +37,31 @@ export function OperationNode({ id, data }: NodeProps) {
           d.activate?.(id, "operation");
         }
       }}
-      className="node-list-in group relative w-40 cursor-pointer rounded-lg border border-border bg-background/80 px-2.5 py-1.5 shadow-sm transition-colors hover:ring-1 hover:ring-primary/30"
+      className="node-list-in group relative w-48 cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40"
     >
-      <LevelBar level="op" />
       <Handle type="target" position={Position.Top} id="in" />
-      <div className="flex items-center justify-between gap-2">
-        <LevelTag level="op" />
-        <Badge variant={STATUS_VARIANT[entity.status] ?? "secondary"} className="shrink-0 uppercase">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <Play className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          <span className="truncate text-xs font-semibold">{entity.description}</span>
+        </span>
+        <Badge variant={STATUS_VARIANT[entity.status] ?? "secondary"} className="shrink-0">
           {entity.status === "RUNNING" ? "active" : formatState(entity.status)}
         </Badge>
       </div>
-      <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs font-semibold">
-        <Play className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
-        <span className="truncate">{entity.description}</span>
-      </div>
-      <div className="mt-1.5 flex justify-end">
-        <NodeButton onClick={() => d.activate?.(id, "operation")}>Inspect</NodeButton>
+      <Separator className="my-2" />
+      <p className="truncate font-mono text-[11px] text-muted-foreground">
+        {d.ownerName ? `by ${d.ownerName}` : "operation"}
+      </p>
+      <div className="mt-2 flex justify-end">
+        <CardButton
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2.5 text-xs"
+          onClick={() => d.activate?.(id, "operation")}
+        >
+          Details
+        </CardButton>
       </div>
     </div>
   );

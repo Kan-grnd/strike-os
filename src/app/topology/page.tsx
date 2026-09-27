@@ -18,7 +18,7 @@ import { OperationNode } from "@/components/topology/nodes/operation-node";
 import { FlashNode } from "@/components/topology/nodes/flash-node";
 import { InspectorPanel, type InspectorSelection } from "@/components/topology/inspector-panel";
 import { useSubscribeRuntime, useTopologyGraph, useRuntime, useTempEdges, useFlashes } from "@/lib/runtime/useRuntime";
-import { type TopologyLevel } from "@/lib/runtime/selectors";
+import { getLiveAgents } from "@/lib/runtime/selectors";
 import { Loader2, Plus, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -31,14 +31,6 @@ const nodeTypes = {
   operation: OperationNode,
   flash: FlashNode,
 };
-
-const LEVEL_LEGEND: { level: TopologyLevel; label: string }[] = [
-  { level: "core", label: "strike brain" },
-  { level: "territory", label: "territory" },
-  { level: "agent", label: "agent" },
-  { level: "sub", label: "sub-agent" },
-  { level: "op", label: "operation" },
-];
 
 function TopologyCanvas() {
   useSubscribeRuntime();
@@ -88,11 +80,12 @@ function TopologyCanvas() {
     [openInspector]
   );
 
-  const toggleNode = useCallback((id: string) => {
+  const toggleNode = useCallback((id: string, dim?: "sub" | "ops") => {
+    const key = dim ? `${id}:${dim}` : id;
     setExpandedNodes((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }, []);
@@ -104,13 +97,26 @@ function TopologyCanvas() {
         : [],
     [runtime]
   );
-  const allExpanded = useMemo(
-    () => territoryIds.length > 0 && territoryIds.every((id) => expandedNodes.has(id)),
-    [territoryIds, expandedNodes]
-  );
+  const allExpanded = useMemo(() => {
+    if (!runtime || territoryIds.length === 0) return false;
+    if (!territoryIds.every((id) => expandedNodes.has(id))) return false;
+    return getLiveAgents(runtime).every(
+      (a) => expandedNodes.has(a.id + ":sub") && expandedNodes.has(a.id + ":ops")
+    );
+  }, [territoryIds, expandedNodes, runtime]);
   const expandAll = useCallback(() => {
-    setExpandedNodes(allExpanded ? new Set() : new Set(territoryIds));
-  }, [allExpanded, territoryIds]);
+    if (allExpanded) {
+      setExpandedNodes(new Set());
+      return;
+    }
+    const next = new Set(territoryIds);
+    for (const agent of runtime?.agents ?? []) {
+      if (["cancelled", "stopped"].includes(agent.runtimeState)) continue;
+      next.add(agent.id + ":sub");
+      next.add(agent.id + ":ops");
+    }
+    setExpandedNodes(next);
+  }, [allExpanded, territoryIds, runtime]);
 
   const { nodes, edges } = useTopologyGraph(expandedNodes, focusAgentId, {
     narrow,
@@ -269,7 +275,7 @@ function TopologyCanvas() {
             narrow && "max-w-[calc(100vw-2rem)]"
           )}>
             <span className="flex-1">
-              Scroll to zoom · tap + to open a box · click Inspect for details
+              Scroll to zoom. Open a card to see what's inside. Details opens the side panel.
             </span>
             <Button
               variant="ghost"
@@ -298,12 +304,6 @@ function TopologyCanvas() {
           ? "flex items-center gap-x-2"
           : "flex flex-wrap items-center gap-x-3 gap-y-1"
       )}>
-        {LEVEL_LEGEND.map(({ level, label }) => (
-          <span key={level} className={cn("flex items-center gap-1.5", narrow && "gap-1")}>
-            <span className={cn("inline-block h-3.5 w-1 rounded-full", levelDotClass(level))} />
-            <span className={narrow ? "hidden" : undefined}>{label}</span>
-          </span>
-        ))}
         <span className={cn("flex items-center gap-1.5", narrow && "gap-1")}>
           <span className="inline-block h-0.5 w-5 border-t-2 border-dotted border-info" />
           {!narrow && <span>delegation</span>}
@@ -326,21 +326,6 @@ function TopologyCanvas() {
       </div>
     </div>
   );
-}
-
-function levelDotClass(level: TopologyLevel): string {
-  switch (level) {
-    case "core":
-      return "bg-[hsl(var(--level-core))]";
-    case "territory":
-      return "bg-[hsl(var(--level-territory))]";
-    case "agent":
-      return "bg-[hsl(var(--level-agent))]";
-    case "sub":
-      return "bg-[hsl(var(--level-sub))]";
-    case "op":
-      return "bg-[hsl(var(--level-op))]";
-  }
 }
 
 export default function TopologyPage() {
