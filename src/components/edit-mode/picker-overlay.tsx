@@ -15,6 +15,9 @@ interface Outline {
   width: number;
   height: number;
   tag: string;
+  /** Where the tag label goes so it never falls off the screen. */
+  labelTop: number;
+  labelLeft: number;
 }
 
 interface PickerOverlayProps {
@@ -27,16 +30,20 @@ function crumb(label: string, max = 3): string {
   return `… > ${parts.slice(-max + 1).join(" > ")}`;
 }
 
+const LABEL_H = 22;
+const LABEL_GAP = 4;
+const LABEL_MAX_W = 260;
+
 /**
  * Captures everything while edit mode is on. Supports both mouse (hover + click)
  * and keyboard navigation: ArrowUp goes to the parent element, ArrowDown to the
- * first child (or back to the hovered node), Enter captures. The tag label shows
- * a shortened selector path so you always know which node you are targeting.
+ * first child (or back to the hovered node), Enter captures. The tag label is
+ * clamped inside the viewport so a target at the top or right edge stays readable.
  */
 export function PickerOverlay({ onCapture }: PickerOverlayProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [outline, setOutline] = useState<Outline | null>(null);
-  const [current, setCurrent] = useState<Element | null>(null);
+  const currentRef = useRef<Element | null>(null);
   const lastPointer = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -51,23 +58,37 @@ export function PickerOverlay({ onCapture }: PickerOverlayProps) {
       );
     };
 
+    const describe = (el: Element | null): Outline | null => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      // Keep the label fully on screen: below the box when there is no room
+      // above it, and never past the right edge.
+      const above = r.top - LABEL_H - LABEL_GAP;
+      const labelTop = above >= 4 ? above : r.top + 4;
+      const labelLeft = Math.max(4, Math.min(r.left, window.innerWidth - LABEL_MAX_W - 8));
+      return {
+        top: r.top,
+        left: r.left,
+        width: r.width,
+        height: r.height,
+        tag: el.tagName.toLowerCase(),
+        labelTop,
+        labelLeft,
+      };
+    };
+
     const show = (el: Element | null) => {
       cancelAnimationFrame(raf);
-      const t = el;
-      setCurrent(t);
-      if (!t) return setOutline(null);
-      const r = t.getBoundingClientRect();
-      setOutline({ top: r.top, left: r.left, width: r.width, height: r.height, tag: t.tagName.toLowerCase() });
+      currentRef.current = el;
+      setOutline(describe(el));
     };
 
     const pick = (clientX: number, clientY: number) => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         const t = targetAt(clientX, clientY);
-        if (!t) return setOutline(null);
-        setCurrent(t);
-        const r = t.getBoundingClientRect();
-        setOutline({ top: r.top, left: r.left, width: r.width, height: r.height, tag: t.tagName.toLowerCase() });
+        currentRef.current = t;
+        setOutline(describe(t));
       });
     };
 
@@ -113,11 +134,11 @@ export function PickerOverlay({ onCapture }: PickerOverlayProps) {
       if (typing) return;
       if (e.key === "ArrowUp") {
         e.preventDefault();
-        const parent = current?.parentElement ?? null;
+        const parent = currentRef.current?.parentElement ?? null;
         if (parent && parent !== document.body) show(parent);
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
-        const first = current?.firstElementChild ?? null;
+        const first = currentRef.current?.firstElementChild ?? null;
         if (first) show(first);
         else {
           const t = targetAt(lastPointer.current.x, lastPointer.current.y);
@@ -125,42 +146,52 @@ export function PickerOverlay({ onCapture }: PickerOverlayProps) {
         }
       } else if (e.key === "Enter") {
         e.preventDefault();
-        capture(current);
+        capture(currentRef.current);
       }
     };
+
+    // Freeze the page while picking, but put the host page's own overflow value
+    // back afterwards instead of blindly clearing it.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
     root.addEventListener("pointermove", onPointerMove, { passive: true });
     root.addEventListener("click", onClick, true);
     window.addEventListener("keydown", onKeyDown);
-    document.body.style.overflow = "hidden";
     return () => {
       cancelAnimationFrame(raf);
       root.removeEventListener("pointermove", onPointerMove);
       root.removeEventListener("click", onClick, true);
       window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = "";
+      document.body.style.overflow = prevOverflow;
     };
-  }, [onCapture, current]);
+  }, [onCapture]);
 
   return (
     <div
       ref={rootRef}
-      className="fixed inset-0 z-[90] cursor-crosshair select-none"
+      // Starts below the 56px header on purpose: the "Leave edit mode" toggle
+      // lives there, and a full-bleed overlay would make it a dead click.
+      className="fixed inset-x-0 bottom-0 top-14 z-[90] cursor-crosshair select-none"
     >
       {outline && (
         <div
           className="pointer-events-none fixed z-[1] border-2 border-dashed border-cyan-400"
-          style={{ top: outline.top, left: outline.left, width: outline.width, height: outline.height }}
+          style={{
+            top: outline.top,
+            left: outline.left,
+            width: outline.width,
+            height: outline.height,
+          }}
         >
-          <span className="absolute -top-[26px] left-0 max-w-[420px] truncate whitespace-nowrap rounded bg-cyan-400 px-1.5 py-0.5 text-[10px] font-bold text-black">
-            &lt;{outline.tag}&gt; · {crumb(current?.getAttribute?.("aria-label") ?? "")} · click/Enter to ticket
+          <span
+            className="absolute max-w-[260px] truncate rounded bg-cyan-400 px-1.5 py-0.5 text-[10px] font-bold text-black"
+            style={{ top: outline.labelTop - outline.top, left: outline.labelLeft - outline.left }}
+          >
+            &lt;{outline.tag}&gt; · {crumb(currentRef.current?.getAttribute?.("aria-label") ?? "")} · click/Enter
           </span>
         </div>
       )}
-
-      <div className="pointer-events-none fixed bottom-3 z-[2] left-1/2 -translate-x-1/2 rounded-full border border-cyan-400/40 bg-background/95 px-3 py-1 text-[10.5px] font-medium text-cyan-300 shadow-lg backdrop-blur">
-        Scroll paused while picking
-      </div>
     </div>
   );
 }

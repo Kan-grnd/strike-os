@@ -3,7 +3,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Copy, ExternalLink, Eye, Plus, Sparkles, Trash2, X } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  ExternalLink,
+  Eye,
+  Plus,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,7 +36,7 @@ import {
   type TweakKind,
 } from "@/lib/edit-tickets";
 import { buildThumbnailDataUrl } from "@/lib/edit-thumbnail";
-import type { CaptureResult } from "./capture";
+import { resolveIndexPath, type CaptureResult } from "./capture";
 import { useEditMode } from "./edit-mode-provider";
 
 /** One-click starting points that pre-fill kind, a row or two, and the intent. */
@@ -72,6 +83,8 @@ const PRIORITY_LABEL: Record<TicketPriority, string> = {
   HIGH: "High",
 };
 
+const STEPS = ["Target", "Changes", "Words", "Send"] as const;
+
 const draftKey = (route: string) => `strike.edit.draft.${route}`;
 
 interface TicketModalProps {
@@ -88,15 +101,16 @@ interface TargetCrumb {
   nodeIndexPath: number[];
 }
 
-/** Resolve the live node for a given index path, else null. */
-function resolveByPath(path: number[]): Element | null {
-  let node: Element = document.body;
-  for (const i of path) {
-    const child = node.children[i];
-    if (!child) return null;
-    node = child;
-  }
-  return node;
+/** Resolve the live node for a given index path — the only way this dialog ever
+ *  resolves a target, so preview and the filed selector cannot drift apart. */
+const resolveByPath = resolveIndexPath;
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
+      {children}
+    </div>
+  );
 }
 
 function ColorCell({
@@ -116,13 +130,13 @@ function ColorCell({
         value={hex}
         onChange={(e) => onChange(e.target.value)}
         aria-label={`Change ${i + 1} colour swatch`}
-        className="h-8 w-9 shrink-0 cursor-pointer rounded-md border border-border bg-background p-0.5"
+        className="h-9 w-10 shrink-0 cursor-pointer rounded-md border border-border bg-background p-0.5"
       />
       <Input
         value={desired}
         onChange={(e) => onChange(e.target.value)}
         placeholder="#0f172a"
-        className="h-8 font-mono text-xs"
+        className="h-9 font-mono text-xs"
         aria-label={`Change ${i + 1} colour`}
       />
     </div>
@@ -145,8 +159,9 @@ function SelectCell({
       value={desired}
       onChange={(e) => onChange(e.target.value)}
       aria-label={`Change ${i + 1} value`}
-      className="h-8 w-full rounded-md border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
+      className="h-9 w-full rounded-md border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
     >
+      <option value="">—</option>
       {options.map((o) => (
         <option key={o} value={o}>
           {o}
@@ -174,7 +189,7 @@ function ToggleShowCell({
       aria-label={`Change ${i + 1} show/hide`}
       onClick={() => onChange(showing ? "none" : "block")}
       className={cn(
-        "flex h-8 w-full items-center justify-center gap-1.5 rounded-md border text-xs font-medium transition-colors",
+        "flex h-9 w-full items-center justify-center gap-1.5 rounded-md border text-xs font-medium transition-colors",
         showing
           ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
           : "border-border text-muted-foreground hover:text-foreground"
@@ -240,7 +255,7 @@ function NumberCell({
         tabIndex={-1}
         aria-label={`Change ${i + 1} decrement`}
         onClick={() => commit(String(((parsed?.num ?? 0) - step) * 1))}
-        className="h-8 w-7 shrink-0 rounded-md border border-border text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        className="h-9 w-8 shrink-0 rounded-md border border-border text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
         −
       </button>
@@ -249,7 +264,7 @@ function NumberCell({
         onChange={(e) => commit(e.target.value)}
         inputMode="decimal"
         placeholder={parsed !== null ? "" : "e.g. 24px"}
-        className="h-8 min-w-0 flex-1 font-mono text-xs"
+        className="h-9 min-w-0 flex-1 font-mono text-xs"
         aria-label={`Change ${i + 1} value`}
       />
       <button
@@ -257,7 +272,7 @@ function NumberCell({
         tabIndex={-1}
         aria-label={`Change ${i + 1} increment`}
         onClick={() => commit(String(((parsed?.num ?? 0) + step) * 1))}
-        className="h-8 w-7 shrink-0 rounded-md border border-border text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        className="h-9 w-8 shrink-0 rounded-md border border-border text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
         +
       </button>
@@ -265,7 +280,7 @@ function NumberCell({
         value={unit}
         onChange={(e) => commit(num === "" ? "0" : num, e.target.value)}
         aria-label={`Change ${i + 1} unit`}
-        className="h-8 w-14 shrink-0 rounded-md border border-border bg-background px-1 text-xs outline-none focus:border-cyan-400/60"
+        className="h-9 w-14 shrink-0 rounded-md border border-border bg-background px-1 text-xs outline-none focus:border-cyan-400/60"
       >
         {units.map((u) => (
           <option key={u} value={u}>
@@ -277,12 +292,108 @@ function NumberCell({
   );
 }
 
+function ChangeRow({
+  row,
+  i,
+  kind,
+  onUpdate,
+  onPropertyChange,
+  onRemove,
+}: {
+  row: EditChange;
+  i: number;
+  kind: TweakKind;
+  onUpdate: (patch: Partial<EditChange>) => void;
+  onPropertyChange: (property: string) => void;
+  onRemove: () => void;
+}) {
+  const control = controlFor(row.property, kind);
+
+  return (
+    <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-2.5">
+      <div className="flex items-center gap-1.5">
+        <select
+          value={row.property}
+          onChange={(e) => onPropertyChange(e.target.value)}
+          aria-label={`Change ${i + 1} property`}
+          className="h-9 min-w-0 flex-1 rounded-md border border-border bg-background px-1.5 font-mono text-xs outline-none focus:border-cyan-400/60"
+        >
+          {CHANGE_PROPERTIES.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+        <span className="text-[10px] tabular-nums text-muted-foreground/70">{i + 1}</span>
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Remove change ${i + 1}`}
+          title={`Remove change ${i + 1}`}
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="space-y-1">
+          <FieldLabel>Current</FieldLabel>
+          <div
+            className="flex h-9 items-center truncate rounded-md border border-border bg-background/60 px-2 font-mono text-xs text-foreground/70"
+            title={row.current}
+          >
+            {row.current || "—"}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <FieldLabel>Desired</FieldLabel>
+          {control === "color" ? (
+            <ColorCell i={i} desired={row.desired} onChange={(v) => onUpdate({ desired: v })} />
+          ) : control === "number" ? (
+            <NumberCell i={i} property={row.property} desired={row.desired} onChange={(v) => onUpdate({ desired: v })} />
+          ) : control === "select" ? (
+            <SelectCell
+              i={i}
+              desired={row.desired}
+              options={CONTROL_REGISTRY[row.property]?.options ?? []}
+              onChange={(v) => onUpdate({ desired: v })}
+            />
+          ) : control === "toggle_show" ? (
+            <ToggleShowCell i={i} desired={row.desired} onChange={(v) => onUpdate({ desired: v })} />
+          ) : (
+            <Input
+              value={row.desired}
+              onChange={(e) => onUpdate({ desired: e.target.value })}
+              placeholder="e.g. 24px"
+              className="h-9 font-mono text-xs"
+              aria-label={`Change ${i + 1} desired`}
+            />
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <FieldLabel>Note</FieldLabel>
+        <Input
+          value={row.note}
+          onChange={(e) => onUpdate({ note: e.target.value })}
+          placeholder="why / what it should look like"
+          className="h-9 text-xs"
+          aria-label={`Change ${i + 1} note`}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function TicketModal({ capture, onClose }: TicketModalProps) {
   const router = useRouter();
-  const { shapes } = useEditMode();
+  const { shapes, clearShapes } = useEditMode();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const prevFocus = useRef<HTMLElement | null>(null);
+  const [step, setStep] = useState(0);
   const [kind, setKind] = useState<TweakKind>("TEXT");
   const [scope, setScope] = useState<TicketScope>("THIS_ELEMENT");
   const [priority, setPriority] = useState<TicketPriority>("MEDIUM");
@@ -303,6 +414,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
   const [filedId, setFiledId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [previewActive, setPreviewActive] = useState(false);
+  const [dataOpen, setDataOpen] = useState(false);
   const previewSnapshot = useRef<{ el: HTMLElement; cssText: string } | null>(null);
   const [metaModels, setMetaModels] = useState<string[]>([]);
   const [metaRoutes, setMetaRoutes] = useState<string[]>([]);
@@ -337,6 +449,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
   }, [capture]);
 
   const retarget = (crumb: TargetCrumb) => {
+    // A different target means the live preview no longer applies.
     setPreviewActive(false);
     setTarget(crumb);
     // Re-derive Change rows against the new snapshot so `current` stays live,
@@ -415,7 +528,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
     try {
       const raw = window.localStorage.getItem(draftKey(capture.route));
       if (!raw) return;
-      const d = JSON.parse(raw) as Partial<TicketModalProps> & {
+      const d = JSON.parse(raw) as {
         kind?: TweakKind;
         scope?: TicketScope;
         priority?: TicketPriority;
@@ -423,20 +536,13 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
         changes?: EditChange[];
         intent?: string;
         dataContext?: Partial<EditDataContext>;
+        targetPath?: string;
       };
       if (cancelled) return;
       if (d.kind) setKind(d.kind as TweakKind);
       if (d.scope) setScope(d.scope as TicketScope);
       if (d.priority) setPriority(d.priority as TicketPriority);
       if (typeof d.applyToSiblings === "boolean") setApplyToSiblings(d.applyToSiblings);
-      if (Array.isArray(d.changes)) {
-        setChanges(
-          changeRowsFor(d.kind ?? "TEXT", target.computed).map((row) => {
-            const saved = d.changes!.find((c) => c.property === row.property);
-            return saved ? { ...row, desired: saved.desired, note: saved.note } : row;
-          })
-        );
-      }
       if (typeof d.intent === "string") setIntent(d.intent);
       if (d.dataContext) {
         setDataContext({
@@ -445,6 +551,24 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
           recordId: d.dataContext.recordId ?? "",
           note: d.dataContext.note ?? "",
         });
+        if (d.dataContext.model || d.dataContext.endpoint || d.dataContext.recordId || d.dataContext.note) {
+          setDataOpen(true);
+        }
+      }
+
+      // Typed desired values belong to the target they were typed against.
+      // Re-using them for a different node would file a wrong "before".
+      const sameTarget = !d.targetPath || d.targetPath === capture.selectorPath;
+      if (sameTarget && Array.isArray(d.changes)) {
+        setChanges(
+          changeRowsFor(d.kind ?? "TEXT", target.computed).map((row) => {
+            const saved = d.changes!.find((c) => c.property === row.property);
+            return saved ? { ...row, desired: saved.desired, note: saved.note } : row;
+          })
+        );
+      } else if (Array.isArray(d.changes) && d.changes.some((c) => c.desired.trim())) {
+        setChanges(changeRowsFor(d.kind ?? "TEXT", target.computed));
+        toast.info("Saved draft was for a different element — change values not reused");
       }
     } catch {
       /* corrupt draft — ignore */
@@ -470,6 +594,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
             changes,
             intent,
             dataContext,
+            targetPath: target.selectorPath,
           })
         );
       } catch {
@@ -477,7 +602,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
       }
     }, 350);
     return () => clearTimeout(t);
-  }, [kind, scope, priority, applyToSiblings, changes, intent, dataContext, filedId, capture.route]);
+  }, [kind, scope, priority, applyToSiblings, changes, intent, dataContext, target.selectorPath, filedId, capture.route]);
 
   const discardDraft = () => {
     try {
@@ -492,7 +617,10 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
     setChanges(changeRowsFor("TEXT", target.computed));
     setIntent("");
     setCustomEndpoint(false);
+    setDataOpen(false);
     setDataContext({ model: "", endpoint: "", recordId: "", note: "" });
+    setPreviewActive(false);
+    toast.success("Draft cleared");
   };
 
   const pickKind = (k: TweakKind) => {
@@ -500,7 +628,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
     setChanges(changeRowsFor(k, target.computed));
   };
 
-  const applyTemplate = (tpl: typeof TEMPLATES[number]) => {
+  const applyTemplate = (tpl: (typeof TEMPLATES)[number]) => {
     setKind(tpl.kind);
     setChanges(
       tpl.props.map((property) => ({
@@ -512,6 +640,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
     );
     const label = target.label ? `“${target.label.slice(0, 40)}”` : "this element";
     setIntent(tpl.intent(label));
+    setStep(1);
   };
 
   const draftIntent = () => {
@@ -530,7 +659,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
     setIntent(`Change ${label} on ${capture.route}:\n${lines.join("\n")}`);
   };
 
-  const currentFor = (property: string, crumb: TargetCrumb): string => {
+  function currentFor(property: string, crumb: TargetCrumb): string {
     const c = crumb.computed as unknown as Record<string, string>;
     if (property in c && c[property] !== undefined) return c[property];
     // Extras (boxShadow, opacity, gap, zIndex, borderStyle) have no snapshot entry — read live.
@@ -546,7 +675,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
       }
     }
     return "";
-  };
+  }
 
   const updateChange = (i: number, patch: Partial<EditChange>) => {
     setChanges((rows) => rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -563,6 +692,30 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
     setChanges((rows) => rows.filter((_, idx) => idx !== i));
   };
 
+  // One thumbnail, built once, shared by the copied prompt and the filed ticket
+  // so the two can never disagree. The drawing surface is closed while this
+  // dialog is up, so the shapes cannot change underneath it.
+  const thumbnail = useMemo(
+    () =>
+      buildThumbnailDataUrl({
+        viewport: capture.viewport,
+        nodeIndexPath: target.nodeIndexPath,
+        targetLabel: target.label,
+        shapes,
+      }),
+    [capture.viewport, target.nodeIndexPath, target.label, shapes]
+  );
+
+  const hasData = Object.values(dataContext).some((v) => v.trim().length > 0);
+  const cleanData = hasData
+    ? {
+        model: dataContext.model.trim(),
+        endpoint: dataContext.endpoint.trim(),
+        recordId: dataContext.recordId.trim(),
+        note: dataContext.note.trim(),
+      }
+    : null;
+
   const input: EditTicketInput = useMemo(
     () => ({
       scope,
@@ -578,44 +731,22 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
       applyToSiblings,
       changes,
       priority,
-      dataContext: {
-        model: dataContext.model.trim(),
-        endpoint: dataContext.endpoint.trim(),
-        recordId: dataContext.recordId.trim(),
-        note: dataContext.note.trim(),
-      },
+      dataContext: cleanData ?? undefined,
       shapes: shapes.length > 0 ? shapes : undefined,
       label: target.label,
-      hasThumbnail: shapes.length > 0,
+      hasThumbnail: thumbnail !== null,
     }),
-    [scope, kind, capture, target, changes, intent, applyToSiblings, priority, dataContext, shapes]
+    [scope, kind, capture, target, changes, intent, applyToSiblings, priority, cleanData, shapes, thumbnail]
   );
 
-  // Live preview: when toggled on, mirror each desired Change onto the live
-  // element (resolved from the index path, falling back to the last selector
-  // segment). Never throws — a stale target surfaces as a toast and the preview
-  // is skipped. Reverts on toggle-off, retarget, or close. Preview never writes
-  // to the ticket.
+  // Live preview: mirror each desired Change onto the exact captured element,
+  // resolved by its index path only — never a "close enough" selector match, so
+  // a moved element reports a miss instead of restyling the wrong node. Reverts
+  // on toggle-off, retarget, and unmount. Preview never writes to the ticket.
   useEffect(() => {
     if (!previewActive) return;
-    const resolveLive = (): HTMLElement | null => {
-      const byPath = resolveByPath(target.nodeIndexPath);
-      if (byPath && byPath instanceof HTMLElement) return byPath;
-      const segs = target.selectorPath
-        .split(">")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const last = segs[segs.length - 1];
-      if (!last) return null;
-      try {
-        const el = document.querySelector(last);
-        return el instanceof HTMLElement ? el : null;
-      } catch {
-        return null;
-      }
-    };
-    const el = resolveLive();
-    if (!el) {
+    const el = resolveByPath(target.nodeIndexPath);
+    if (!(el instanceof HTMLElement)) {
       toast.error("Target moved — preview unavailable");
       setPreviewActive(false);
       return;
@@ -650,11 +781,23 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
     };
   }, [previewActive, target, changes]);
 
-  const togglePreview = () => {
-    setPreviewActive((v) => !v);
-  };
+  const desiredRows = changes.filter((c) => c.desired.trim().length > 0);
+  const canPreview = desiredRows.length > 0;
+  const missing = useMemo(() => {
+    const out: string[] = [];
+    if (!target.selectorPath.trim()) out.push("pick a target");
+    if (desiredRows.length === 0) out.push("add a desired value");
+    if (!intent.trim()) out.push("describe the change");
+    return out;
+  }, [target.selectorPath, desiredRows.length, intent]);
+
+  const readyToFile = missing.length === 0 && !submitting;
 
   const copyPrompt = async () => {
+    if (missing.length > 0) {
+      toast.info(`Still needed: ${missing.join(", ")}`);
+      return;
+    }
     try {
       await navigator.clipboard.writeText(buildImplementerPrompt(input));
       setCopied(true);
@@ -666,20 +809,12 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
   };
 
   const fileTicket = async () => {
-    if (!intent.trim() || submitting) return;
-    const withDesired = changes.some((c) => c.desired.trim().length > 0);
-    if (!withDesired) {
-      toast.info("Add at least one desired value before filing");
+    if (!readyToFile) {
+      if (missing.length > 0) toast.info(`Still needed: ${missing.join(", ")}`);
       return;
     }
     setSubmitting(true);
     try {
-      const thumbnail = buildThumbnailDataUrl({
-        viewport: capture.viewport,
-        nodeIndexPath: target.nodeIndexPath,
-        targetLabel: target.label,
-        shapes,
-      });
       const res = await fetch("/api/edit-tickets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -699,7 +834,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
             shapes,
           }),
           changes,
-          dataContext,
+          dataContext: cleanData,
           priority,
           thumbnail,
           intent,
@@ -714,6 +849,9 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
       }
       setFiledId(json.ticket.id);
       setPreviewActive(false);
+      // The drawings travelled with the ticket — leave the page clean so the
+      // next pick cannot sweep them into a second ticket.
+      clearShapes();
       toast.success("Ticket filed");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to file ticket");
@@ -722,13 +860,8 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
     }
   };
 
-  const readyToFile =
-    intent.trim().length > 0 &&
-    changes.some((c) => c.desired.trim().length > 0) &&
-    !submitting;
-
   return (
-    <div ref={rootRef} className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div ref={rootRef} className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4">
       <button
         type="button"
         aria-label="Close ticket modal"
@@ -741,10 +874,10 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
         aria-modal="true"
         aria-label="File edit ticket"
         tabIndex={-1}
-        className="relative flex max-h-[88vh] w-[680px] max-w-[94vw] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl outline-none"
+        className="relative flex max-h-[calc(100dvh-1rem)] w-[640px] max-w-full flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl outline-none"
       >
         {filedId ? (
-          <div className="flex flex-col items-center gap-4 px-8 py-14 text-center">
+          <div className="flex flex-col items-center gap-4 px-6 py-14 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-success/10 text-success">
               <Check className="h-6 w-6" />
             </div>
@@ -754,7 +887,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                 {kind} · {scope} · on {capture.route}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-center gap-2">
               <Button
                 onClick={() => {
                   onClose();
@@ -771,10 +904,10 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
           </div>
         ) : (
           <>
-            <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
+            <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
               <div className="min-w-0">
-                <h2 className="text-base font-semibold">File edit ticket</h2>
-                <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                <h2 className="text-sm font-semibold">File edit ticket</h2>
+                <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
                   {target.label ? `“${target.label}” · ` : ""}
                   <span className="font-mono text-cyan-400">{target.selectorPath}</span>
                 </div>
@@ -782,428 +915,502 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 title="Close"
+                aria-label="Close"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
-              <section>
-                <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Target
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-1 text-xs">
-                  {crumbs.map((c, i) => (
-                    <div key={i} className="flex items-center gap-1">
-                      {i > 0 && <span className="text-muted-foreground/50">›</span>}
-                      <button
-                        type="button"
-                        onClick={() => retarget(c)}
-                        aria-current={i === targetIndex}
-                        title={c.selectorPath}
-                        className={cn(
-                          "max-w-[220px] truncate rounded border px-1.5 py-0.5 font-mono transition-colors",
-                          i === targetIndex
-                            ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
-                            : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                        )}
-                      >
-                        {c.tag}
-                        {c.label ? (
-                          <span className="ml-1 normal-case text-[10px] text-muted-foreground">
-                            “{c.label.slice(0, 14)}”
-                          </span>
-                        ) : null}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-2 text-[11px] text-muted-foreground">
-                  Click a crumb to retarget — the snapshot and excerpt below swap to that node.
-                </div>
-              </section>
-
-              <section>
-                <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Preset
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {TWEAK_KINDS.map((k) => (
-                    <button
-                      key={k}
-                      type="button"
-                      onClick={() => pickKind(k)}
+            <ol className="flex items-center gap-1 border-b border-border px-4 py-2">
+              {STEPS.map((label, i) => (
+                <li key={label} className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setStep(i)}
+                    aria-current={i === step}
+                    className={cn(
+                      "flex h-8 w-full items-center justify-center gap-1.5 rounded-md text-[11px] font-medium transition-colors",
+                      i === step
+                        ? "bg-cyan-400/15 text-cyan-300"
+                        : i < step
+                          ? "text-foreground/70 hover:bg-accent"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    )}
+                  >
+                    <span
                       className={cn(
-                        "rounded-md border px-2.5 py-1.5 text-xs font-medium capitalize transition-colors",
-                        kind === k
-                          ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
-                          : "border-border text-muted-foreground hover:text-foreground"
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] tabular-nums",
+                        i === step
+                          ? "bg-cyan-400/30 text-cyan-200"
+                          : i < step
+                            ? "bg-success/20 text-success"
+                            : "bg-muted text-muted-foreground"
                       )}
                     >
-                      {k === "HIDE_SHOW" ? "Hide/Show" : k.toLowerCase()}
-                    </button>
-                  ))}
-                </div>
-              </section>
+                      {i < step ? <Check className="h-2.5 w-2.5" /> : i + 1}
+                    </span>
+                    <span className="truncate">{label}</span>
+                  </button>
+                </li>
+              ))}
+            </ol>
 
-              <section>
-                <div className="flex items-center justify-between">
-                  <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Changes
-                    <span className="normal-case text-foreground/60"> — every row carries its own note</span>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={addChange} type="button">
-                    <Plus className="h-3.5 w-3.5" />
-                    Add row
-                  </Button>
-                </div>
-                <div className="mt-2 space-y-2.5">
-                  {changes.map((row, i) => (
-                    <div
-                      key={i}
-                      className="grid grid-cols-[110px_1fr_1fr_1fr_auto] items-end gap-2 rounded-lg border border-border bg-muted/20 p-2"
-                    >
-                      <div className="min-w-0 space-y-1">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+              {step === 0 && (
+                <>
+                  <section className="space-y-2">
+                    <FieldLabel>Target</FieldLabel>
+                    <div className="flex flex-wrap items-center gap-1">
+                      {crumbs.map((c, i) => (
+                        <div key={i} className="flex items-center gap-1">
+                          {i > 0 && <span className="text-muted-foreground/50">›</span>}
+                          <button
+                            type="button"
+                            onClick={() => retarget(c)}
+                            aria-current={i === targetIndex}
+                            title={c.selectorPath}
+                            className={cn(
+                              "max-w-[180px] truncate rounded border px-1.5 py-1 font-mono transition-colors sm:max-w-[220px]",
+                              i === targetIndex
+                                ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
+                                : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                            )}
+                          >
+                            {c.tag}
+                            {c.label ? (
+                              <span className="ml-1 normal-case text-[10px] text-muted-foreground">
+                                “{c.label.slice(0, 14)}”
+                              </span>
+                            ) : null}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Pick a crumb to retarget. Preview and filed values follow this choice.
+                    </p>
+                  </section>
+
+                  <section className="space-y-2">
+                    <FieldLabel>Start from</FieldLabel>
+                    <div className="flex flex-wrap gap-1.5">
+                      {TEMPLATES.map((tpl) => (
                         <button
+                          key={tpl.id}
                           type="button"
-                          onClick={() => removeChange(i)}
-                          className="ml-auto flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-red-400"
+                          onClick={() => applyTemplate(tpl)}
+                          title="Fills the kind, a change row or two, and a draft intent"
+                          className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                         >
-                          <Trash2 className="h-3 w-3" />
-                          Remove
+                          {tpl.label}
                         </button>
-                        <select
-                          value={row.property}
-                          onChange={(e) =>
-                            setChanges((rows) =>
-                              rows.map((r, idx) =>
-                                idx === i
-                                  ? {
-                                      ...r,
-                                      property: e.target.value,
-                                      current: currentFor(e.target.value, target),
-                                    }
-                                  : r
-                              )
-                            )
-                          }
-                          aria-label={`Change ${i + 1} property`}
-                          className="h-8 w-full rounded-md border border-border bg-background px-1.5 font-mono text-xs outline-none focus:border-cyan-400/60"
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="space-y-2">
+                    <FieldLabel>Kind</FieldLabel>
+                    <div className="flex flex-wrap gap-1.5">
+                      {TWEAK_KINDS.map((k) => (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => pickKind(k)}
+                          aria-pressed={kind === k}
+                          className={cn(
+                            "rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                            kind === k
+                              ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
+                              : "border-border text-muted-foreground hover:text-foreground"
+                          )}
                         >
-                          {CHANGE_PROPERTIES.map((p) => (
-                            <option key={p} value={p}>
-                              {p}
+                          {k === "HIDE_SHOW" ? "Hide/Show" : k.toLowerCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="space-y-2">
+                    <FieldLabel>Scope</FieldLabel>
+                    <div className="flex flex-wrap gap-1.5">
+                      {SCOPE_OPTIONS.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => setScope(s.id)}
+                          aria-pressed={scope === s.id}
+                          className={cn(
+                            "rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                            scope === s.id
+                              ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
+                              : "border-border text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={applyToSiblings}
+                        onChange={(e) => setApplyToSiblings(e.target.checked)}
+                        className="h-4 w-4 accent-cyan-400"
+                        aria-label="Also apply to siblings matching this selector"
+                      />
+                      Also apply to siblings matching this selector
+                    </label>
+                  </section>
+                </>
+              )}
+
+              {step === 1 && (
+                <section className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <FieldLabel>Changes</FieldLabel>
+                    <Button variant="ghost" size="sm" onClick={addChange} type="button">
+                      <Plus className="h-3.5 w-3.5" />
+                      Add row
+                    </Button>
+                  </div>
+                  {changes.length === 0 ? (
+                    <p className="rounded-md border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
+                      No rows yet. Add one, or go back and pick a template.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {changes.map((row, i) => (
+                        <ChangeRow
+                          key={i}
+                          row={row}
+                          i={i}
+                          kind={kind}
+                          onUpdate={(patch) => updateChange(i, patch)}
+                          onPropertyChange={(property) =>
+                            updateChange(i, {
+                              property,
+                              current: currentFor(property, target),
+                            })
+                          }
+                          onRemove={() => removeChange(i)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-[11px] text-muted-foreground">
+                    {desiredRows.length === 0
+                      ? "No desired values yet — a ticket needs at least one."
+                      : `${desiredRows.length} desired value${desiredRows.length > 1 ? "s" : ""} will be filed.`}
+                  </p>
+                </section>
+              )}
+
+              {step === 2 && (
+                <>
+                  <section className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <FieldLabel>Intent</FieldLabel>
+                      <div className="flex items-center gap-1.5">
+                        <label htmlFor="ticket-priority" className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Priority
+                        </label>
+                        <select
+                          id="ticket-priority"
+                          value={priority}
+                          onChange={(e) => setPriority(e.target.value as TicketPriority)}
+                          aria-label="Ticket priority"
+                          className="h-8 w-24 rounded-md border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
+                        >
+                          {Object.entries(PRIORITY_LABEL).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
                             </option>
                           ))}
                         </select>
                       </div>
-                      <div className="space-y-1">
-                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Current</div>
-                        <Input
-                          value={row.current}
-                          readOnly
-                          tabIndex={-1}
-                          className="h-8 bg-transparent font-mono text-xs text-foreground/70"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Desired</div>
-                        {(() => {
-                          const control = controlFor(row.property, kind);
-                          if (control === "color")
-                            return (
-                              <ColorCell
-                                i={i}
-                                desired={row.desired}
-                                onChange={(v) => updateChange(i, { desired: v })}
-                              />
-                            );
-                          if (control === "number")
-                            return (
-                              <NumberCell
-                                i={i}
-                                property={row.property}
-                                desired={row.desired}
-                                onChange={(v) => updateChange(i, { desired: v })}
-                              />
-                            );
-                          if (control === "select")
-                            return (
-                              <SelectCell
-                                i={i}
-                                desired={row.desired}
-                                options={CONTROL_REGISTRY[row.property]?.options ?? []}
-                                onChange={(v) => updateChange(i, { desired: v })}
-                              />
-                            );
-                          if (control === "toggle_show")
-                            return (
-                              <ToggleShowCell
-                                i={i}
-                                desired={row.desired}
-                                onChange={(v) => updateChange(i, { desired: v })}
-                              />
-                            );
-                          return (
-                            <Input
-                              value={row.desired}
-                              onChange={(e) => updateChange(i, { desired: e.target.value })}
-                              placeholder="e.g. 24px"
-                              className="h-8 font-mono text-xs"
-                              aria-label={`Change ${i + 1} desired`}
-                            />
-                          );
-                        })()}
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Note</div>
-                        <Input
-                          value={row.note}
-                          onChange={(e) => updateChange(i, { note: e.target.value })}
-                          placeholder="why / what it should look like"
-                          className="h-8 text-xs"
-                          aria-label={`Change ${i + 1} note`}
-                        />
-                      </div>
-                      <div className="text-[10px] text-muted-foreground/70">{i + 1}</div>
                     </div>
-                  ))}
-                </div>
-              </section>
+                    <Textarea
+                      value={intent}
+                      onChange={(e) => setIntent(e.target.value)}
+                      placeholder="Describe the exact change in plain words — the ticket carries everything above verbatim. Broad scopes are first-class: say what should happen beyond this element."
+                      className="min-h-[104px] resize-y text-sm"
+                    />
+                    <div className="flex flex-wrap gap-1.5">
+                      <Button variant="ghost" size="sm" type="button" onClick={draftIntent}>
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Draft from changes
+                      </Button>
+                      <Button variant="ghost" size="sm" type="button" onClick={discardDraft}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Discard draft
+                      </Button>
+                    </div>
+                  </section>
 
-              <section>
-                <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Data <span className="normal-case">— optional</span>
-                </div>
-                <p className="mt-1 text-[11px] text-muted-foreground/80">
-                  If this change is scoped to a record, point the implementer at it.
-                </p>
-                <div className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Model</div>
-                    <select
-                      value={dataContext.model}
-                      onChange={(e) => setDataContext((d) => ({ ...d, model: e.target.value }))}
-                      aria-label="Data model"
-                      className="h-8 w-full rounded-md border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
+                  <section className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setDataOpen((v) => !v)}
+                      aria-expanded={dataOpen}
+                      className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-left text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                     >
-                      <option value="">— none —</option>
-                      {metaModels.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Endpoint</div>
-                    <select
-                      value={customEndpoint ? "__custom__" : dataContext.endpoint}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === "__custom__") {
-                          setCustomEndpoint(true);
-                        } else {
-                          setCustomEndpoint(false);
-                          setDataContext((d) => ({ ...d, endpoint: v }));
-                        }
-                      }}
-                      aria-label="Data endpoint"
-                      className="h-8 w-full rounded-md border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
-                    >
-                      <option value="">— none —</option>
-                      {metaRoutes.slice(0, 120).map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                      <option value="__custom__">Custom…</option>
-                    </select>
-                    {customEndpoint && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] text-muted-foreground">/api/</span>
-                        <Input
-                          value={dataContext.endpoint.startsWith("/api/") ? dataContext.endpoint.slice(5) : dataContext.endpoint}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setDataContext((d) => ({
-                              ...d,
-                              endpoint: v ? `/api/${v.replace(/^\/api\//, "")}` : "",
-                            }));
-                          }}
-                          placeholder="e.g. agents/123"
-                          aria-label="Custom data endpoint"
-                          className="h-8 font-mono text-xs"
-                        />
+                      <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", dataOpen && "rotate-90")} />
+                      Data
+                      <span className="font-normal text-muted-foreground/70">
+                        — optional{hasData ? " · set" : ""}
+                      </span>
+                    </button>
+                    {dataOpen && (
+                      <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-2.5">
+                        <p className="text-[11px] text-muted-foreground">
+                          If this change is scoped to a record, point the implementer at it.
+                        </p>
+                        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <FieldLabel>Model</FieldLabel>
+                            <select
+                              value={dataContext.model}
+                              onChange={(e) => setDataContext((d) => ({ ...d, model: e.target.value }))}
+                              aria-label="Data model"
+                              className="h-9 w-full rounded-md border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
+                            >
+                              <option value="">— none —</option>
+                              {metaModels.map((m) => (
+                                <option key={m} value={m}>
+                                  {m}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <FieldLabel>Endpoint</FieldLabel>
+                            <select
+                              value={customEndpoint ? "__custom__" : dataContext.endpoint}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (v === "__custom__") {
+                                  setCustomEndpoint(true);
+                                } else {
+                                  setCustomEndpoint(false);
+                                  setDataContext((d) => ({ ...d, endpoint: v }));
+                                }
+                              }}
+                              aria-label="Data endpoint"
+                              className="h-9 w-full rounded-md border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
+                            >
+                              <option value="">— none —</option>
+                              {metaRoutes.slice(0, 120).map((r) => (
+                                <option key={r} value={r}>
+                                  {r}
+                                </option>
+                              ))}
+                              <option value="__custom__">Custom…</option>
+                            </select>
+                            {customEndpoint && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-muted-foreground">/api/</span>
+                                <Input
+                                  value={dataContext.endpoint.startsWith("/api/") ? dataContext.endpoint.slice(5) : dataContext.endpoint}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    setDataContext((d) => ({
+                                      ...d,
+                                      endpoint: v ? `/api/${v.replace(/^\/api\//, "")}` : "",
+                                    }));
+                                  }}
+                                  placeholder="e.g. agents/123"
+                                  aria-label="Custom data endpoint"
+                                  className="h-9 font-mono text-xs"
+                                />
+                              </div>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <FieldLabel>Record id</FieldLabel>
+                            <Input
+                              value={dataContext.recordId}
+                              onChange={(e) => setDataContext((d) => ({ ...d, recordId: e.target.value }))}
+                              placeholder="e.g. cmt... or agent slug"
+                              aria-label="Data record id"
+                              className="h-9 font-mono text-xs"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <FieldLabel>Data note</FieldLabel>
+                            <Input
+                              value={dataContext.note}
+                              onChange={(e) => setDataContext((d) => ({ ...d, note: e.target.value }))}
+                              placeholder="which row this targets, in plain words"
+                              aria-label="Data note"
+                              className="h-9 text-xs"
+                            />
+                          </div>
+                        </div>
                       </div>
                     )}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Record id</div>
-                    <Input
-                      value={dataContext.recordId}
-                      onChange={(e) => setDataContext((d) => ({ ...d, recordId: e.target.value }))}
-                      placeholder="e.g. cmt... or agent slug"
-                      className="h-8 font-mono text-xs"
-                      aria-label="Data record id"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Data note</div>
-                    <Input
-                      value={dataContext.note}
-                      onChange={(e) => setDataContext((d) => ({ ...d, note: e.target.value }))}
-                      placeholder="which row this targets, in plain words"
-                      className="h-8 text-xs"
-                      aria-label="Data note"
-                    />
-                  </div>
-                </div>
-              </section>
+                  </section>
 
-              <section>
-                <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Scope
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {SCOPE_OPTIONS.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => setScope(s.id)}
-                      className={cn(
-                        "rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
-                        scope === s.id
-                          ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
-                          : "border-border text-muted-foreground hover:text-foreground"
+                  {shapes.length > 0 && (
+                    <section className="space-y-2">
+                      <FieldLabel>Annotations</FieldLabel>
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                          <span
+                            className="inline-block h-2 w-2 rounded-full"
+                            style={{ backgroundColor: shapes[shapes.length - 1].color }}
+                          />
+                          {shapes.length} shape{shapes.length > 1 ? "s" : ""} travel with this ticket
+                        </span>
+                        <span className="text-[10px] uppercase tracking-wider">
+                          {shapes.map((s) => s.type).join(" · ")}
+                        </span>
+                      </div>
+                    </section>
+                  )}
+                </>
+              )}
+
+              {step === 3 && (
+                <div className="space-y-3">
+                  <section className="space-y-1.5 rounded-lg border border-border p-3">
+                    <FieldLabel>Target</FieldLabel>
+                    <div className="text-xs">
+                      {target.label ? <div className="font-medium">“{target.label}”</div> : null}
+                      <div className="font-mono break-all text-cyan-400">{target.selectorPath}</div>
+                      <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">{capture.route}</div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] uppercase tracking-wider">
+                      <span className="rounded border border-border px-1.5 py-0.5 text-muted-foreground">{kind}</span>
+                      <span className="rounded border border-border px-1.5 py-0.5 text-muted-foreground">{scope}</span>
+                      <span className="rounded border border-border px-1.5 py-0.5 text-muted-foreground">{priority}</span>
+                      {applyToSiblings && (
+                        <span className="rounded border border-border px-1.5 py-0.5 text-muted-foreground">+ siblings</span>
                       )}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-                <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={applyToSiblings}
-                    onChange={(e) => setApplyToSiblings(e.target.checked)}
-                    className="h-3.5 w-3.5 accent-cyan-400"
-                    aria-label="Also apply to siblings matching this selector"
-                  />
-                  Also apply to siblings matching this selector
-                </label>
-              </section>
+                    </div>
+                  </section>
 
-              <section>
-                <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Templates
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {TEMPLATES.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => applyTemplate(t)}
-                      title={`Start from “${t.label}” — fills kind, change rows and intent`}
-                      className={cn(
-                        "rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
-                        "border-border text-muted-foreground hover:text-foreground"
+                  <section className="space-y-1.5 rounded-lg border border-border p-3">
+                    <FieldLabel>Changes ({desiredRows.length})</FieldLabel>
+                    {desiredRows.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">None yet.</p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {desiredRows.map((c) => (
+                          <li key={c.property} className="font-mono text-[11px] break-words">
+                            <span className="text-foreground/80">{c.property}</span>
+                            <span className="text-muted-foreground"> {c.current || "—"}</span>
+                            <span className="text-muted-foreground"> → </span>
+                            <span className="text-cyan-300">{c.desired}</span>
+                            {c.note ? <span className="font-sans text-muted-foreground"> · {c.note}</span> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+
+                  <section className="space-y-1.5 rounded-lg border border-border p-3">
+                    <FieldLabel>Intent</FieldLabel>
+                    <p className="text-xs whitespace-pre-wrap text-foreground/90">
+                      {intent || <span className="text-muted-foreground">Not written yet.</span>}
+                    </p>
+                  </section>
+
+                  {cleanData && (
+                    <section className="space-y-1.5 rounded-lg border border-border p-3">
+                      <FieldLabel>Data</FieldLabel>
+                      <ul className="space-y-0.5 text-[11px] text-muted-foreground">
+                        {cleanData.model && <li>model: <span className="font-mono">{cleanData.model}</span></li>}
+                        {cleanData.endpoint && <li>endpoint: <span className="font-mono text-cyan-400">{cleanData.endpoint}</span></li>}
+                        {cleanData.recordId && <li>record: <span className="font-mono">{cleanData.recordId}</span></li>}
+                        {cleanData.note && <li>{cleanData.note}</li>}
+                      </ul>
+                    </section>
+                  )}
+
+                  <section className="space-y-1.5 rounded-lg border border-border p-3">
+                    <FieldLabel>Picture</FieldLabel>
+                    <p className="text-xs text-muted-foreground">
+                      {thumbnail ? (
+                        <span className="flex items-center gap-1.5">
+                          <Check className="h-3.5 w-3.5 text-success" />
+                          {shapes.length} annotation{shapes.length === 1 ? "" : "s"} attached
+                        </span>
+                      ) : (
+                        "No picture — nothing was drawn or the target could not be located."
                       )}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-1.5 text-[11px] text-muted-foreground/80">
-                  One click fills the kind, a change row or two and a draft intent — edit anything afterwards.
-                </p>
-              </section>
+                    </p>
+                    {thumbnail && (
+                      <img
+                        src={thumbnail}
+                        alt="Target and annotation preview"
+                        className="mt-1 h-24 w-36 rounded border border-border bg-background object-contain"
+                      />
+                    )}
+                  </section>
 
-              <section>
-                <div className="flex items-center justify-between">
-                  <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Intent
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <label htmlFor="ticket-priority" className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Priority
-                    </label>
-                    <select
-                      id="ticket-priority"
-                      value={priority}
-                      onChange={(e) => setPriority(e.target.value as TicketPriority)}
-                      aria-label="Ticket priority"
-                      className="h-8 w-24 rounded-md border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
-                    >
-                      {Object.entries(PRIORITY_LABEL).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                    <Button variant="ghost" size="sm" type="button" onClick={draftIntent} title="Compose the intent from the change rows above">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Draft from changes
-                    </Button>
-                    <Button variant="ghost" size="sm" type="button" onClick={discardDraft} title="Clear the saved draft for this page">
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Discard draft
-                    </Button>
-                  </div>
+                  {missing.length > 0 && (
+                    <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                      Still needed: {missing.join(", ")}.
+                    </p>
+                  )}
                 </div>
-                <Textarea
-                  value={intent}
-                  onChange={(e) => setIntent(e.target.value)}
-                  placeholder="Describe the exact change in plain words — the ticket carries everything above verbatim. Broad scopes are first-class: say what should happen beyond this element."
-                  className="mt-2 min-h-[104px] resize-y text-sm"
-                />
-              </section>
-
-              {shapes.length > 0 && (
-                <section>
-                  <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Annotations
-                  </div>
-                  <div className="mt-2 flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1.5">
-                      <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: shapes[shapes.length - 1].color }} />
-                      {shapes.length} shape{shapes.length > 1 ? "s" : ""} attached to this ticket
-                    </span>
-                    <span className="text-[10px] uppercase tracking-wider">
-                      {shapes.map((s) => s.type).join(" · ")}
-                    </span>
-                  </div>
-                </section>
               )}
             </div>
 
-            <div className="flex items-center justify-between gap-2 border-t border-border px-6 py-4">
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button
-                  variant={previewActive ? "secondary" : "outline"}
-                  size="sm"
-                  onClick={togglePreview}
-                  aria-pressed={previewActive}
-                  title="Apply the desired Changes to the live element so you can see the result before filing"
-                >
-                  {previewActive ? <Check className="h-4 w-4 text-success" /> : <Eye className="h-4 w-4" />}
-                  {previewActive ? "Previewing" : "Preview"}
-                </Button>
+            <div className="space-y-2 border-t border-border px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setStep((s) => Math.max(0, s - 1))}
+                    disabled={step === 0}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Back
+                  </Button>
+                  {step < STEPS.length - 1 && (
+                    <Button variant="outline" size="sm" onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}>
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Button variant="ghost" size="sm" onClick={onClose}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant={previewActive ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setPreviewActive((v) => !v)}
+                    disabled={!canPreview && !previewActive}
+                    aria-pressed={previewActive}
+                    title={
+                      canPreview
+                        ? "Apply the desired Changes to the live element so you can see the result before filing"
+                        : "Add a desired value first"
+                    }
+                  >
+                    {previewActive ? <Check className="h-4 w-4 text-success" /> : <Eye className="h-4 w-4" />}
+                    {previewActive ? "Previewing" : "Preview"}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={copyPrompt}>
+                    {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                    {copied ? "Copied" : "Copy prompt"}
+                  </Button>
+                  <Button size="sm" onClick={fileTicket} disabled={!readyToFile}>
+                    {submitting ? "Filing…" : "File ticket"}
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={copyPrompt}>
-                  {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
-                  {copied ? "Copied" : "Copy implementer prompt"}
-                </Button>
-                <Button size="sm" onClick={fileTicket} disabled={!readyToFile}>
-                  {submitting ? "Filing…" : "File ticket"}
-                </Button>
-              </div>
+              {missing.length > 0 && step < STEPS.length - 1 && (
+                <p className="text-[11px] text-muted-foreground">
+                  To file: {missing.join(", ")}.
+                </p>
+              )}
             </div>
           </>
         )}

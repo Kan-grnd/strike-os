@@ -4,7 +4,6 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { usePathname } from "next/navigation";
 import { PickerOverlay } from "./picker-overlay";
 import { ShapeOverlay } from "./shape-overlay";
-import { ShapeToolbar } from "./shape-toolbar";
 import { EditBadge } from "./edit-badge";
 import { TicketModal } from "./ticket-modal";
 import type { CaptureResult } from "./capture";
@@ -34,6 +33,7 @@ export interface Shape {
 
 interface EditModeContextValue {
   active: boolean;
+  /** Enter/leave edit mode. Both directions reset the transient tool state. */
   setActive: (value: boolean) => void;
   shapes: Shape[];
   addShape: (shape: Shape) => void;
@@ -49,6 +49,9 @@ interface EditModeContextValue {
   setStrokeWidth: (width: number) => void;
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
+  /** The toolbar's "More" popover. Owned here so Escape has one owner. */
+  moreOpen: boolean;
+  setMoreOpen: (open: boolean) => void;
 }
 
 const EditModeContext = createContext<EditModeContextValue>({
@@ -68,6 +71,8 @@ const EditModeContext = createContext<EditModeContextValue>({
   setStrokeWidth: () => {},
   selectedId: null,
   setSelectedId: () => {},
+  moreOpen: false,
+  setMoreOpen: () => {},
 });
 
 export function useEditMode() {
@@ -80,13 +85,14 @@ const DEFAULT_COLOR = "#ef4444";
 const DEFAULT_WIDTH = 2;
 
 export function EditModeProvider({ children }: { children: React.ReactNode }) {
-  const [active, setActive] = useState(false);
+  const [active, setActiveState] = useState(false);
   const [pending, setPending] = useState<CaptureResult | null>(null);
   const [shapes, setShapes] = useState<Shape[]>([]);
   const [activeTool, setActiveTool] = useState<ActiveTool>(null);
   const [activeColor, setActiveColor] = useState(DEFAULT_COLOR);
   const [strokeWidth, setStrokeWidth] = useState(DEFAULT_WIDTH);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
   const pathname = usePathname();
 
   // Shapes are per-route: load what was saved for this page on mount and on
@@ -97,6 +103,8 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setSelectedId(null);
     setActiveTool(null);
+    setPending(null);
+    setMoreOpen(false);
     try {
       const raw = window.localStorage.getItem(shapesKey(pathname));
       setShapes(raw ? (JSON.parse(raw) as Shape[]) : []);
@@ -117,33 +125,44 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t);
   }, [shapes, pathname]);
 
-  const handleCapture = useCallback((capture: CaptureResult) => {
-    setPending(capture);
-    setActive(false);
+  // Entering and leaving both drop the transient tool state. Drawings are kept
+  // for the page on purpose — they are annotations, not a mode.
+  const setActive = useCallback((value: boolean) => {
+    setActiveState(value);
     setActiveTool(null);
     setSelectedId(null);
+    setMoreOpen(false);
+    if (!value) setPending(null);
+  }, []);
+
+  const handleCapture = useCallback((capture: CaptureResult) => {
+    // Edit mode stays on: closing the ticket box returns to a clean pick state
+    // instead of dumping the user back on the host page.
+    setPending(capture);
+    setActiveTool(null);
+    setSelectedId(null);
+    setMoreOpen(false);
   }, []);
 
   const clearPending = useCallback(() => setPending(null), []);
 
-  // Escape is scoped to the edit-mode surfaces only: close the ticket modal
-  // first, then drop an active shape/select tool, then leave edit mode.
+  // One owner for Escape, one step per press: close the ticket box, then the
+  // More popover, then drop the active tool, then leave edit mode. The only
+  // surface that keeps Escape for itself is the text-label draft, which stops
+  // the event before it reaches here.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const typing =
-        target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT");
-      if (e.key !== "Escape" || typing) return;
-      if (pending) {
-        clearPending();
-      } else if (active) {
-        if (activeTool !== null) setActiveTool(null);
+      if (e.key !== "Escape") return;
+      if (pending) clearPending();
+      else if (active) {
+        if (moreOpen) setMoreOpen(false);
+        else if (activeTool !== null) setActiveTool(null);
         else setActive(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [pending, active, activeTool, clearPending]);
+  }, [pending, active, moreOpen, activeTool, clearPending]);
 
   const addShape = useCallback((shape: Shape) => {
     setShapes((prev) => [...prev, shape]);
@@ -159,16 +178,19 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const undoShape = useCallback(() => {
-    setShapes((prev) => {
-      setSelectedId(null);
-      return prev.slice(0, -1);
-    });
+    // Selection is cleared in its own update — never inside another updater.
+    setSelectedId(null);
+    setShapes((prev) => prev.slice(0, -1));
   }, []);
 
   const clearShapes = useCallback(() => {
     setShapes([]);
     setSelectedId(null);
   }, []);
+
+  // The ticket box owns the screen while it is open: no chrome, no drawing
+  // surface, no picker underneath it.
+  const overlaysLive = active && pending === null;
 
   return (
     <EditModeContext.Provider
@@ -189,17 +211,16 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
         setStrokeWidth,
         selectedId,
         setSelectedId,
+        moreOpen,
+        setMoreOpen,
       }}
     >
       {children}
-      {active && (
+      {overlaysLive && (
         <>
-          <EditBadge onExit={() => { setActive(false); setActiveTool(null); setSelectedId(null); }} />
-          <ShapeToolbar />
+          <EditBadge />
           <ShapeOverlay />
-          {activeTool === null && (
-            <PickerOverlay onCapture={handleCapture} />
-          )}
+          {activeTool === null && <PickerOverlay onCapture={handleCapture} />}
         </>
       )}
       {pending && <TicketModal capture={pending} onClose={clearPending} />}

@@ -152,83 +152,76 @@ export default function EditQueuePage() {
     const priorityStyle = PRIORITY_STYLE[priority] ?? PRIORITY_STYLE.MEDIUM;
     return (
       <div className="rounded-lg border border-border bg-background p-4">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className={`border ${kindStyle.className}`}>{kindStyle.label}</Badge>
               <Badge className={`border ${priorityStyle.className}`}>{priorityStyle.label}</Badge>
               <Badge variant="outline">{t.scope}</Badge>
               {styles.label && (
-                <span className="text-sm font-medium text-foreground">“{styles.label}”</span>
-              )}
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-1">
-              {t.thumbnail ? (
-                <>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Thumbnail</span>
-                  <img
-                    src={t.thumbnail}
-                    alt="Ticket target and annotations"
-                    className="h-24 w-36 rounded border border-border object-contain bg-background"
-                  />
-                </>
-              ) : (
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  No thumbnail
+                <span className="max-w-full truncate text-sm font-medium text-foreground">
+                  “{styles.label}”
                 </span>
               )}
             </div>
+            {t.thumbnail ? (
+              <img
+                src={t.thumbnail}
+                alt="Ticket target and annotations"
+                className="mt-2 h-24 w-36 shrink-0 rounded border border-border bg-background object-contain"
+              />
+            ) : null}
           </div>
-          <span className="text-xs tabular-nums text-muted-foreground">
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
             {new Date(t.createdAt).toLocaleString()}
           </span>
         </div>
 
-        <div className="mt-2 space-y-1 text-xs">
-          <div>
-            <span className="text-muted-foreground">Route </span>
-            <span className="font-mono text-cyan-400">{t.route}</span>
+        <div className="mt-3 space-y-1.5 text-xs">
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <span className="text-muted-foreground">Route</span>
+            <span className="font-mono break-all text-cyan-400">{t.route}</span>
           </div>
-          <div className="truncate">
-            <span className="text-muted-foreground">Selector </span>
-            <span className="font-mono text-foreground/80">{t.selectorPath}</span>
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <span className="text-muted-foreground">Selector</span>
+            <span className="font-mono break-all text-foreground/80">{t.selectorPath}</span>
           </div>
           {tweakEntries.length > 0 && (
-            <div>
-              <span className="text-muted-foreground">Current </span>
-              <span className="font-mono text-foreground/80">
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <span className="text-muted-foreground">Current</span>
+              <span className="font-mono break-all text-foreground/80">
                 {tweakEntries.map(([k, v]) => `${k}: ${v}`).join(" · ")}
               </span>
             </div>
           )}
           {styles.viewport && (
-            <div>
-              <span className="text-muted-foreground">Viewport </span>
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <span className="text-muted-foreground">Viewport</span>
               <span className="font-mono text-foreground/60">{styles.viewport}</span>
             </div>
           )}
           {dataContext && (
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               {dataContext.model && (
-                <div>
+                <div className="min-w-0">
                   <span className="text-muted-foreground">Model </span>
-                  <span className="font-mono text-foreground/90">{dataContext.model}</span>
+                  <span className="font-mono break-all text-foreground/90">{dataContext.model}</span>
                 </div>
               )}
               {dataContext.endpoint && (
-                <div>
+                <div className="min-w-0">
                   <span className="text-muted-foreground">Endpoint </span>
-                  <span className="font-mono text-cyan-400">{dataContext.endpoint}</span>
+                  <span className="font-mono break-all text-cyan-400">{dataContext.endpoint}</span>
                 </div>
               )}
               {dataContext.recordId && (
-                <div>
+                <div className="min-w-0">
                   <span className="text-muted-foreground">Record </span>
-                  <span className="font-mono text-foreground/90">{dataContext.recordId}</span>
+                  <span className="font-mono break-all text-foreground/90">{dataContext.recordId}</span>
                 </div>
               )}
               {dataContext.note && (
-                <div>
+                <div className="min-w-0">
                   <span className="text-muted-foreground">Data note </span>
                   <span className="text-foreground/70">{dataContext.note}</span>
                 </div>
@@ -238,35 +231,28 @@ export default function EditQueuePage() {
         </div>
 
         {changes.length > 0 && (
-            <div className="mt-2 overflow-hidden rounded-md border border-border">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-border bg-muted/40 text-left text-[10px] uppercase tracking-wider text-muted-foreground">
-                    <th className="px-3 py-1.5 font-medium">Property</th>
-                    <th className="px-3 py-1.5 font-medium">Before</th>
-                    <th className="px-3 py-1.5 font-medium">After</th>
-                    <th className="px-3 py-1.5 font-medium">Note</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {changes.map((c, i) => (
-                    <tr key={i} className="border-b border-border/50 last:border-0">
-                      <td className="px-3 py-1 font-mono text-foreground/80">{c.property}</td>
-                      <td className="px-3 py-1 font-mono text-foreground/60">{c.current}</td>
-                      <td className="px-3 py-1 font-mono text-cyan-300">{c.desired}</td>
-                      <td className="px-3 py-1 text-foreground/70">{c.note}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ul className="mt-3 space-y-1.5">
+            {changes.map((c, i) => (
+              <li key={i} className="rounded-md border border-border bg-muted/20 px-3 py-2 text-xs">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className="font-mono font-medium text-foreground/90">{c.property}</span>
+                  <span className="font-mono break-all text-muted-foreground">{c.current || "—"}</span>
+                  <span className="text-muted-foreground" aria-hidden>
+                    →
+                  </span>
+                  <span className="font-mono break-all text-cyan-300">{c.desired || "—"}</span>
+                </div>
+                {c.note ? <div className="mt-0.5 text-foreground/70">{c.note}</div> : null}
+              </li>
+            ))}
+          </ul>
+        )}
 
-        <div className="mt-2 rounded-md bg-muted/50 px-3 py-2 text-xs text-foreground/90">
+        <div className="mt-3 rounded-md bg-muted/50 px-3 py-2 text-xs whitespace-pre-wrap text-foreground/90">
           {t.intent}
         </div>
 
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => copy(t)}>
             {copiedId === t.id ? (
               <Check className="h-3.5 w-3.5 text-success" />

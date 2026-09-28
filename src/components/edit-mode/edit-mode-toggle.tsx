@@ -16,6 +16,7 @@ export function EditModeToggle() {
       type="button"
       onClick={() => setActive(!active)}
       title={active ? "Leave edit mode" : "EDIT MODE — tickets only"}
+      aria-label={active ? "Leave edit mode" : "Enter edit mode"}
       aria-pressed={active}
       className={`inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors ${
         active

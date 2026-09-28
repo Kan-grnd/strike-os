@@ -5,6 +5,9 @@ import { editTicketsAllowed } from "@/lib/edit-tickets";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (!editTicketsAllowed()) {
+    return NextResponse.json({ tickets: [] });
+  }
   const tickets = await prisma.editTicket.findMany({
     orderBy: { createdAt: "desc" },
   });
@@ -43,6 +46,28 @@ export async function POST(req: Request) {
       );
     }
 
+    // A ticket with no "after" value is not a ticket — reject it server-side
+    // too, so a hand-rolled request cannot file an empty change set. A missing
+    // `changes` array counts as an empty one.
+    const rows = Array.isArray(changes) ? changes : [];
+    if (!rows.some((c) => String(c?.desired ?? "").trim())) {
+      return NextResponse.json(
+        { error: "at least one change needs a desired value" },
+        { status: 400 }
+      );
+    }
+
+    // All-empty data context is the same as no data context.
+    const data =
+      dataContext && typeof dataContext === "object"
+        ? Object.fromEntries(
+            Object.entries(dataContext as Record<string, unknown>).filter(
+              ([, v]) => String(v ?? "").trim() !== ""
+            )
+          )
+        : null;
+    const cleanData = data && Object.keys(data).length > 0 ? data : null;
+
     const ticket = await prisma.editTicket.create({
       data: {
         scope,
@@ -55,11 +80,8 @@ export async function POST(req: Request) {
             ? currentStyles
             : JSON.stringify(currentStyles ?? {}),
         intent: String(intent).slice(0, 4000),
-        changes: changes == null ? null : JSON.stringify(changes),
-        dataContext:
-          dataContext == null || Object.keys(dataContext).length === 0
-            ? null
-            : JSON.stringify(dataContext),
+        changes: JSON.stringify(rows),
+        dataContext: cleanData ? JSON.stringify(cleanData) : null,
         thumbnail:
           typeof thumbnail === "string" && thumbnail.length > 0 && thumbnail.length < 100_000
             ? thumbnail
