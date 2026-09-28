@@ -9,7 +9,7 @@ import type {
   TempEdge,
   WorkforceRuntime,
 } from "./types";
-import { buildTopologyLayout, type TopologyLayout } from "./layout";
+import { buildAdaptiveTopologyLayout, buildTopologyLayout, type TopologyLayout, type ViewportSize } from "./layout";
 
 /**
  * Manual disclosure: zoom is pure scale; the visible node set is decided only
@@ -181,11 +181,11 @@ function visibleNodeIds(
   return visible;
 }
 
-/** Where a transient completion pill sits below its owner card. Cards are
- *  ~120px+ tall now, well beyond the old assumed 58px, so measure the rendered
- *  node when a browser is available (offsetHeight — the pill and card share
- *  the same scaled plane). Falls back when there is no DOM (SSR / tests). */
-const FLASH_FALLBACK_OFFSET_PX = 150;
+/** Where a transient completion pill sits below its owner card. Cards are ~104px
+ *  tall after the compact pass, so measure the rendered node when a browser is
+ *  available (offsetHeight — the pill and card share the same scaled plane).
+ *  Falls back when there is no DOM (SSR / tests). */
+const FLASH_FALLBACK_OFFSET_PX = 116;
 function flashOffset(ownerId: string): number {
   if (typeof document === "undefined") return FLASH_FALLBACK_OFFSET_PX;
   try {
@@ -209,9 +209,10 @@ export function getTopologyNodes(
     allExpanded?: boolean;
     toggle?: (id: string, dim?: "sub" | "ops") => void;
     layout?: TopologyLayout;
+    viewport?: ViewportSize;
   } = {}
 ): Node[] {
-  const layout = opts.layout ?? buildTopologyLayout(runtime, opts.narrow ?? false);
+  const layout = opts.layout ?? buildAdaptiveTopologyLayout(runtime, opts.narrow ?? false, opts.viewport);
   const focus = focusAgentId ? focusContext(runtime, focusAgentId) : null;
   const visible = visibleNodeIds(runtime, expanded);
 
@@ -375,9 +376,9 @@ export function getTopologyEdges(
   runtime: WorkforceRuntime,
   expanded: ReadonlySet<string>,
   focusAgentId?: string,
-  opts: { narrow?: boolean; tempEdges?: TempEdge[]; layout?: TopologyLayout } = {}
+  opts: { narrow?: boolean; tempEdges?: TempEdge[]; layout?: TopologyLayout; viewport?: ViewportSize } = {}
 ): Edge[] {
-  const layout = opts.layout ?? buildTopologyLayout(runtime, opts.narrow ?? false);
+  const layout = opts.layout ?? buildAdaptiveTopologyLayout(runtime, opts.narrow ?? false, opts.viewport);
   const focus = focusAgentId ? focusContext(runtime, focusAgentId) : null;
   const visible = visibleNodeIds(runtime, expanded);
 
@@ -472,9 +473,10 @@ export function getTopologyGraph(
     expandAll?: () => void;
     allExpanded?: boolean;
     toggle?: (id: string, dim?: "sub" | "ops") => void;
+    viewport?: ViewportSize;
   } = {}
 ): { nodes: Node[]; edges: Edge[] } {
-  const layout = buildTopologyLayout(runtime, opts.narrow ?? false);
+  const layout = buildAdaptiveTopologyLayout(runtime, opts.narrow ?? false, opts.viewport);
   return {
     nodes: getTopologyNodes(runtime, expanded, focusAgentId, { ...opts, layout }),
     edges: getTopologyEdges(runtime, expanded, focusAgentId, { ...opts, layout }),

@@ -1,7 +1,7 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Building2, FoldVertical, Plus } from "lucide-react";
+import { Building2 } from "lucide-react";
 import type { ColonyRuntime } from "@/lib/runtime/types";
 import type { TopologyNodeData } from "@/lib/runtime/selectors";
 import { specialistLabel } from "@/lib/runtime/layout";
@@ -32,7 +32,7 @@ export function SpecialistNode({ id, data }: NodeProps) {
     /* Shell only — the expand toggle and Details below are real buttons. */
     <div
       title={entity.name}
-      className="node-list-in group relative w-64 cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40"
+      className="node-list-in group relative w-60 cursor-pointer rounded-lg border border-border bg-card px-3 py-2 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40"
     >
       <Handle type="target" position={Position.Top} id="in" />
       <Handle type="source" position={Position.Bottom} id="out" />
@@ -45,27 +45,28 @@ export function SpecialistNode({ id, data }: NodeProps) {
           {entity.status.toLowerCase()}
         </Badge>
       </div>
-      <Separator className="my-2" />
-      <p className="font-mono text-xs text-muted-foreground">
+      <Separator className="my-1.5" />
+      <p className="font-mono text-[11px] text-muted-foreground">
         {stats.total} agents, {stats.active} active
       </p>
-      <ActionRow className="mt-2 flex flex-wrap items-center justify-end gap-2">
+      <ActionRow className="mt-1.5 flex flex-nowrap items-center justify-end gap-1.5 overflow-hidden">
         {stats.total > 0 && (
           <CardButton
             variant="outline"
             size="sm"
-            className="h-8 px-2.5 text-xs"
+            className="h-7 shrink-0 gap-1 whitespace-nowrap px-1.5 text-xs"
             onClick={() => d.toggle?.(id)}
             aria-expanded={expanded}
+            aria-label={expanded ? "Hide agents" : `Show ${stats.total} agents`}
+            title={expanded ? "Hide agents" : `Show ${stats.total} agents`}
           >
-            {expanded ? <FoldVertical className="h-3.5 w-3.5" aria-hidden /> : <Plus className="h-3.5 w-3.5" aria-hidden />}
-            {expanded ? "Hide" : `Show agents (${stats.total})`}
+            {expanded ? "Hide" : `Agents ${stats.total}`}
           </CardButton>
         )}
         <CardButton
           variant="ghost"
           size="sm"
-          className="h-8 px-2.5 text-xs"
+          className="h-7 shrink-0 whitespace-nowrap px-2 text-xs"
           onClick={() => d.activate?.(id, "specialist")}
         >
           Details

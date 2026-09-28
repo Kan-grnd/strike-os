@@ -1,7 +1,6 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { FoldVertical, Plus } from "lucide-react";
 import type { AgentRuntime } from "@/lib/runtime/types";
 import type { TopologyNodeData } from "@/lib/runtime/selectors";
 import { agentStatePresentation } from "@/lib/runtime/presentation";
@@ -25,28 +24,38 @@ interface AgentShellProps {
   nodeType: "agent" | "subagent";
 }
 
+/* Disclosure toggle. Two compactness decisions live here:
+ *  1. The visible word is shortened ("Sub"/"Ops") so a worker with BOTH toggles
+ *     plus Details still fits one line — a wrapped action row inflated the card
+ *     from 104px to 161px and pushed every row below it down.
+ *  2. No icon. The word already names the control, and at sub-agent width
+ *     (w-56) the icon + its gap left only 7px of slack, enough to clip Details.
+ * Full wording stays in the accessible name and the tooltip. */
 function AgentToggle({
   expanded,
   count,
   label,
+  short,
   onToggle,
 }: {
   expanded: boolean;
   count: number;
   label: string;
+  short: string;
   onToggle: () => void;
 }) {
-  const Icon = expanded ? FoldVertical : Plus;
+  const accessible = expanded ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()} (${count})`;
   return (
     <CardButton
       variant="outline"
       size="sm"
-      className="h-8 px-2.5 text-xs"
+      className="h-7 shrink-0 gap-1 whitespace-nowrap px-1.5 text-xs"
       onClick={onToggle}
       aria-expanded={expanded}
+      aria-label={accessible}
+      title={accessible}
     >
-      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-      {expanded ? "Hide" : `${label} (${count})`}
+      {expanded ? "Hide" : `${short} ${count}`}
     </CardButton>
   );
 }
@@ -70,8 +79,8 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
     <div
       title={`${entity.name} — ${presenting.label}${entity.type ? ` (${entity.type})` : ""}; inspect for details`}
       className={cn(
-        "node-list-in group relative cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40",
-        small ? "w-60" : "w-64",
+        "node-list-in group relative cursor-pointer rounded-lg border border-border bg-card px-3 py-2 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40",
+        small ? "w-56" : "w-60",
         attention && "ring-1 ring-warning/50"
       )}
     >
@@ -89,18 +98,21 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
           {presenting.label}
         </Badge>
       </div>
-      <Separator className="my-2" />
+      <Separator className="my-1.5" />
       {data.operation ? (
-        <p className="truncate font-mono text-xs text-muted-foreground" title={data.operation}>
+        <p className="truncate font-mono text-[11px] text-muted-foreground" title={data.operation}>
           {data.operation}
         </p>
       ) : null}
-      <ActionRow className="mt-2 flex flex-wrap items-center justify-end gap-2">
+      {/* flex-nowrap is load-bearing: a wrapping action row grew the card by
+        40px and overlapped the row below. */}
+      <ActionRow className="mt-1.5 flex flex-nowrap items-center justify-end gap-1.5 overflow-hidden">
         {(data.subCount ?? 0) > 0 && (
           <AgentToggle
             expanded={expandedSub}
             count={data.subCount ?? 0}
             label="Sub-agents"
+            short="Sub"
             onToggle={() => data.toggle?.(id, "sub")}
           />
         )}
@@ -109,13 +121,14 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
             expanded={expandedOps}
             count={data.opCount ?? 0}
             label="Operations"
+            short="Ops"
             onToggle={() => data.toggle?.(id, "ops")}
           />
         )}
         <CardButton
           variant="ghost"
           size="sm"
-          className="h-8 px-2.5 text-xs"
+          className="h-7 shrink-0 whitespace-nowrap px-2 text-xs"
           onClick={() => activate?.(id, nodeType)}
         >
           Details

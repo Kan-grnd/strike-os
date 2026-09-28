@@ -94,11 +94,16 @@ export function InspectorPanel({
     return { byAgent, byColony, byTask, subAgents, taskTitle, runtime };
   }, [runtime]);
 
+  /* `data-topology-overlay` on both the loading and the loaded sheet: this
+   * panel is the one overlay big enough to sit on top of a branch, so the
+   * topology camera measures it and keeps the graph clear of it. It measures
+   * the sheet rather than being told how wide it is, so the two cannot drift. */
   if (!data || !runtime) {
     return (
       <div
         role="dialog"
         aria-label="Topology inspector"
+        data-topology-overlay
         onKeyDown={(e) => {
           if (e.key === "Escape") onClose();
         }}
@@ -138,6 +143,7 @@ export function InspectorPanel({
     <div
       role="dialog"
       aria-label="Topology inspector"
+      data-topology-overlay
       onKeyDown={(e) => {
         if (e.key === "Escape") onClose();
       }}

@@ -30,27 +30,37 @@ export function OperationNode({ id, data }: NodeProps) {
     /* Shell only — Details below is the real, focusable control. */
     <div
       title={`${entity.description} — inspect for details`}
-      className="node-list-in group relative w-48 cursor-pointer rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40"
+      className="node-list-in group relative w-44 cursor-pointer rounded-lg border border-border bg-card px-3 py-2 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40"
     >
       <Handle type="target" position={Position.Top} id="in" />
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <Play className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-          <span className="truncate text-xs font-semibold">{entity.description}</span>
+      {/* The title owns the full row. It used to share a row with the status
+        * badge, and at w-44 a "COMPLETED" badge plus gap-3 left the operation's
+        * name only ~34px — too little to identify the operation at all. Status
+        * and owner are metadata, so they share the line below instead, which
+        * also keeps the card at the 104px the layout reserves. */}
+      <span className="flex min-w-0 items-center gap-1.5">
+        <Play className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="truncate text-xs font-semibold" title={entity.description}>
+          {entity.description}
         </span>
+      </span>
+      <Separator className="my-1.5" />
+      <div className="flex items-center justify-between gap-2">
+        <p
+          className="min-w-0 truncate font-mono text-[11px] text-muted-foreground"
+          title={d.ownerName ? `Owned by ${d.ownerName}` : "Operation"}
+        >
+          {d.ownerName ? `by ${d.ownerName}` : "operation"}
+        </p>
         <Badge variant={STATUS_VARIANT[entity.status] ?? "secondary"} className="shrink-0">
           {entity.status === "RUNNING" ? "active" : formatState(entity.status)}
         </Badge>
       </div>
-      <Separator className="my-2" />
-      <p className="truncate font-mono text-[11px] text-muted-foreground">
-        {d.ownerName ? `by ${d.ownerName}` : "operation"}
-      </p>
-      <ActionRow className="mt-2 flex justify-end">
+      <ActionRow className="mt-1.5 flex flex-nowrap justify-end overflow-hidden">
         <CardButton
           variant="ghost"
           size="sm"
-          className="h-8 px-2.5 text-xs"
+          className="h-7 shrink-0 whitespace-nowrap px-2 text-xs"
           onClick={() => d.activate?.(id, "operation")}
         >
           Details
