@@ -6,19 +6,44 @@ One intelligence, many workers.
 
 ## Getting Started
 
+Strike OS stores its data in **PostgreSQL** on every platform, including local
+development, so the database provider cannot drift between environments.
+
+The easiest way to get a matching database is the devcontainer, which starts
+PostgreSQL alongside the app:
+
 ```bash
-# Install dependencies
+# Open the folder in a devcontainer, then:
+npm run db:migrate:dev   # apply migrations
+npm run db:seed          # load the demo dataset
+npm run dev
+```
+
+To run against your own PostgreSQL instead, point `DATABASE_URL` at it in `.env`
+(see `.env.example`) and run:
+
+```bash
 npm install
-
-# Set up database
-npm run db:generate
-npm run db:push
-
-# Run development server
+npm run db:generate      # generate Prisma Client
+npm run db:migrate       # apply migrations
+npm run db:seed          # optional: load the demo dataset
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
+
+### Database scripts
+
+| Script | Purpose |
+| --- | --- |
+| `npm run db:migrate` | Apply pending migrations (`prisma migrate deploy`) |
+| `npm run db:migrate:dev` | Create a new migration from schema changes |
+| `npm run db:seed` | Load the demo dataset |
+| `npm run db:generate` | Regenerate Prisma Client |
+| `npm run db:studio` | Open Prisma Studio |
+
+`npm run build` runs `prisma generate` and `prisma migrate deploy` before
+`next build`, so a deploy applies migrations as part of the build.
 
 ## Project Structure
 

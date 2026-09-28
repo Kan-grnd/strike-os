@@ -93,7 +93,7 @@ Built **Strike OS** — a complete adaptive AI workforce operating system with *
 
 ### Stack
 - **Framework:** Next.js 14 (App Router, TypeScript)
-- **Database:** PostgreSQL (SQLite dev) via Prisma
+- **Database:** PostgreSQL via Prisma (migrations in `prisma/migrations`)
 - **Styling:** Tailwind CSS + shadcn/ui (Radix primitives)
 - **State:** Zustand + SWR (polling + SSE)
 - **Real-time:** EventSource (SSE) for events, polling (2s) for others

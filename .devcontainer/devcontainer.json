@@ -1,8 +1,9 @@
 {
   "name": "Strike OS",
-  "image": "mcr.microsoft.com/devcontainers/typescript-node:22",
-  "postCreateCommand": "echo 'DATABASE_URL=\"file:./dev.db\"' > .env && npm ci && npx prisma generate && npx prisma db push",
-  "forwardPorts": [3000],
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "postCreateCommand": "npm ci && npx prisma generate && npx prisma migrate deploy",
+  "forwardPorts": [3000, 5432],
   "portsAttributes": {
     "3000": {
       "label": "Strike OS",
