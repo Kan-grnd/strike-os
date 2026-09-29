@@ -181,7 +181,7 @@ export function Sidebar({ collapsed = false, onCollapsedChange, suppressAnimatio
   return (
     <div
       className={cn(
-        "relative flex h-screen flex-col border-r glass-bar",
+        "relative flex h-screen flex-col border-r border-border glass-bar",
         collapsed ? "w-16" : "w-60",
         suppressAnimation ? "transition-none" : "transition-all duration-200"
       )}
@@ -274,14 +274,25 @@ export function Sidebar({ collapsed = false, onCollapsedChange, suppressAnimatio
                           <Link
                             key={item.href}
                             href={item.href}
+                            aria-current={isActive ? "page" : undefined}
                             className={cn(
-                              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                              "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                               isActive
                                 ? "bg-accent text-accent-foreground"
                                 : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                             )}
                             title={collapsed ? item.title : undefined}
                           >
+                            {/* A fill change alone disappears on the packs whose
+                                accent sits close to the sidebar fill, so the
+                                current page also gets a rail. Deliberately a
+                                solid bar rather than a luminous ring. */}
+                            {isActive && !collapsed && (
+                              <span
+                                aria-hidden="true"
+                                className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-primary"
+                              />
+                            )}
                             <item.icon className="h-4 w-4 shrink-0" />
                             {!collapsed && <span>{item.title}</span>}
                           </Link>
