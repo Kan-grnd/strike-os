@@ -7,22 +7,27 @@ import type { AgentRuntime, ColonyRuntime, TaskRuntime, WorkforceRuntime } from 
  * else is derived from hierarchy + a deterministic sibling order — never a
  * force simulation, never random.
  *
- * One shape, at every viewport size: a hub and spokes. Each territory is
- * anchored on its own sector around the brain, and that territory's whole
- * subtree is built as one axis-aligned block which is translated outward, so
- * one territory's workers can never restructure a neighbour's rows. The
- * viewport chooses how much *air* a graph gets; it never chooses the shape.
+ * One shape, at every viewport size: a top-down tree. The brain is the topmost
+ * card in the graph, territories hang in a centred row (or rows) below it, and
+ * each territory's whole subtree is built as one axis-aligned block hanging
+ * beneath its own card, so one territory's workers can never restructure a
+ * neighbour's rows. The viewport chooses how much *air* a graph gets; it never
+ * chooses the shape.
  *
- * The sectors are shallow diagonals rather than 45° rays, and that is the whole
- * reason a two-territory graph can read as a brain with two specialists beside
- * it. A block hangs *downward* from its territory card, so a 45° ray can only
- * clear the hub by clearing it vertically — which puts every territory on the
- * same side of the brain and reproduces the org chart this layout replaced, just
- * flipped. A shallow ray lets each block clear the hub sideways, so the brain
- * ends up between its territories instead of above them. The 3- and
- * 4-territory tables add the missing halves of the ring, and a lone territory
- * still sits directly below the brain because with nothing to flank there is
- * nothing to be level with.
+ * This is the shape a reader already knows — the org chart — so rank is legible
+ * without learning the graph: up is the boss, down is the worker, side by side
+ * means same level. The layout it replaced was a hub and spokes, with the brain
+ * sitting *between* its territories. That is the right shape for a network and
+ * the wrong one for a hierarchy, because it spends the brain's most useful
+ * property — being the thing everything descends from — to make the two-
+ * territory graph look like a badge.
+ *
+ * The top-down shape also deleted the geometry this file used to need. A block
+ * only ever grows downward from its own card, so blocks stacked in a row are
+ * separated on x by construction, and each row is a fixed band on y. There is
+ * no radius to search and no clash test to pass: a pair of blocks either has
+ * disjoint x-ranges (same row) or disjoint y-bands (different rows), and both
+ * follow from the row being laid out, not from a number being tuned.
  */
 
 export interface TopologyLayout {
@@ -37,6 +42,11 @@ export interface TopologyLayout {
 
 const BRAIN_Y = 0;
 const MAX_AGENTS_PER_ROW = 6;
+/** How many territories share one row under the brain before the next row
+ *  starts. Past this a graph is a tree with a trunk, not a row of peers, and
+ *  eight side-by-side blocks would force the camera so far out that no card is
+ *  legible. Matches the `widestRow > 4` spacing trigger on purpose. */
+const MAX_TERRITORIES_PER_ROW = 4;
 
 /* Card heights measured in a real browser on the *tallest* content variant, after
  * the compact pass. The decisive change was structural, not numeric: worker
@@ -128,7 +138,7 @@ export interface TopologySpacing {
   gap: number;
   /** Horizontal breathing room between siblings, on top of card width. */
   gutter: number;
-  /** Space between two territory columns. */
+  /** Air between two territory blocks sitting in the same row. */
   territoryGap: number;
   /** Inset from the colony centre edge to the outermost card. */
   pad: number;
@@ -260,7 +270,7 @@ const gapFor = (s: TopologySpacing, kind: "territory" | "agent" | "sub" | "pad")
  * Slots are claimed nearest-first, walking outward, so a sub-agent stays
  * roughly under its parent while collisions resolve deterministically in stable
  * sibling order. `taken` is owned by the caller, because a lattice is only
- * shared by cards that share a coordinate frame: the hub layout gives every
+ * shared by cards that share a coordinate frame: the tree layout gives every
  * territory its own block, and one block's slot numbering means nothing in
  * another's. */
 function claimLatticeSlot(taken: Set<number>, desired: number, pitch: number): number {
@@ -276,53 +286,10 @@ function claimLatticeSlot(taken: Set<number>, desired: number, pitch: number): n
   return base;
 }
 
-/* ── Hub and spokes ──────────────────────────────────────────────────────────
- * A sector is a unit vector in screen space (y grows downward): where a
- * territory's block goes, relative to the brain.
- *
- * The fixed tables are the compositions that actually exist. Two territories is
- * the common case and gets the symmetric raised pair, so the first listed lands
- * up-left of the brain and the second up-right; three adds a spoke below them
- * and four closes the ring. The rise is deliberately shallow (see the header):
- * a block grows downward from its card, so a steep ray can only clear the hub
- * by clearing it vertically, and every territory ends up stacked on one side of
- * the brain. Shallow is what lets the blocks clear the hub sideways and leaves
- * the brain level with its specialists.
- *
- * Past four the ring is evenly spaced from east, clockwise on screen, which
- * keeps every sector the same angle from its neighbours. */
-type Sector = readonly [number, number];
-
-/** How far a flanking sector rises per unit of horizontal travel. */
-const RISE = 0.22;
-
-/** A unit vector for a flanking sector: `side` picks the half of the ring,
- *  `rise` is which row of that half it sits in. */
-const flank = (side: -1 | 1, rise: -1 | 1): Sector => {
-  const len = Math.hypot(1, RISE);
-  return [side / len, (rise * RISE) / len];
-};
-
-/** Directly below the brain: the lone-territory case, and the third spoke. */
-const SOUTH: Sector = [0, 1];
-
-const SECTORS: Record<number, readonly Sector[]> = {
-  1: [SOUTH],
-  2: [flank(-1, -1), flank(1, -1)],
-  3: [flank(-1, -1), flank(1, -1), SOUTH],
-  4: [flank(-1, -1), flank(1, -1), flank(-1, 1), flank(1, 1)],
-};
-
-const sectorAt = (index: number, total: number): Sector => {
-  const fixed = SECTORS[total];
-  if (fixed) return fixed[index] ?? SOUTH;
-  const angle = (2 * Math.PI * index) / total;
-  return [Math.cos(angle), Math.sin(angle)];
-};
-
-/** One territory's subtree, in block-local coordinates: the territory card's
- * centre-x / top-y is the origin, and everything hangs below it. Translated
- * onto its sector to become graph coordinates. */
+/* ── Top-down tree ───────────────────────────────────────────────────────────
+ * One territory's subtree, in block-local coordinates: the territory card's
+ * centre-x / top-y is the origin, and everything hangs below it. The block is
+ * built once, in this frame, and then only translated into its row. */
 interface TerritoryBlock {
   colonyId: string;
   agents: Map<string, { x: number; y: number }>;
@@ -344,7 +311,7 @@ export function buildTopologyLayout(
    * allowed to depend on the order a query happened to return rows in, because
    * that is how a worker's children used to change places between two renders
    * of the same graph. Territories are sorted the same way, which is what makes
-   * "the first territory" a stable thing to hang a sector on. */
+   * "the first territory" a stable thing to hang on the left of a row. */
   const liveColonies = inCreationOrder(
     runtime.colonies.filter((c) => c.status !== "ARCHIVED"),
     (c) => epoch(c.timestamps.createdAt)
@@ -465,20 +432,21 @@ export function buildTopologyLayout(
   const rowDepth = (chunk: AgentRuntime[]): number =>
     Math.max(...chunk.map((a) => subtreeDepth(a.id, new Set())));
 
-  /* ── Hub and spokes: one shape, at every size ──
+  /* ── Top-down tree: one shape, at every size ──
    *
-   * Every block is built on its own, which is what makes this a hub instead of a
-   * pair of neighbours: rows and the sub-agent lattice are reserved from one
-   * territory's workers alone, where the old column path shared one row cursor
-   * across all colonies, so a deep subtree in one territory pushed every row of
-   * the other one down and the territories could only ever be side by side.
+   * Every block is built on its own, which is what keeps one territory from
+   * reaching into another's rows: the rows and the sub-agent lattice are
+   * reserved from one territory's workers alone, where the old column path
+   * shared one row cursor across all colonies, so a deep subtree in one
+   * territory pushed every row of the other one down.
    *
-   * There is deliberately no narrow branch here any more. A phone used to get a
+   * There is deliberately no narrow branch here. A phone used to get a
    * different *graph* — territories stacked into bands, one shared sub-agent
    * lattice, a completely different set of coordinates — so the same workforce
    * meant two different hierarchies depending on the window, and a screenshot
    * taken on a phone could not be compared with one taken on a desktop. The
-   * viewport now buys air and nothing else. */
+   * viewport now buys air and nothing else, and that includes how many
+   * territories share a row: the wrap is a constant, not a response to width. */
   {
     const agentGap = gapFor(spacing, "agent");
     const subGap = gapFor(spacing, "sub");
@@ -545,116 +513,73 @@ export function buildTopologyLayout(
     };
 
     const blocks = liveColonies.map((c) => buildBlock(c.id));
-    const sectors = liveColonies.map((_, i) => sectorAt(i, blocks.length));
 
-    const hubLeft = brain.x - CARD_W.brain / 2;
-    const hubRight = brain.x + CARD_W.brain / 2;
-    const hubTop = brain.y;
-    const hubBottom = brain.y + BRAIN_CARD_H;
-
-    /* How far out this block has to sit before it clears the hub. Two
-     * rectangles are disjoint as soon as they are disjoint on ONE axis, so the
-     * sector's dominant axis gives a tight starting radius rather than a
-     * guarantee: this is exact for the cardinal sectors, and only a lower
-     * bound for a diagonal one. A block on a 60° ray can be wider than it is
-     * deep, so clearing the hub on the ray's dominant axis does not stop its
-     * near corner swinging back across the other one. That is what the search
-     * below is for — it holds the hub as one more box, and treats this number
-     * as where to start looking. */
-    const clearanceFor = (box: Box, sector: Sector): number => {
-      const [dx, dy] = sector;
-      if (Math.abs(dx) >= Math.abs(dy)) {
-        return dx > 0 ? (hubRight + GAP - box.minX) / dx : (box.maxX - hubLeft + GAP) / -dx;
-      }
-      return dy > 0 ? hubBottom + GAP - box.minY : box.maxY - hubTop + GAP;
-    };
-
-    let radius = 0;
-    blocks.forEach((block, i) => {
-      radius = Math.max(radius, clearanceFor(block.box, sectors[i]));
-    });
-
-    const anchorFor = (sector: Sector, r: number) => ({
-      x: brain.x + sector[0] * r,
-      y: brain.y + sector[1] * r,
-    });
-    const overlapsBox = (
-      a: Pick<Box, "minX" | "maxX" | "minY" | "maxY">,
-      b: Pick<Box, "minX" | "maxX" | "minY" | "maxY">
-    ): boolean => a.minX < b.maxX && b.minX < a.maxX && a.minY < b.maxY && b.minY < a.maxY;
-    const hubBox: Pick<Box, "minX" | "maxX" | "minY" | "maxY"> = {
-      minX: hubLeft,
-      maxX: hubRight,
-      minY: hubTop,
-      maxY: hubBottom,
-    };
-    const blocksClash = (r: number): boolean => {
-      const boxes: Array<Pick<Box, "minX" | "maxX" | "minY" | "maxY">> = blocks.map((block, i) => {
-        const anchor = anchorFor(sectors[i], r);
-        return {
-          minX: anchor.x + block.box.minX,
-          maxX: anchor.x + block.box.maxX,
-          minY: anchor.y + block.box.minY,
-          maxY: anchor.y + block.box.maxY,
-        };
-      });
-      /* The hub is in the clash test, not just the starting radius: it is the
-       * one card every sector points at, and a block lying across it is the
-       * single failure this layout exists to prevent. */
-      if (boxes.some((b) => overlapsBox(hubBox, b))) return true;
-      for (let i = 0; i < boxes.length; i += 1) {
-        for (let j = i + 1; j < boxes.length; j += 1) {
-          if (overlapsBox(boxes[i], boxes[j])) return true;
-        }
-      }
-      return false;
-    };
-
-    /* One radius for every sector, so the ring stays symmetric.
-     *
-     * Separation is monotone in the radius, which is what makes this a search
-     * rather than a tuning loop. Growing r moves each block further out along
-     * its own ray, so the two components of the offset between any two blocks
-     * keep their sign and grow in magnitude: once two blocks clear each other
-     * along an axis they stay cleared. So the radius at which a clash clears is
-     * a single value, and it can be found rather than guessed at.
-     *
-     * Doubling finds an upper bound, then bisection walks back to the tightest
-     * radius that is actually clear. No pass budget: a capped loop would still
-     * be able to return a clashing graph, which is the one failure this whole
-     * layout exists to prevent, and it would fail silently. */
-    let upper = Math.max(1, radius);
-    while (blocksClash(upper)) upper *= 2;
-    let lower = 0;
-    for (let pass = 0; pass < 24; pass += 1) {
-      const mid = (lower + upper) / 2;
-      if (blocksClash(mid)) lower = mid;
-      else upper = mid;
+    /* Territories go in centred rows under the brain, at most
+     * MAX_TERRITORIES_PER_ROW per row. The wrap count is a constant rather than
+     * a function of the pane, because the viewport is not allowed to pick the
+     * shape (see the section header) — and it is deliberately the same four the
+     * `widestRow > 4` spacing trigger uses, so a graph that wraps its territories
+     * is also a graph that has already been given the compact tier. */
+    const rows: TerritoryBlock[][] = [];
+    for (let start = 0; start < blocks.length; start += MAX_TERRITORIES_PER_ROW) {
+      rows.push(blocks.slice(start, start + MAX_TERRITORIES_PER_ROW));
     }
-    /* Whole pixels, rounded away from the hub. Every downstream number is a
-     * pixel offset, and a bisection midpoint like 252.00002 would otherwise
-     * propagate through every card and make an unchanged layout look changed.
-     * Ceiling rather than rounding keeps the guarantee: this can only add
-     * clearance, never take any back. */
-    radius = Math.ceil(upper);
 
     const territories = new Map<string, { x: number; y: number }>();
     const agents = new Map<string, { x: number; y: number }>();
     const subAgents = new Map<string, { x: number; y: number }>();
     const operations = new Map<string, { x: number; y: number }>();
-    let lowest = hubBottom;
-    blocks.forEach((block, i) => {
-      const anchor = anchorFor(sectors[i], radius);
-      territories.set(block.colonyId, anchor);
-      block.agents.forEach((pos, id) => agents.set(id, { x: pos.x + anchor.x, y: pos.y + anchor.y }));
-      block.subAgents.forEach((pos, id) =>
-        subAgents.set(id, { x: pos.x + anchor.x, y: pos.y + anchor.y })
-      );
-      block.operations.forEach((pos, id) =>
-        operations.set(id, { x: pos.x + anchor.x, y: pos.y + anchor.y })
-      );
-      for (const card of block.cards) lowest = Math.max(lowest, card.y + anchor.y + card.h);
-    });
+
+    /* A block is a fixed box by the time it gets here, so placing one beside
+     * another is arithmetic rather than a search: the row is as wide as the sum
+     * of the blocks in it plus the gaps between them, and each block's left edge
+     * is wherever the cursor is. Overlap is unrepresentable. Two blocks in a row
+     * have disjoint x-ranges because the cursor advances past the box it just
+     * placed; two blocks in different rows have disjoint y-bands because each
+     * row starts a gap below the lowest card of the row above. The hub layout
+     * needed a doubling-and-bisection search over a radius to get the same
+     * guarantee, and could still return a clashing graph if that search were
+     * ever capped. Nothing here can be tuned into a failure.
+     *
+     * Blocks are reserved by their measured box, not by their territory card,
+     * because a block is as wide as its widest row of workers: a territory with
+     * six workers is far wider than its own card, and reserving by the card is
+     * what let a neighbour's workers land on top of the next territory. */
+    const blockGap = gapFor(spacing, "territory");
+
+    /* Everything is below the brain, always. The first row starts a gap under
+     * the brain's bottom edge and each later row a gap under the row above, so
+     * the brain is both the origin of graph space and its topmost card — the
+     * single property the whole layout exists to guarantee. */
+    const brainBottom = brain.y + BRAIN_CARD_H;
+    let lowest = brainBottom;
+    let rowTop = brainBottom + GAP;
+    for (const row of rows) {
+      const rowWidth = row.reduce((sum, b) => sum + b.box.w, 0) + blockGap * (row.length - 1);
+      let left = -rowWidth / 2;
+      for (const block of row) {
+        /* Measured from the block's left edge and top edge rather than from its
+         * own card's centre, since a block's box can extend well past its card
+         * on every side. Translating by the negated min is what pins the top of
+         * the row, not just the top of the first block in it. */
+        const anchor = { x: left - block.box.minX, y: rowTop - block.box.minY };
+        territories.set(block.colonyId, anchor);
+        block.agents.forEach((pos, id) => agents.set(id, { x: pos.x + anchor.x, y: pos.y + anchor.y }));
+        block.subAgents.forEach((pos, id) =>
+          subAgents.set(id, { x: pos.x + anchor.x, y: pos.y + anchor.y })
+        );
+        block.operations.forEach((pos, id) =>
+          operations.set(id, { x: pos.x + anchor.x, y: pos.y + anchor.y })
+        );
+        /* The block's extent is translated, so the bottom is the anchor plus the
+         * box's own maxY. Written this way rather than as `rowTop + box.maxY`
+         * so the next row's gap stays correct even if a block ever stops
+         * starting at local y 0. */
+        lowest = Math.max(lowest, anchor.y + block.box.maxY);
+        left += block.box.w + blockGap;
+      }
+      rowTop = lowest + GAP;
+    }
 
     /* An operation whose owner is gone (cancelled, or in an archived colony)
      * belongs to no block, so it is parked under the whole graph rather than

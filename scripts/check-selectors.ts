@@ -174,16 +174,17 @@ const CARD_H: Record<string, number> = {
   operation: 104, // every line truncates, so this is a true ceiling
 };
 
-// ── Hub and spokes ──
-// The brain is the origin of graph space and territories are anchored on their
-// own sectors around it, each subtree built as one block translated outward.
-// The old contract — everything below the brain, one shared row cursor — is what
-// made territories neighbours instead of spokes, and a second one (a phone got
-// a stacked tree instead) meant the same workforce was two different graphs
-// depending on the window. These check the geometry that replaced both.
+// ── Top-down tree ──
+// The brain is the origin of graph space *and* the topmost card in it: every
+// territory hangs in a centred row below it, with its own subtree built as one
+// block and translated into that row. The layout this replaced put the brain
+// *between* its territories, which is the right shape for a network and the
+// wrong one for a hierarchy — and a second thing it did (a phone got a stacked
+// tree instead) meant the same workforce was two different graphs depending on
+// the window. These check the geometry that replaced both.
 const posNodes = getTopologyNodes(runtime, agentsExpanded);
 const posOf = (id: string) => posNodes.find((n) => n.id === id)?.position ?? { x: 0, y: 0 };
-const hub = posOf(BRAIN_NODE_ID);
+const brainPos = posOf(BRAIN_NODE_ID);
 const territoryPos = (id: string) => posOf(id);
 /** A visible card's placed centre-x/top-y, with the type the collision checks
  *  need. One lookup, so a check about a card's position and a check about
@@ -202,61 +203,75 @@ const ownerColony = new Map<string, string>([
   ["ag-3", "col-b"],
   ["ag-5", "col-b"],
 ]);
-/* The hub is the origin, not merely "a fixed point somewhere near the top".
+/* The brain is the origin, not merely "a fixed point somewhere near the top".
  * Everything else in this section is relative to it, so if the origin moves the
  * whole composition silently becomes a different graph. */
-check("hub: the brain is the origin of graph space and never moves", hub.x === 0 && hub.y === 0, JSON.stringify(hub));
+check("tree: the brain is the origin of graph space and never moves", brainPos.x === 0 && brainPos.y === 0, JSON.stringify(brainPos));
+
+/* The property the whole layout exists for: the brain is the top of the
+ * hierarchy, so nothing in the graph is above it — not a territory, not a
+ * worker, not an operation. Two halves, because either one alone is a weaker
+ * claim than it looks. "Every card is below the brain's top edge" would pass
+ * with a card beside the brain; "the brain's top edge is the graph's topmost
+ * pixel" is the same statement read from the other side, and both are asserted
+ * because the graph is a tree and the eye reads rank off the topmost card. */
+const brainBottom = brainPos.y + CARD_H.brain;
 check(
-  "hub: the first territory is up-left of the brain and the second up-right",
-  territoryPos("col-a").x < 0 && territoryPos("col-a").y < 0 && territoryPos("col-b").x > 0 && territoryPos("col-b").y < 0,
+  "tree: the brain is the topmost card — nothing in the graph is above it",
+  Math.min(...posNodes.map((n) => n.position.y)) === brainPos.y &&
+    posNodes.filter((n) => n.type !== "brain").every((n) => n.position.y >= brainBottom),
+  `brain@${JSON.stringify(brainPos)} lowestOther=${Math.min(
+    ...posNodes.filter((n) => n.type !== "brain").map((n) => n.position.y)
+  )} brainBottom=${brainBottom}`
+);
+
+/* Siblings, not a chain, and below rather than beside. The two territories
+ * share one row (same y, one on each side of the brain's column) and that row
+ * starts a gap under the brain's bottom edge, so a reader sees the org chart
+ * they already know: up is the boss, side by side is the same level. */
+check(
+  "tree: the territories share one row beneath the brain, one on each side",
+  territoryPos("col-a").y === territoryPos("col-b").y &&
+    territoryPos("col-a").y >= brainBottom &&
+    territoryPos("col-a").x < 0 &&
+    territoryPos("col-b").x > 0,
   `col-a=${JSON.stringify(territoryPos("col-a"))} col-b=${JSON.stringify(territoryPos("col-b"))}`
 );
-/* Symmetric means the same radius on both sides: an arbitrary ring would still
- * pass "one on each side". And both are *raised* rather than level, so the two
- * territories read as siblings beside the brain — not one stacked on the other,
- * which is the org chart this layout exists to replace. */
+
+/* Centred, not left-aligned. Blocks are reserved by their measured width, so
+ * the two subtrees here are different widths and the territory *cards* are not
+ * symmetric about the brain. What has to be symmetric is the composition: the
+ * whole graph centred on the brain's column, or the brain sits off to one side
+ * of the thing it is supposed to head. */
+const graphBox = boxOf(
+  posNodes.map((n) => ({
+    x: n.position.x,
+    y: n.position.y,
+    w: CARD_W[n.type as string],
+    h: CARD_H[n.type as string],
+  }))
+)!;
 check(
-  "hub: the pair is symmetric about the hub and both sit above it",
-  Math.abs(Math.abs(territoryPos("col-a").x) - Math.abs(territoryPos("col-b").x)) < 1 &&
-    territoryPos("col-a").y === territoryPos("col-b").y &&
-    territoryPos("col-a").y < hub.y,
-  `col-a=${JSON.stringify(territoryPos("col-a"))} col-b=${JSON.stringify(territoryPos("col-b"))}`
+  "tree: the whole graph is centred on the brain's column",
+  Math.abs(graphBox.minX + graphBox.maxX) < 1,
+  `minX=${graphBox.minX} maxX=${graphBox.maxX}`
 );
-/* The brain has to end up *between* its territories, not merely above them. A
- * block hangs downward from its card, so a steep sector ray can only clear the
- * hub vertically and stacks the whole graph on one side; the sector rise is what
- * keeps the blocks clearing the hub sideways instead. */
+
+/* Each block is its own world: no card crosses into the neighbouring
+ * territory's band. This is the property that keeps a territory's subtree
+ * visually its own — the guarantee a shared row cursor used to break. */
+const bandOf = (colony: string) => {
+  const members = posNodes.filter((n) => (ownerColony.get(n.id as string) ?? n.id) === colony);
+  return {
+    min: Math.min(...members.map((n) => n.position.x - CARD_W[n.type as string] / 2)),
+    max: Math.max(...members.map((n) => n.position.x + CARD_W[n.type as string] / 2)),
+  };
+};
+const [bandA, bandB] = [bandOf("col-a"), bandOf("col-b")].sort((p, q) => p.min - q.min);
 check(
-  "hub: the brain is level with its territories, not stacked above or below them",
-  (() => {
-    const brainCentre = hub.y + CARD_H.brain / 2;
-    return territoryPos("col-a").y + CARD_H.specialist / 2 < brainCentre + CARD_H.brain &&
-      territoryPos("col-b").y + CARD_H.specialist / 2 < brainCentre + CARD_H.brain &&
-      territoryPos("col-a").x + CARD_W.specialist / 2 < hub.x &&
-      territoryPos("col-b").x - CARD_W.specialist / 2 > hub.x;
-  })(),
-  `col-a=${JSON.stringify(territoryPos("col-a"))} col-b=${JSON.stringify(territoryPos("col-b"))}`
-);
-/* Each block is its own world: no card crosses the hub onto the other
- * territory's side. This is the property that makes the graph a hub rather
- * than two columns that happen to be far apart. */
-check(
-  "hub: every territory's subtree stays on its own side of the hub",
-  posNodes
-    .filter((n) => n.type !== "brain")
-    .every((n) =>
-      (ownerColony.get(n.id as string) ?? n.id) === "col-a" ? n.position.x < 0 : n.position.x > 0
-    ),
-  posNodes.map((n) => `${n.id}@${Math.round(n.position.x)}`).join(" ")
-);
-/* The radius is derived from the hub's own box, so a territory is always
- * anchored outside it. Compared against the brain's half-width here, and the
- * rectangle form is asserted with the real card sizes in the geometry section
- * below, once those are defined. */
-check(
-  "hub: the pair is pushed out past the hub's own width",
-  Math.abs(territoryPos("col-a").x) > 128 && Math.abs(territoryPos("col-b").x) > 128,
-  `col-a=${territoryPos("col-a").x} col-b=${territoryPos("col-b").x}`
+  "tree: every territory's subtree stays inside its own band",
+  bandA.max < bandB.min,
+  `col-a=[${bandA.min},${bandA.max}] col-b=[${bandB.min},${bandB.max}]`
 );
 
 /* Siblings, not a chain. The hierarchy is Brain → territory → agent, and the one
@@ -266,7 +281,7 @@ check(
 const posEdges = getTopologyEdges(runtime, agentsExpanded);
 const territoryIdSet = new Set(runtime.colonies.map((c) => c.id));
 check(
-  "hub: no territory is ever connected to another territory",
+  "tree: no territory is ever connected to another territory",
   posEdges.every((e) => !(territoryIdSet.has(e.source) && territoryIdSet.has(e.target))),
   posEdges.map((e) => `${e.source}->${e.target}`).join(" ")
 );
@@ -290,7 +305,7 @@ for (const t of runtime.tasks) {
 }
 const actualOwnership = new Set(posEdges.map((e) => `${e.source}>${e.target}`));
 check(
-  "hub: the permanent edge set is exactly the declared ownership",
+  "tree: the permanent edge set is exactly the declared ownership",
   declaredOwnership.size === actualOwnership.size &&
     Array.from(declaredOwnership).every((k) => actualOwnership.has(k)),
   `declared=${Array.from(declaredOwnership).sort().join(" ")} actual=${Array.from(actualOwnership).sort().join(" ")}`
@@ -300,7 +315,7 @@ check(
  * separate code path on the other, so it is pinned here on the geometry the
  * selectors actually use. */
 check(
-  "hub: every operation sits directly beneath the worker that owns it",
+  "tree: every operation sits directly beneath the worker that owns it",
   ["t1", "t4", "t5"].every((id) => {
     const owner = runtime.tasks.find((t) => t.id === id)?.ownerAgentId as string;
     const op = placedAt(id);
@@ -391,7 +406,7 @@ check(
   `agent=${CARD_H.agent} operation=${CARD_H.operation} subagent=${CARD_H.subagent}`
 );
 check(
-  "compact: the hub keeps a clear radius (no card lands on the brain)",
+  "compact: no card lands on the brain (the tree keeps clear of its own root)",
   worstCasePos.filter((n) => n.id !== BRAIN_NODE_ID).every((n) => !overlaps(brainCard, n)),
   `brain@${JSON.stringify(brainCard)} others=${worstCasePos.length - 1}`
 );
@@ -408,8 +423,8 @@ check(
     return (
       narrow.spacing.gap < wide.spacing.gap &&
       narrow.spacing.gutter < wide.spacing.gutter &&
-      /* Same territories, same sectors: identical signs and ordering, so no
-       * amount of compaction can make one flank the other. */
+      /* Same territories in the same row order: identical signs, so no amount
+       * of compaction can move one territory onto the other side of the brain. */
       Array.from(narrow.territories.keys()).join(",") === Array.from(wide.territories.keys()).join(",") &&
       Array.from(narrow.territories.values()).every((p, i) => {
         const q = Array.from(wide.territories.values())[i];
@@ -451,18 +466,19 @@ check(
 );
 
 // ── Territories are independent of each other ──
-// The regression that made a hub possible. The old column layout shared one row
-// cursor across every colony, so the deepest subtree in ANY territory pushed
-// every row of ALL the others down: one busy territory silently restacked the
-// rest of the graph, which is exactly what made two territories impossible to
-// place as anything but neighbours. Each block is now reserved on its own.
+// The regression that made per-territory blocks necessary. The old column layout
+// shared one row cursor across every colony, so the deepest subtree in ANY
+// territory pushed every row of ALL the others down: one busy territory
+// silently restacked the rest of the graph. Each block is now reserved on its
+// own, so its rows cannot be touched from outside.
 //
-// The one thing a shared ring cannot promise is that the radius never moves —
-// the ring is symmetric, so the largest block decides how far out every sector
-// sits. What must hold is that the other territory is never *restructured*:
-// every one of its cards keeps the position it has relative to its own anchor.
+// What a shared row *cannot* promise is that its own position never moves — the
+// row is centred, so the widest block decides how far out every territory sits.
+// That is a translation, not a restructuring, and it is the distinction this
+// check exists to keep sharp: every card of the untouched territory has to keep
+// the position it holds relative to its own territory card.
 check(
-  "hub: one territory's workers cannot restructure another territory",
+  "tree: one territory's workers cannot restructure another territory",
   (() => {
     const before = buildTopologyLayout(runtime, false);
     /* Give col-b two more levels of worker, deeper than anything col-a has. */
@@ -503,12 +519,98 @@ check(
       restructured.length === 0 &&
       after.subAgents.has("ag-8") &&
       // And the fixture really did exercise the coupling, so this cannot pass
-      // by having built the same graph twice: the ring did open up.
+      // by having built the same graph twice: col-b's block really did get
+      // wider, which pushed the whole row — and col-a — further out.
       Math.abs(a1.x) > Math.abs(a0.x) &&
       collisionsIn(placedFromLayout(after)).length === 0
     );
   })(),
-  "col-a keeps its internal geometry while the ring widens for col-b"
+  "col-a keeps its internal geometry while the row widens for col-b"
+);
+
+/* ── A row that outgrows one line ──
+ *
+ * Two territories fit side by side, and so do four. Six do not: at that point a
+ * single row is a line so wide that the camera has to zoom out until no card is
+ * legible, and the territory on the far end becomes a thumbnail. So the row
+ * wraps — four per row, each row centred under the brain, the second row below
+ * the first. The two-territory fixtures above cannot reach that path, so the
+ * wrap is proved on a fixture built to overflow it. */
+const wrapRt: WorkforceRuntime = {
+  ...runtime,
+  colonies: Array.from({ length: 6 }, (_, i) => ({
+    id: `c${i}`,
+    name: `Colony ${i}`,
+    status: "ACTIVE" as const,
+    agentIds: [`w${i}`],
+    timestamps: { createdAt: new Date(now.getTime() + i * 1000), updatedAt: now },
+  })),
+  agents: Array.from({ length: 6 }, (_, i) => ({
+    ...runtime.agents[0],
+    id: `w${i}`,
+    name: `Worker ${i}`,
+    colonyId: `c${i}`,
+    createdAt: new Date(now.getTime() + i * 1000),
+    updatedAt: new Date(now.getTime() + i * 1000),
+  })),
+  tasks: [],
+};
+const wrapLayout = buildTopologyLayout(wrapRt, false);
+const wrapPlaced = placedFromLayout(wrapLayout);
+/** The real rectangles: the local `Placed` above is positions only, and the
+ *  box of a graph is a statement about card edges, not centres. */
+const wrapCards = layoutBounds(wrapLayout);
+/* Row membership is read off the *cards*, not off the territory map: a bug that
+ * places one territory twice writes it twice into the layout, and a map keyed by
+ * id would quietly collapse the duplicate and make the row counts look right. */
+const wrapRows = new Map<number, string[]>();
+for (const card of wrapPlaced.filter((p) => p.type === "specialist")) {
+  wrapRows.set(card.y, [...(wrapRows.get(card.y) ?? []), card.id]);
+}
+const wrapRowList = Array.from(wrapRows.entries()).sort((a, b) => a[0] - b[0]);
+check(
+  "tree: six territories wrap into two rows of four and two",
+  wrapRowList.length === 2 &&
+    wrapRowList[0][1].length === 4 &&
+    wrapRowList[1][1].length === 2 &&
+    /* All six accounted for, each exactly once: the row counts above are only
+     * meaningful if nothing was counted twice and nothing was dropped. */
+    new Set(wrapRowList.flatMap(([, ids]) => ids)).size === 6,
+  wrapRowList.map(([y, ids]) => `y=${y}:${ids.join(",")}`).join(" ")
+);
+check(
+  "tree: wrapped rows are stacked in order and each is centred on the brain",
+  (() => {
+    if (wrapRowList.length !== 2) return false;
+    /* Same creation order, read left to right, one row below the next. */
+    const readOrder = wrapRowList.map(([, ids]) => ids.join(",")).join("|");
+    if (readOrder !== "c0,c1,c2,c3|c4,c5") return false;
+    const box = boxOf(wrapCards)!;
+    /* Centred: the composition as a whole, not each row separately, because the
+     * brain heads the graph, so the graph is what has to be centred under it. */
+    return Math.abs(box.minX + box.maxX) < 1 && wrapRowList[1][0] > wrapRowList[0][0];
+  })(),
+  `rows=${wrapRowList.map(([y, ids]) => `${y}:${ids.join(",")}`).join(" ")} box=${JSON.stringify(
+    boxOf(wrapCards)
+  )}`
+);
+check(
+  "tree: the brain is still the topmost card once the rows wrap",
+  (() => {
+    const brainBottom = wrapLayout.brain.y + CARD_H.brain;
+    return (
+      Math.min(...wrapPlaced.map((p) => p.y)) === wrapLayout.brain.y &&
+      wrapPlaced.filter((p) => p.type !== "brain").every((p) => p.y >= brainBottom)
+    );
+  })(),
+  `brain=(${wrapLayout.brain.x},${wrapLayout.brain.y}) lowest=${Math.min(
+    ...wrapPlaced.filter((p) => p.type !== "brain").map((p) => p.y)
+  )}`
+);
+check(
+  "tree: a wrapped graph has no overlaps either",
+  collisionsIn(wrapPlaced).length === 0,
+  collisionsIn(wrapPlaced).join(" | ")
 );
 
 // ── Same guarantee at phone width ──
@@ -520,8 +622,9 @@ check(
 // reader is most likely to misread a stacked band as a reporting line.
 //
 // So the phone now gets the *same* graph, with tighter air. What is asserted
-// here is the guarantee that matters: same sectors, same sibling order, same
-// ownership, brain still the origin, and still no overlap.
+// here is the guarantee that matters: same row, same sibling order, same
+// ownership, brain still the origin and still the top of the hierarchy, and
+// still no overlap.
 const narrowNodes = getTopologyNodes(runtime, agentsExpanded, undefined, { narrow: true });
 const narrowPos: Placed[] = narrowNodes.map((n) => ({
   id: n.id as string,
@@ -546,10 +649,10 @@ check(
   })(),
   JSON.stringify(narrowPos.find((n) => n.id === BRAIN_NODE_ID))
 );
-/* Sectors and sibling order, not raw coordinates: the phone legitimately uses a
- * tighter spacing tier and fewer agents per row, so the pixels differ by design.
- * What must be identical is the reading — who is beside whom, and in which
- * order. */
+/* Row membership and sibling order, not raw coordinates: the phone legitimately
+ * uses a tighter spacing tier and fewer agents per row, so the pixels differ by
+ * design. What must be identical is the reading — who is beside whom, and in
+ * which order. */
 const orderOf = (placed: Placed[], colony: string) => {
   const members = new Set(
     placed.filter((p) => (ownerColony.get(p.id) ?? "") === colony).map((p) => p.id)
@@ -561,12 +664,20 @@ const orderOf = (placed: Placed[], colony: string) => {
     .join(",");
 };
 check(
-  "geometry: the phone keeps both territories flanking the brain",
+  "geometry: the phone keeps both territories in one row below the brain",
   (() => {
     const colonies = narrowPos.filter((n) => n.type === "specialist");
     if (colonies.length !== 2) return false;
     const [a, b] = [...colonies].sort((p, q) => p.x - q.x);
-    return a.x < 0 && a.y < 0 && b.x > 0 && b.y < 0 && a.y === b.y;
+    const brain = narrowPos.find((n) => n.id === BRAIN_NODE_ID);
+    return (
+      brain !== undefined &&
+      a.x < 0 &&
+      b.x > 0 &&
+      a.y === b.y &&
+      /* Below, not beside: the phone gets less air, not a different hierarchy. */
+      a.y >= brain.y + CARD_H.brain
+    );
   })(),
   narrowPos
     .filter((n) => n.type === "specialist")
@@ -709,7 +820,8 @@ check(
     return (
       l.brain.x === 0 && l.brain.y === 0 &&
       res !== undefined && eng !== undefined &&
-      res.x < 0 && res.y < 0 && eng.x > 0 && eng.y < 0 && res.y === eng.y
+      /* One row beneath the origin, in creation order left to right. */
+      res.x < 0 && res.y > l.brain.y && eng.x > 0 && res.y === eng.y
     );
   })(),
   `res=${JSON.stringify(buildTopologyLayout(orderedRt, false).territories.get("col-res"))} eng=${JSON.stringify(buildTopologyLayout(orderedRt, false).territories.get("col-eng"))}`
@@ -843,20 +955,26 @@ check(
     .map((e) => `${e.id}:${e.source ?? "?"}->${e.target ?? "?"} ${e.sourceHandle ?? "-"}/${e.targetHandle ?? "-"}`)
     .join(" ")
 );
-/* A spoke to a territory that sits beside the brain has to leave sideways,
- * otherwise it detours out of the bottom and back up. */
+/* A territory is *below* the brain, so its edge has to leave the bottom and
+ * arrive at the top. It is a wide step — hundreds of pixels across and only a
+ * gap down — so this is the one edge where "which way is it pointing" and
+ * "which way is it mostly offset" disagree, and the downward reading is the one
+ * that matches the hierarchy. */
 const spokeHandles = edgesDeep
   .filter((e) => e.source === BRAIN_NODE_ID)
   .map((e) => e.sourceHandle);
 check(
-  "edges: brain spokes use lateral handles when the territory is beside the brain",
-  spokeHandles.length > 0 && spokeHandles.every((h) => h === HANDLE_IDS.outLeft || h === HANDLE_IDS.outRight),
+  "edges: brain spokes leave the bottom and enter the territory's top",
+  spokeHandles.length > 0 &&
+    spokeHandles.every((h) => h === HANDLE_IDS.out) &&
+    edgesDeep
+      .filter((e) => e.source === BRAIN_NODE_ID)
+      .every((e) => e.targetHandle === HANDLE_IDS.in),
   spokeHandles.join(",")
 );
 /* An operation is directly beneath its owner, so its edge is vertical. If this
  * ever picks a lateral handle, the eye is told the operation belongs to a
- * neighbour — which is the one misreading the whole hub layout exists to
- * remove. */
+ * neighbour — which is the one misreading the whole layout exists to remove. */
 const opHandles = edgesDeep
   .filter((e) => e.target === "t1" || e.target === "t4" || e.target === "t5")
   .map((e) => `${e.sourceHandle}/${e.targetHandle}`);
@@ -1161,21 +1279,22 @@ const tierOverlaps = tierCases.flatMap(([label, rt]) => [
 ]);
 check("spacing: no overlap at any tier, wide or narrow", tierOverlaps.length === 0, tierOverlaps.join(" | "));
 
-/* ── The ring has to hold for every sector count, not just the two the other
- * fixtures happen to build.
+/* ── The tree has to hold for every territory count, not just the two the other
+ *  fixtures happen to build.
  *
- * The ring's difficulty is not the number of territories, it is their
- * inequality: one busy territory and one nearly empty one sit on adjacent
- * rays, so the busy block is much wider than its neighbour and can reach across
- * the hub. Even sizes hide that entirely, so the sweep makes each territory a
- * different size on purpose. */
-const ringRuntime = (territories: Array<[roots: number, subs: number]>): WorkforceRuntime => {
+ *  What makes a multi-territory graph hard is not the count, it is the
+ *  inequality: one busy territory and one nearly empty one share a row, so the
+ *  busy block is much wider than its neighbour and the row has to grow to hold
+ *  it. Even sizes hide that entirely, so the sweep makes each territory a
+ *  different size on purpose, and goes past four so the wrap is in the sweep
+ *  too. */
+const treeRuntime = (territories: Array<[roots: number, subs: number]>): WorkforceRuntime => {
   const colonies: WorkforceRuntime["colonies"] = [];
   const agents: WorkforceRuntime["agents"] = [];
   const tasks: WorkforceRuntime["tasks"] = [];
   territories.forEach(([roots, subs], ci) => {
     const id = `t${ci}`;
-    colonies.push({ id, name: `Ring ${ci}`, status: "ACTIVE", agentIds: [], timestamps: runtime.colonies[0].timestamps });
+    colonies.push({ id, name: `Tree ${ci}`, status: "ACTIVE", agentIds: [], timestamps: runtime.colonies[0].timestamps });
     for (let i = 0; i < roots; i += 1) {
       const rootId = `t${ci}-r${i}`;
       agents.push({ ...runtime.agents[0], id: rootId, name: rootId, parentId: undefined, colonyId: id, runtimeState: "idle" });
@@ -1189,33 +1308,43 @@ const ringRuntime = (territories: Array<[roots: number, subs: number]>): Workfor
   return { ...runtime, colonies, agents, tasks };
 };
 /* Uneven on purpose: the widest block is first, so it is the one that has to
- * push the whole ring outward rather than sitting comfortably inside it. */
-const ringCases: Array<[string, WorkforceRuntime]> = [
-  ["2 uneven", ringRuntime([[7, 2], [1, 0]])],
-  ["3 uneven", ringRuntime([[6, 2], [1, 0], [3, 1]])],
-  ["4 uneven", ringRuntime([[5, 1], [1, 0], [3, 0], [2, 1]])],
-  ["5 uneven", ringRuntime([[4, 1], [1, 0], [3, 0], [2, 0], [1, 1]])],
-  ["6 uneven", ringRuntime([[4, 1], [1, 0], [2, 0], [3, 0], [1, 1], [2, 1]])],
-  ["7 uneven", ringRuntime([[3, 1], [1, 0], [2, 0], [2, 0], [1, 0], [2, 1], [1, 0]])],
-  ["8 uneven", ringRuntime([[3, 0], [1, 0], [2, 0], [2, 0], [1, 0], [2, 0], [1, 0], [2, 1]])],
+ * widen the row rather than sitting comfortably inside it. */
+const treeCases: Array<[string, WorkforceRuntime]> = [
+  ["2 uneven", treeRuntime([[7, 2], [1, 0]])],
+  ["3 uneven", treeRuntime([[6, 2], [1, 0], [3, 1]])],
+  ["4 uneven", treeRuntime([[5, 1], [1, 0], [3, 0], [2, 1]])],
+  ["5 uneven", treeRuntime([[4, 1], [1, 0], [3, 0], [2, 0], [1, 1]])],
+  ["6 uneven", treeRuntime([[4, 1], [1, 0], [2, 0], [3, 0], [1, 1], [2, 1]])],
+  ["7 uneven", treeRuntime([[3, 1], [1, 0], [2, 0], [2, 0], [1, 0], [2, 1], [1, 0]])],
+  ["8 uneven", treeRuntime([[3, 0], [1, 0], [2, 0], [2, 0], [1, 0], [2, 0], [1, 0], [2, 1]])],
 ];
-const ringOverlaps = ringCases.flatMap(([label, rt]) => allOverlappingSteps(`${label}/wide`, rt, false));
-check("hub: no card ever overlaps another, at any sector count", ringOverlaps.length === 0, ringOverlaps.join(" | "));
-/* The hub is the one card every sector points at, so a block reaching across it
- * is the failure the ring exists to prevent — and it is the failure uneven
- * blocks are most likely to cause. */
+const treeOverlaps = treeCases.flatMap(([label, rt]) => allOverlappingSteps(`${label}/wide`, rt, false));
+check("tree: no card ever overlaps another, at any territory count", treeOverlaps.length === 0, treeOverlaps.join(" | "));
+/* The brain is the top of the hierarchy, so a block reaching above it — or onto
+ * it — is the failure the layout exists to prevent, and uneven blocks are the
+ * ones most likely to cause it. Asserted as the topmost-card property rather
+ * than only as a collision, because a card placed *above* the brain without
+ * touching it is the same mistake wearing a different hat. */
 check(
-  "hub: no block ever reaches across the hub, at any sector count",
-  ringCases.every(([, rt]) => {
+  "tree: the brain stays the top of the graph at every territory count",
+  treeCases.every(([, rt]) => {
     const placed = placedFromLayout(buildTopologyLayout(rt, false));
-    const hub = placed.find((p) => p.type === "brain")!;
-    return placed.every((p) => p.id === "brain" || !overlaps(hub, p));
+    const brain = placed.find((p) => p.type === "brain")!;
+    return (
+      placed.every((p) => p.id === "brain" || !overlaps(brain, p)) &&
+      /* The brain is not below itself, so it is excluded from its own
+       * "everything else hangs beneath me" clause. */
+      placed.every((p) => p.id === "brain" || p.y >= brain.y + CARD_H.brain) &&
+      Math.min(...placed.map((p) => p.y)) === brain.y
+    );
   }),
-  ringCases
+  treeCases
     .map(([label, rt]) => {
       const placed = placedFromLayout(buildTopologyLayout(rt, false));
-      const hub = placed.find((p) => p.type === "brain")!;
-      const hits = placed.filter((p) => p.id !== "brain" && overlaps(hub, p)).map((p) => p.id);
+      const brain = placed.find((p) => p.type === "brain")!;
+      const hits = placed
+        .filter((p) => p.id !== "brain" && (overlaps(brain, p) || p.y < brain.y + CARD_H.brain))
+        .map((p) => p.id);
       return hits.length ? `${label}: ${hits.join(",")}` : "";
     })
     .filter(Boolean)
@@ -1223,9 +1352,9 @@ check(
 );
 
 /* Prove the multi-territory path is genuinely exercised rather than vacuous: both
- * territory cards must exist, sit on opposite sides of the hub, and clear the
- * required lateral separation — at every viewport size, because "narrow" is a
- * spacing tier now and not a second graph. */
+ * territory cards must exist, share one row, sit on opposite sides of the
+ * brain's column, and clear the required separation — at every viewport size,
+ * because "narrow" is a spacing tier now and not a second graph. */
 check(
   "spacing: two territories clear the required separation at every size",
   (() => {
@@ -1235,8 +1364,10 @@ check(
       const [a, b] = Array.from(layout.territories.values());
       const dx = Math.abs(b.x - a.x);
       const dy = Math.abs(b.y - a.y);
-      // Flanking: same height, opposite sides of the origin, and the gap is
-      // measured between the outer edges of the two cards.
+      // Same row, opposite sides of the origin, and the gap measured between
+      // the outer edges of the two cards. Each card sits at least half its own
+      // width inside its block, so a block gap of territoryGap is a card gap of
+      // at least territoryGap + one card width.
       if (dy > 1) return false;
       if (Math.sign(a.x) !== -Math.sign(b.x)) return false;
       if (dx < layout.spacing.territoryGap + CARD_W.specialist) return false;

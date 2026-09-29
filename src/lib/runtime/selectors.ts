@@ -414,11 +414,9 @@ export function getTopologyEdges(
   const dimTrue = () => ({ opacity: 0.2 });
   /* Where an endpoint sits decides which pair of handles the edge uses. Layout
    * positions are centre-x/top-y, so the endpoint that matters is the card's
-   * centre: `y + h / 2`, not `y`. Using top edges put a diagonal
-   * brain→territory spoke on the top/bottom pair, because the brain's top edge
-   * and a raised territory's top edge are close together even though the two
-   * cards are unmistakably side by side — and the edge left the bottom of the
-   * brain, looped under it and came back up into the territory's top. */
+   * centre: `y + h / 2`, not `y`. Comparing top edges instead put a diagonal
+   * edge on the wrong pair, because two cards' top edges can be close together
+   * even when the cards are unmistakably far apart. */
   const anchorOf = (id: string): { x: number; centreY: number; kind: string } | null => {
     if (id === BRAIN_NODE_ID) {
       return { x: layout.brain.x, centreY: layout.brain.y + CARD_SIZE.brain.h / 2, kind: "brain" };
@@ -445,14 +443,22 @@ export function getTopologyEdges(
     if (!from || !to || from.kind === "operation") return {};
     const dx = to.x - from.x;
     const dy = to.centreY - from.centreY;
+    /* Downward first, and downward *unconditionally*.
+     *
+     * This is a top-down tree, so "the target is below me" is the reading, and
+     * it has to beat the horizontal test: a brain→territory edge steps down
+     * about 125px and sideways 900px, so a pure dominant-axis rule would send it
+     * out of the brain's side and into the territory's side. That is the spoke
+     * the hub layout wanted, and here it points *inward* over the territory's
+     * own workers while the brain sits above, which is the one picture this
+     * layout exists to prevent. */
+    if (dy > 0) return { sourceHandle: HANDLE_IDS.out, targetHandle: HANDLE_IDS.in };
     if (Math.abs(dx) > Math.abs(dy)) {
       return dx > 0
         ? { sourceHandle: HANDLE_IDS.outRight, targetHandle: HANDLE_IDS.inLeft }
         : { sourceHandle: HANDLE_IDS.outLeft, targetHandle: HANDLE_IDS.inRight };
     }
-    return dy > 0
-      ? { sourceHandle: HANDLE_IDS.out, targetHandle: HANDLE_IDS.in }
-      : { sourceHandle: HANDLE_IDS.outLeft, targetHandle: HANDLE_IDS.inRight };
+    return { sourceHandle: HANDLE_IDS.outLeft, targetHandle: HANDLE_IDS.inRight };
   };
   const push = (id: string, source: string, target: string, stroke: string) => {
     if (!visible.has(source) || !visible.has(target)) return;
