@@ -17,7 +17,10 @@ export function ConnectionBadge() {
   const resync = useResync();
   const style = CONNECTION_STYLES[connection];
   return (
-    <div className="fixed top-4 right-4 z-[60] flex items-center gap-2">
+    // top-[4.5rem] clears the 56px shell header. At top-4 the badge sat
+    // underneath it, which was invisible while the header was opaque and
+    // became a pulsing green halo through it once the header went glass.
+    <div className="fixed top-[4.5rem] right-4 z-[60] flex items-center gap-2">
       <Badge variant={style.variant}>
         <span className="flex items-center gap-1.5">
           <span className={`h-1.5 w-1.5 rounded-full ${style.dot} animate-pulse motion-reduce:animate-none`} />
