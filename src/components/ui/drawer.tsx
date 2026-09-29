@@ -28,20 +28,40 @@ DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName;
 
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
+    /**
+     * Which edge the drawer is anchored to. Navigation lives on the left, so a
+     * left drawer has to slide in from the left and put its close button on the
+     * left too; the side button on the right of a left-anchored panel reads as
+     * belonging to whatever is behind it.
+     */
+    side?: "left" | "right";
+    /**
+     * Must match the `modal` prop given to `Drawer`. A modal dialog sets
+     * `pointer-events: none` on the body to hold the page still, which means a
+     * scrim cannot simply be layered behind it — everything the user needs to
+     * reach has to sit on top of that, and no z-index can lift a descendant of a
+     * `pointer-events: none` body. Non-modal drawers therefore skip the scrim
+     * entirely, which is also the honest thing to draw: nothing is being
+     * blocked.
+     */
+    modal?: boolean;
+  }
+>(({ className, children, side = "right", modal = true, ...props }, ref) => (
   <DrawerPortal>
-    <DrawerOverlay />
+    {modal && <DrawerOverlay />}
     <DrawerPrimitive.Content
       ref={ref}
+      data-side={side}
       className={cn(
         "fixed z-50 flex max-h-[90vh] flex-col gap-4 border-l glass-elevated p-6 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 pointer-events-auto",
-        "right-0 top-0 h-full w-96 max-w-[90vw]",
+        side === "right" && "right-0 top-0 h-full w-96 max-w-[90vw]",
+        side === "left" && "left-0 top-0 h-full w-72 max-w-[80vw] border-l-0 border-r",
         className
       )}
       {...props}
     >
-      <DrawerClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+      <DrawerClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground data-[side=left]:left-4 data-[side=left]:right-auto">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DrawerClose>

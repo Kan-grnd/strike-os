@@ -249,8 +249,9 @@ function WorkspaceTab({
       </Card>
 
       <Card className="p-6">
-        <FormRow label="Start sidebar collapsed" hint="Applies on page load. The header chevron overrides it for the current session.">
+        <FormRow label="Start navigation panel collapsed" hint="Applies on page load. The rail toggle overrides it for the current session.">
           <button
+            aria-label="Start navigation panel collapsed"
             onClick={() =>
               save(
                 "workspace.sidebarCollapsed",

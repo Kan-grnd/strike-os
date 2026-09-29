@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
@@ -21,7 +21,7 @@ type ChatHistoryListProps = {
   onSearch: (value: string) => void;
   activeId: string | null;
   onDelete: (id: string) => Promise<void> | void;
-  searchRef?: React.RefObject<HTMLInputElement>;
+  onNavigate?: () => void;
 };
 
 function ChatHistoryList({
@@ -30,7 +30,7 @@ function ChatHistoryList({
   onSearch,
   activeId,
   onDelete,
-  searchRef,
+  onNavigate,
 }: ChatHistoryListProps) {
   const q = search.trim().toLowerCase();
   const filtered = q
@@ -47,7 +47,6 @@ function ChatHistoryList({
       <div className="relative px-1 pt-0.5">
         <Search className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input
-          ref={searchRef}
           type="text"
           value={search}
           onChange={(e) => onSearch(e.target.value)}
@@ -68,7 +67,7 @@ function ChatHistoryList({
         <EmptyState
           icon={Search}
           title="No matches"
-          description={`Nothing matches "${search}".`}
+          description={`Nothing matches "${q}".`}
           className="mx-1 px-2 py-6"
         />
       ) : (
@@ -81,6 +80,8 @@ function ChatHistoryList({
                   href={`/chat?c=${c.id}`}
                   title={c.title}
                   aria-label={c.title}
+                  aria-current={activeId === c.id ? "page" : undefined}
+                  onClick={onNavigate}
                   className={cn(
                     "min-w-0 flex-1 truncate rounded-md px-3 py-2 text-left text-[13px]",
                     activeId === c.id
@@ -110,7 +111,18 @@ function ChatHistoryList({
   );
 }
 
-export function ChatHistoryNav({ collapsed }: { collapsed: boolean }) {
+/**
+ * AI Chat as a Level-2 entry: the route link, with the conversation history
+ * folding out underneath it.
+ *
+ * The old sidebar needed a fixed-position flyout for this, because a collapsed
+ * single column had nowhere to put an expander. The rail changes that: the chat
+ * belongs to the Overview domain, so selecting Overview opens the panel and the
+ * history has a real place to live. That drops the flyout entirely — no overlay
+ * to collide with the panel, no outside-click handler, and no duplicated
+ * collapsed/expanded rendering of the same list.
+ */
+export function ChatHistoryNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -119,48 +131,11 @@ export function ChatHistoryNav({ collapsed }: { collapsed: boolean }) {
     revalidateOnFocus: false,
   });
   const [search, setSearch] = useState("");
-  const [open, setOpen] = useState(false);
   // Collapsed by default; the user's choice is remembered between reloads.
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [flyTop, setFlyTop] = useState(56);
-  const toggleRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const flySearchRef = useRef<HTMLInputElement>(null);
 
   const conversations = data?.conversations ?? [];
   const activeId = searchParams.get("c");
-
-  // Close the flyout when navigating to a different route or conversation.
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname, activeId]);
-
-  // Close the flyout on Escape or an outside pointer down.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setOpen(false);
-        toggleRef.current?.focus();
-      }
-    };
-    const onPointerDown = (e: PointerEvent) => {
-      const t = e.target as Node;
-      if (panelRef.current?.contains(t) || toggleRef.current?.contains(t)) return;
-      setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointerDown);
-    };
-  }, [open]);
-
-  // Focus the search field when the flyout opens.
-  useEffect(() => {
-    if (open) flySearchRef.current?.focus();
-  }, [open]);
 
   // Restore the collapsed-by-default choice after mount so SSR stays in sync.
   useEffect(() => {
@@ -183,101 +158,17 @@ export function ChatHistoryNav({ collapsed }: { collapsed: boolean }) {
     });
   };
 
-  const toggleFlyout = () => {
-    if (toggleRef.current) {
-      const r = toggleRef.current.getBoundingClientRect();
-      const maxTop = Math.max(56, window.innerHeight - 400);
-      setFlyTop(Math.min(Math.max(r.top, 56), maxTop));
-    }
-    setOpen((v) => !v);
-  };
-
-  const closeFlyout = () => {
-    setOpen(false);
-    toggleRef.current?.focus();
-  };
-
   const deleteConversation = async (id: string) => {
     await fetch(`/api/chat/${id}`, { method: "DELETE" });
     await mutate("/api/chat");
     if (activeId === id) router.replace("/chat");
   };
 
-  if (collapsed) {
-    const onChat = pathname === "/chat";
-    return (
-      <>
-        <button
-          ref={toggleRef}
-          type="button"
-          onClick={toggleFlyout}
-          aria-expanded={open}
-          aria-label="AI Chat"
-          title="AI Chat"
-          className={cn(
-            "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-            onChat || open
-              ? "bg-accent text-accent-foreground"
-              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-          )}
-        >
-          <MessageSquare className="h-4 w-4 shrink-0" />
-        </button>
-        {open && (
-          <div
-            ref={panelRef}
-            role="dialog"
-            aria-label="AI Chat"
-            style={{ top: flyTop }}
-            className="fixed left-[4.5rem] z-50 flex max-h-[70vh] w-72 flex-col overflow-hidden rounded-lg border glass-elevated p-3"
-          >
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-                <MessageSquare className="h-4 w-4 shrink-0 text-primary" />
-                <span className="truncate">AI Chat</span>
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 shrink-0"
-                aria-label="Close chats"
-                onClick={closeFlyout}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <Link
-              href="/chat"
-              onClick={closeFlyout}
-              className={cn(
-                "mb-1 flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                pathname === "/chat" && !activeId
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-              )}
-            >
-              <Plus className="h-4 w-4 shrink-0" />
-              <span>New Chat</span>
-            </Link>
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <ChatHistoryList
-                conversations={conversations}
-                search={search}
-                onSearch={setSearch}
-                activeId={activeId}
-                onDelete={deleteConversation}
-                searchRef={flySearchRef}
-              />
-            </div>
-          </div>
-        )}
-      </>
-    );
-  }
-
   const onNewChat = pathname === "/chat" && !activeId;
-  const chatActive = pathname === "/chat" && !historyOpen;
+  /* Highlighting depends only on the route, not on whether the history happens
+   * to be expanded. Folding the history open while sitting on /chat is not a
+   * reason to drop the active state from the page you are on. */
+  const chatActive = onNewChat;
 
   return (
     <div className="space-y-1">
@@ -287,6 +178,7 @@ export function ChatHistoryNav({ collapsed }: { collapsed: boolean }) {
         aria-expanded={historyOpen}
         className={cn(
           "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
           chatActive
             ? "bg-accent text-accent-foreground"
             : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
@@ -294,7 +186,11 @@ export function ChatHistoryNav({ collapsed }: { collapsed: boolean }) {
       >
         <MessageSquare className="h-4 w-4 shrink-0" />
         <span className="min-w-0 flex-1 truncate text-left">AI Chat</span>
-        {!!activeId && !historyOpen && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />}
+        {/* A dot rather than a colour change: a conversation is open, but the
+            current page is the chat list, not that conversation. */}
+        {!!activeId && !historyOpen && (
+          <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+        )}
         <ChevronDown
           className={cn(
             "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none",
@@ -309,7 +205,16 @@ export function ChatHistoryNav({ collapsed }: { collapsed: boolean }) {
           historyOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
         )}
       >
-        <div className="min-h-0 overflow-hidden" aria-hidden={!historyOpen}>
+        <div
+          className="min-h-0 overflow-hidden"
+          /* Collapsed, the links are still in the DOM, so zero height and
+           * `aria-hidden` alone leave them in the tab order — and hiding
+           * focusable content from assistive tech is an ARIA error in its own
+           * right. `inert` is what actually takes them out of both.
+           * React 18 has no `inert` prop (that arrived in 19), so it goes on as a
+           * string attribute, which is the form the HTML attribute takes. */
+          {...({ inert: historyOpen ? undefined : "" } as Record<string, unknown>)}
+        >
           <div
             className={cn(
               "space-y-1 pt-1 transition-opacity duration-200 motion-reduce:transition-none",
@@ -320,6 +225,7 @@ export function ChatHistoryNav({ collapsed }: { collapsed: boolean }) {
               href="/chat"
               title="New chat"
               aria-label="New chat"
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 onNewChat
@@ -337,6 +243,7 @@ export function ChatHistoryNav({ collapsed }: { collapsed: boolean }) {
               onSearch={setSearch}
               activeId={activeId}
               onDelete={deleteConversation}
+              onNavigate={onNavigate}
             />
           </div>
         </div>

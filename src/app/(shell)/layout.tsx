@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Sidebar } from "@/components/layout/sidebar";
+import { AppSidebar } from "@/components/layout/app-sidebar";
 import { ModeToggle } from "@/components/layout/mode-toggle";
 import { EditModeProvider } from "@/components/edit-mode/edit-mode-provider";
 import { EditModeToggle } from "@/components/edit-mode/edit-mode-toggle";
@@ -14,26 +14,28 @@ export default function GlobalShell({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const fullBleed = pathname === "/chat" || pathname === "/topology";
   const { data: settings } = useSettings();
-  const [collapsed, setCollapsed] = useState(false);
+  /* `panelOpen` rather than `collapsed`: the rail is always present, so what
+   * this controls is whether Level 2 has a column of its own. Open by default,
+   * which is what `workspace.sidebarCollapsed: "false"` means. */
+  const [panelOpen, setPanelOpen] = useState(true);
   // Suppress the sidebar's width transition until the saved start state is
-  // applied so the initial load never flashes — runtime chevron toggles keep
-  // animating.
+  // applied so the initial load never flashes — runtime toggles keep animating.
   const [suppressAnimation, setSuppressAnimation] = useState(true);
   const didInit = useRef(false);
 
-  // On narrow screens the full sidebar steals the whole page, so collapse it
-  // to icons automatically. Session-only — never written back to settings.
+  // On narrow screens a 192px context panel steals the page, so the navigation
+  // starts as the rail alone. Session-only — never written back to settings.
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 1024px)");
-    const onMatch = () => setCollapsed((prev) => (mq.matches ? true : prev));
+    const onMatch = () => setPanelOpen((prev) => (mq.matches ? false : prev));
     onMatch();
     mq.addEventListener("change", onMatch);
     return () => mq.removeEventListener("change", onMatch);
   }, []);
 
-  // Saved value is only the start state; the header chevron is a session
-  // override and never writes back. Narrow screens keep the auto-collapsed
-  // state — the saved "open" preference must not override it.
+  // Saved value is only the start state; the rail toggle is a session override
+  // and never writes back. Narrow screens keep the panel closed — the saved
+  // "open" preference must not override it.
   useEffect(() => {
     if (didInit.current) return;
     if (window.matchMedia("(max-width: 1024px)").matches) {
@@ -44,7 +46,11 @@ export default function GlobalShell({ children }: { children: React.ReactNode })
     const saved = settings?.settings?.["workspace.sidebarCollapsed"];
     if (saved === undefined) return;
     didInit.current = true;
-    setCollapsed(saved === "true");
+    /* The stored key is `sidebarCollapsed`, so it answers the opposite question
+     * from the state it now drives: "not collapsed" means the panel is open.
+     * Reading it as `=== "true"` would start every session collapsed, which is
+     * the opposite of what the setting says. */
+    setPanelOpen(saved !== "true");
     requestAnimationFrame(() => requestAnimationFrame(() => setSuppressAnimation(false)));
   }, [settings]);
 
@@ -63,9 +69,9 @@ export default function GlobalShell({ children }: { children: React.ReactNode })
   return (
     <div className="flex h-screen bg-background app-grid text-foreground font-sans antialiased">
       <Suspense fallback={null}>
-        <Sidebar
-          collapsed={collapsed}
-          onCollapsedChange={setCollapsed}
+        <AppSidebar
+          panelOpen={panelOpen}
+          onPanelOpenChange={setPanelOpen}
           suppressAnimation={suppressAnimation}
         />
       </Suspense>
