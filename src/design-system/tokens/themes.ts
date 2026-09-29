@@ -1,13 +1,14 @@
 /**
  * Strike OS — Theme Definitions
  *
-* Eleven real theme packs (see @/lib/theme-packs for the single source of
+ * Thirteen real theme packs (see @/lib/theme-packs for the single source of
  * truth of ids/names/swatches): abyssal (refined near-black neutral dark,
  * default), ember (warm charcoal dark/orange), ghost (light flagship), cobalt
  * (deep slate-blue dark/sky), sandstorm (warm paper light/burnt-orange),
  * abyss-teal (earthy green dark/sage), onyx (pure black/cyan), high-contrast
  * (pure white/black, strong borders), strike (deep navy/vivid orange), mist
- * (cool pale blue-grey light), forest (deep green). Applied by
+ * (cool pale blue-grey light), forest (deep green), vercel (pure black/Vercel
+ * blue) and vercel-light (pure white/Vercel blue). Applied by
  * next-themes as class names on <html>; values are the HSL token blocks from
  * globals.css. State colors are IMMUTABLE across packs and match the signal
  * layer's stateHex: failed red (0 91% 71%), blocked amber (43 96% 56%), ok
@@ -25,7 +26,9 @@ export type ThemeId =
   | "high-contrast"
   | "strike"
   | "mist"
-  | "forest";
+  | "forest"
+  | "vercel"
+  | "vercel-light";
 
 export interface ThemeTokens {
   /** Base surface */
@@ -428,6 +431,68 @@ export const themes: Record<ThemeId, ThemeTokens> = {
     input: "152 16% 14%",
     ring: "95 34% 52%",
   },
+  /** Pure black dark — Vercel blue accent. */
+  vercel: {
+    background: "0 0% 0%",
+    surface: "0 0% 3%",
+    card: "0 0% 6.7%",
+    elevated: "0 0% 10%",
+    popover: "0 0% 8%",
+    border: "0 0% 17%",
+    borderStrong: "0 0% 26%",
+    foreground: "0 0% 98%",
+    muted: "0 0% 6.7%",
+    mutedForeground: "0 0% 56%",
+    faint: "0 0% 38%",
+    disabled: "0 0% 28%",
+    primary: "212 100% 45%",
+    primaryForeground: "0 0% 100%",
+    accent: "0 0% 10%",
+    accentForeground: "0 0% 98%",
+    secondary: "0 0% 8%",
+    secondaryForeground: "0 0% 98%",
+    success: "158 64% 52%",
+    successForeground: "0 0% 6%",
+    warning: "43 96% 56%",
+    warningForeground: "0 0% 6%",
+    destructive: "0 91% 71%",
+    destructiveForeground: "0 0% 6%",
+    info: "211 100% 60%",
+    infoForeground: "0 0% 6%",
+    input: "0 0% 12%",
+    ring: "212 100% 45%",
+  },
+  /** Pure white light — Vercel blue accent. */
+  "vercel-light": {
+    background: "0 0% 100%",
+    surface: "0 0% 99%",
+    card: "0 0% 98%",
+    elevated: "0 0% 96%",
+    popover: "0 0% 100%",
+    border: "0 0% 92%",
+    borderStrong: "0 0% 78%",
+    foreground: "0 0% 9%",
+    muted: "0 0% 95%",
+    mutedForeground: "0 0% 40%",
+    faint: "0 0% 58%",
+    disabled: "0 0% 70%",
+    primary: "212 100% 45%",
+    primaryForeground: "0 0% 100%",
+    accent: "0 0% 92%",
+    accentForeground: "0 0% 9%",
+    secondary: "0 0% 95%",
+    secondaryForeground: "0 0% 9%",
+    success: "158 64% 52%",
+    successForeground: "0 0% 10%",
+    warning: "43 96% 56%",
+    warningForeground: "0 0% 10%",
+    destructive: "0 91% 71%",
+    destructiveForeground: "0 0% 10%",
+    info: "212 90% 40%",
+    infoForeground: "0 0% 100%",
+    input: "0 0% 92%",
+    ring: "212 100% 45%",
+  },
 };
 
 export const defaultTheme: ThemeId = "abyssal";
@@ -476,5 +541,13 @@ export const themeLabels: Record<ThemeId, { name: string; description: string }>
   forest: {
     name: "Forest",
     description: "Deep green dark — sage fir accent",
+  },
+  vercel: {
+    name: "Vercel",
+    description: "Pure black dark — Vercel blue accent",
+  },
+  "vercel-light": {
+    name: "Vercel Light",
+    description: "Pure white light — Vercel blue accent",
   },
 };

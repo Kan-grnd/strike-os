@@ -7,6 +7,7 @@ import {
   getAttentionRequired,
   getTerritoryStats,
   getTopologyEdges,
+  HANDLE_IDS,
   getTopologyNodes,
   getVisibleAgents,
   getVisibleOperations,
@@ -153,22 +154,11 @@ check("territory alpha active=1", alpha.active === 1, String(alpha.active));
 check("territory alpha waiting=2", alpha.waiting === 2, String(alpha.waiting));
 check("territory beta errors=1", beta.errors === 1, String(beta.errors));
 
-// ── Top-down positioning ──
-const posNodes = getTopologyNodes(runtime, agentsExpanded);
-const posOf = (id: string) => posNodes.find((n) => n.id === id)?.position ?? { x: 0, y: 0 };
-const yOf = (type: string) => posNodes.filter((n) => n.type === type).map((n) => posOf(n.id as string).y);
-check("top-down: brain x=0", posOf(BRAIN_NODE_ID).x === 0 && posOf(BRAIN_NODE_ID).y === 40, JSON.stringify(posOf(BRAIN_NODE_ID)));
-check("top-down: territories row below brain", Math.max(...yOf("specialist")) >= posOf(BRAIN_NODE_ID).y && yOf("specialist").every((y) => y > posOf(BRAIN_NODE_ID).y));
-check("top-down: all agents below territories", yOf("agent").every((y) => y > Math.max(...yOf("specialist"))));
-check("top-down: sub-agents below agents", yOf("subagent").every((y) => y > Math.max(...yOf("agent")) - 1), `agents max=${Math.max(...yOf("agent"))} sub=${yOf("subagent")}`);
-check("top-down: operations below owners", yOf("operation").every((y) => y > Math.max(...yOf("agent"))));
-const territoryXs = posNodes.filter((n) => n.type === "specialist").map((n) => posOf(n.id as string).x);
-check("top-down: territories balanced about brain", Math.abs(territoryXs.reduce((a, b) => a + b, 0)) < 1, territoryXs.join(","));
-
-// ── No card may overlap another card (the P2 that ordering checks missed) ──
-// "Below" is not the same as "clear of": the old constants put operation cards
-// 68px apart while the cards are 117px tall. Reproduce the worst case by using
-// the tallest measured card for every kind, and check real rectangles.
+// ── Rendered card sizes ──
+// One table, shared by every geometry check below, and deliberately the same
+// numbers the layout reserves against (see CARD_SIZE in layout.ts). Heights are
+// the tallest measured variant of each card, so a check that passes here holds
+// for whatever disclosure state a card happens to be in.
 const CARD_W: Record<string, number> = {
   brain: 256,
   specialist: 240,
@@ -183,6 +173,150 @@ const CARD_H: Record<string, number> = {
   subagent: 104, // 81 without an operation line
   operation: 104, // every line truncates, so this is a true ceiling
 };
+
+// ── Hub and spokes ──
+// The brain is the origin of graph space and territories are anchored on their
+// own sectors around it, each subtree built as one block translated outward.
+// The old contract — everything below the brain, one shared row cursor — is what
+// made territories neighbours instead of spokes, and a second one (a phone got
+// a stacked tree instead) meant the same workforce was two different graphs
+// depending on the window. These check the geometry that replaced both.
+const posNodes = getTopologyNodes(runtime, agentsExpanded);
+const posOf = (id: string) => posNodes.find((n) => n.id === id)?.position ?? { x: 0, y: 0 };
+const hub = posOf(BRAIN_NODE_ID);
+const territoryPos = (id: string) => posOf(id);
+/** A visible card's placed centre-x/top-y, with the type the collision checks
+ *  need. One lookup, so a check about a card's position and a check about
+ *  whether two cards overlap can never be reading different positions. */
+const placedAt = (id: string): Placed | undefined => {
+  const n = posNodes.find((m) => m.id === id);
+  return n ? { id, type: n.type as string, ...posOf(id) } : undefined;
+};
+const ownerColony = new Map<string, string>([
+  ["ag-1", "col-a"],
+  ["ag-2", "col-a"],
+  ["ag-4", "col-a"],
+  ["t1", "col-a"],
+  ["t4", "col-a"],
+  ["t5", "col-a"],
+  ["ag-3", "col-b"],
+  ["ag-5", "col-b"],
+]);
+/* The hub is the origin, not merely "a fixed point somewhere near the top".
+ * Everything else in this section is relative to it, so if the origin moves the
+ * whole composition silently becomes a different graph. */
+check("hub: the brain is the origin of graph space and never moves", hub.x === 0 && hub.y === 0, JSON.stringify(hub));
+check(
+  "hub: the first territory is up-left of the brain and the second up-right",
+  territoryPos("col-a").x < 0 && territoryPos("col-a").y < 0 && territoryPos("col-b").x > 0 && territoryPos("col-b").y < 0,
+  `col-a=${JSON.stringify(territoryPos("col-a"))} col-b=${JSON.stringify(territoryPos("col-b"))}`
+);
+/* Symmetric means the same radius on both sides: an arbitrary ring would still
+ * pass "one on each side". And both are *raised* rather than level, so the two
+ * territories read as siblings beside the brain — not one stacked on the other,
+ * which is the org chart this layout exists to replace. */
+check(
+  "hub: the pair is symmetric about the hub and both sit above it",
+  Math.abs(Math.abs(territoryPos("col-a").x) - Math.abs(territoryPos("col-b").x)) < 1 &&
+    territoryPos("col-a").y === territoryPos("col-b").y &&
+    territoryPos("col-a").y < hub.y,
+  `col-a=${JSON.stringify(territoryPos("col-a"))} col-b=${JSON.stringify(territoryPos("col-b"))}`
+);
+/* The brain has to end up *between* its territories, not merely above them. A
+ * block hangs downward from its card, so a steep sector ray can only clear the
+ * hub vertically and stacks the whole graph on one side; the sector rise is what
+ * keeps the blocks clearing the hub sideways instead. */
+check(
+  "hub: the brain is level with its territories, not stacked above or below them",
+  (() => {
+    const brainCentre = hub.y + CARD_H.brain / 2;
+    return territoryPos("col-a").y + CARD_H.specialist / 2 < brainCentre + CARD_H.brain &&
+      territoryPos("col-b").y + CARD_H.specialist / 2 < brainCentre + CARD_H.brain &&
+      territoryPos("col-a").x + CARD_W.specialist / 2 < hub.x &&
+      territoryPos("col-b").x - CARD_W.specialist / 2 > hub.x;
+  })(),
+  `col-a=${JSON.stringify(territoryPos("col-a"))} col-b=${JSON.stringify(territoryPos("col-b"))}`
+);
+/* Each block is its own world: no card crosses the hub onto the other
+ * territory's side. This is the property that makes the graph a hub rather
+ * than two columns that happen to be far apart. */
+check(
+  "hub: every territory's subtree stays on its own side of the hub",
+  posNodes
+    .filter((n) => n.type !== "brain")
+    .every((n) =>
+      (ownerColony.get(n.id as string) ?? n.id) === "col-a" ? n.position.x < 0 : n.position.x > 0
+    ),
+  posNodes.map((n) => `${n.id}@${Math.round(n.position.x)}`).join(" ")
+);
+/* The radius is derived from the hub's own box, so a territory is always
+ * anchored outside it. Compared against the brain's half-width here, and the
+ * rectangle form is asserted with the real card sizes in the geometry section
+ * below, once those are defined. */
+check(
+  "hub: the pair is pushed out past the hub's own width",
+  Math.abs(territoryPos("col-a").x) > 128 && Math.abs(territoryPos("col-b").x) > 128,
+  `col-a=${territoryPos("col-a").x} col-b=${territoryPos("col-b").x}`
+);
+
+/* Siblings, not a chain. The hierarchy is Brain → territory → agent, and the one
+ * relationship the old stacked layout made easy to misread was a territory
+ * looking like it belonged to the other one. There is no territory-to-territory
+ * edge of any kind, structural or transient. */
+const posEdges = getTopologyEdges(runtime, agentsExpanded);
+const territoryIdSet = new Set(runtime.colonies.map((c) => c.id));
+check(
+  "hub: no territory is ever connected to another territory",
+  posEdges.every((e) => !(territoryIdSet.has(e.source) && territoryIdSet.has(e.target))),
+  posEdges.map((e) => `${e.source}->${e.target}`).join(" ")
+);
+/* The permanent edge set has to be *exactly* the ownership the runtime
+ * declares: no invented relationship, none missing, and — the failure this is
+ * really about — no agent or operation attached to anything but the parent it
+ * belongs to. Compared as sets rather than one pair at a time, so a duplicate
+ * or a stray edge cannot hide behind a correct one. */
+const NOT_LIVE = new Set(["cancelled", "stopped"]);
+const declaredOwnership = new Set<string>(
+  Array.from(territoryIdSet).map((id) => `${BRAIN_NODE_ID}>${id}`)
+);
+for (const a of runtime.agents) {
+  if (NOT_LIVE.has(a.runtimeState)) continue;
+  if (a.parentId) declaredOwnership.add(`${a.parentId}>${a.id}`);
+  else if (a.colonyId) declaredOwnership.add(`${a.colonyId}>${a.id}`);
+}
+for (const t of runtime.tasks) {
+  if (t.status === "COMPLETED" || t.status === "CANCELLED") continue;
+  if (t.ownerAgentId) declaredOwnership.add(`${t.ownerAgentId}>${t.id}`);
+}
+const actualOwnership = new Set(posEdges.map((e) => `${e.source}>${e.target}`));
+check(
+  "hub: the permanent edge set is exactly the declared ownership",
+  declaredOwnership.size === actualOwnership.size &&
+    Array.from(declaredOwnership).every((k) => actualOwnership.has(k)),
+  `declared=${Array.from(declaredOwnership).sort().join(" ")} actual=${Array.from(actualOwnership).sort().join(" ")}`
+);
+/* An operation belongs directly under the worker that owns it: same column, and
+ * below. The old layout satisfied this by accident on one path and by a
+ * separate code path on the other, so it is pinned here on the geometry the
+ * selectors actually use. */
+check(
+  "hub: every operation sits directly beneath the worker that owns it",
+  ["t1", "t4", "t5"].every((id) => {
+    const owner = runtime.tasks.find((t) => t.id === id)?.ownerAgentId as string;
+    const op = placedAt(id);
+    const agent = placedAt(owner);
+    return op !== undefined && agent !== undefined && op.x === agent.x && op.y > agent.y;
+  }),
+  ["t1", "t4", "t5"].map((id) => {
+    const owner = runtime.tasks.find((t) => t.id === id)?.ownerAgentId as string;
+    return `${id}@${JSON.stringify(placedAt(id))} under ${owner}@${JSON.stringify(placedAt(owner))}`;
+  }).join(" | ")
+);
+
+// ── No card may overlap another card (the P2 that ordering checks missed) ──
+// "Below" is not the same as "clear of": the old constants put operation cards
+// 68px apart while the cards are 117px tall. Reproduce the worst case by using
+// the tallest measured card for every kind, and check real rectangles.
 type Placed = { id: string; type: string; x: number; y: number };
 const overlaps = (a: Placed, b: Placed): boolean => {
   const dx = Math.abs(a.x - b.x) < (CARD_W[a.type] + CARD_W[b.type]) / 2;
@@ -250,17 +384,16 @@ const graphSpan = (placed: Placed[]): number =>
   Math.min(...placed.map((n) => n.x - CARD_W[n.type] / 2));
 const placedOf = (nodes: Node[]): Placed[] =>
   nodes.map((n) => ({ id: n.id as string, type: n.type as string, x: n.position.x, y: n.position.y }));
-const brainY = worstCasePos.find((n) => n.type === "brain")!.y;
-const specialistTop = Math.min(...worstCasePos.filter((n) => n.type === "specialist").map((n) => n.y));
+const brainCard = worstCasePos.find((n) => n.type === "brain")!;
 check(
   "compact: worker and operation cards are at most 104px tall (no action-row wrap)",
   CARD_H.agent <= 104 && CARD_H.operation <= 104 && CARD_H.subagent <= 104,
   `agent=${CARD_H.agent} operation=${CARD_H.operation} subagent=${CARD_H.subagent}`
 );
 check(
-  "compact: brain keeps a clear band above the territory row",
-  brainY + CARD_H.brain < specialistTop,
-  `brainBottom=${brainY + CARD_H.brain} specialistTop=${specialistTop}`
+  "compact: the hub keeps a clear radius (no card lands on the brain)",
+  worstCasePos.filter((n) => n.id !== BRAIN_NODE_ID).every((n) => !overlaps(brainCard, n)),
+  `brain@${JSON.stringify(brainCard)} others=${worstCasePos.length - 1}`
 );
 check(
   "compact: every card kind is narrower than before the pass",
@@ -268,9 +401,23 @@ check(
   JSON.stringify(CARD_W)
 );
 check(
-  "compact: phone layout shrank too",
-  graphSpan(placedOf(getTopologyNodes(runtime, agentsExpanded, undefined, { narrow: true }))) < 700,
-  `width=${Math.round(graphSpan(placedOf(getTopologyNodes(runtime, agentsExpanded, undefined, { narrow: true }))))}`
+  "compact: the phone gets less air, not a different graph",
+  (() => {
+    const wide = buildTopologyLayout(runtime, false);
+    const narrow = buildTopologyLayout(runtime, true);
+    return (
+      narrow.spacing.gap < wide.spacing.gap &&
+      narrow.spacing.gutter < wide.spacing.gutter &&
+      /* Same territories, same sectors: identical signs and ordering, so no
+       * amount of compaction can make one flank the other. */
+      Array.from(narrow.territories.keys()).join(",") === Array.from(wide.territories.keys()).join(",") &&
+      Array.from(narrow.territories.values()).every((p, i) => {
+        const q = Array.from(wide.territories.values())[i];
+        return Math.sign(p.x) === Math.sign(q.x) && Math.sign(p.y) === Math.sign(q.y);
+      })
+    );
+  })(),
+  `wide=${JSON.stringify(buildTopologyLayout(runtime, false).spacing)} narrow=${JSON.stringify(buildTopologyLayout(runtime, true).spacing)}`
 );
 check(
   "compact: hierarchy still readable (levels narrow as they descend)",
@@ -303,9 +450,78 @@ check(
   "reserved band unchanged by operation count"
 );
 
-// ── Same guarantee at phone width, where colonies stack instead of sitting
-// side by side. Narrow used to share the wide column grid, which forced the
-// whole graph down to a 0.22 zoom and let a territory card land on an agent.
+// ── Territories are independent of each other ──
+// The regression that made a hub possible. The old column layout shared one row
+// cursor across every colony, so the deepest subtree in ANY territory pushed
+// every row of ALL the others down: one busy territory silently restacked the
+// rest of the graph, which is exactly what made two territories impossible to
+// place as anything but neighbours. Each block is now reserved on its own.
+//
+// The one thing a shared ring cannot promise is that the radius never moves —
+// the ring is symmetric, so the largest block decides how far out every sector
+// sits. What must hold is that the other territory is never *restructured*:
+// every one of its cards keeps the position it has relative to its own anchor.
+check(
+  "hub: one territory's workers cannot restructure another territory",
+  (() => {
+    const before = buildTopologyLayout(runtime, false);
+    /* Give col-b two more levels of worker, deeper than anything col-a has. */
+    const deepened: WorkforceRuntime = {
+      ...runtime,
+      agents: [
+        ...runtime.agents,
+        { ...runtime.agents[3], id: "ag-7", name: "Coder Sub", parentId: "ag-3", colonyId: "col-b", runtimeState: "idle" },
+        { ...runtime.agents[3], id: "ag-8", name: "Grandchild", parentId: "ag-7", colonyId: "col-b", runtimeState: "idle" },
+      ],
+      tasks: [
+        ...runtime.tasks,
+        { ...runtime.tasks[0], id: "t7", description: "deep", ownerAgentId: "ag-8", status: "RUNNING" },
+      ],
+    };
+    const after = buildTopologyLayout(deepened, false);
+    const read = (l: TopologyLayout, id: string) => {
+      for (const bag of [l.territories, l.agents, l.subAgents, l.operations]) {
+        const p = bag.get(id);
+        if (p) return `${p.x},${p.y}`;
+      }
+      return "missing";
+    };
+    const anchorOf = (l: TopologyLayout, id: string) => l.territories.get("col-a") ?? { x: 0, y: 0 };
+    const a0 = anchorOf(before, "col-a");
+    const a1 = anchorOf(after, "col-a");
+    const relative = (l: TopologyLayout, a: { x: number; y: number }, id: string) => {
+      const raw = read(l, id);
+      if (raw === "missing") return raw;
+      const [x, y] = raw.split(",").map(Number);
+      return `${x - a.x},${y - a.y}`;
+    };
+    const alphaCards = ["col-a", "ag-1", "ag-2", "ag-4", "t1", "t4", "t5"];
+    const restructured = alphaCards.filter(
+      (id) => relative(before, a0, id) !== relative(after, a1, id)
+    );
+    return (
+      restructured.length === 0 &&
+      after.subAgents.has("ag-8") &&
+      // And the fixture really did exercise the coupling, so this cannot pass
+      // by having built the same graph twice: the ring did open up.
+      Math.abs(a1.x) > Math.abs(a0.x) &&
+      collisionsIn(placedFromLayout(after)).length === 0
+    );
+  })(),
+  "col-a keeps its internal geometry while the ring widens for col-b"
+);
+
+// ── Same guarantee at phone width ──
+// A phone used to get a *different graph*: territories stacked into bands down
+// one column, one sub-agent lattice shared across colonies, a different set of
+// coordinates entirely. That made the same workforce mean two different
+// hierarchies depending on the window, so a screenshot taken on a phone could
+// not be compared with one taken on a desktop — and a phone is exactly where a
+// reader is most likely to misread a stacked band as a reporting line.
+//
+// So the phone now gets the *same* graph, with tighter air. What is asserted
+// here is the guarantee that matters: same sectors, same sibling order, same
+// ownership, brain still the origin, and still no overlap.
 const narrowNodes = getTopologyNodes(runtime, agentsExpanded, undefined, { narrow: true });
 const narrowPos: Placed[] = narrowNodes.map((n) => ({
   id: n.id as string,
@@ -322,16 +538,61 @@ for (let i = 0; i < narrowPos.length; i += 1) {
   }
 }
 check("geometry: narrow (phone) layout has no overlaps either", narrowCollisions.length === 0, narrowCollisions.join(" | "));
-const narrowColonies = narrowPos.filter((n) => n.type === "specialist").map((n) => n.y);
 check(
-  "geometry: narrow stacks territories instead of overlapping them",
-  narrowColonies.every((y, i) => i === 0 || y > narrowColonies[i - 1]),
-  narrowColonies.join(",")
+  "geometry: the phone keeps the brain at the origin",
+  (() => {
+    const b = narrowPos.find((n) => n.id === BRAIN_NODE_ID);
+    return b !== undefined && b.x === 0 && b.y === 0;
+  })(),
+  JSON.stringify(narrowPos.find((n) => n.id === BRAIN_NODE_ID))
 );
-const narrowGraphW =
-  Math.max(...narrowPos.map((n) => n.x + CARD_W[n.type] / 2)) -
-  Math.min(...narrowPos.map((n) => n.x - CARD_W[n.type] / 2));
-check("geometry: narrow model stays narrow enough to read", narrowGraphW <= 700, `width=${Math.round(narrowGraphW)}`);
+/* Sectors and sibling order, not raw coordinates: the phone legitimately uses a
+ * tighter spacing tier and fewer agents per row, so the pixels differ by design.
+ * What must be identical is the reading — who is beside whom, and in which
+ * order. */
+const orderOf = (placed: Placed[], colony: string) => {
+  const members = new Set(
+    placed.filter((p) => (ownerColony.get(p.id) ?? "") === colony).map((p) => p.id)
+  );
+  return placed
+    .filter((p) => members.has(p.id) && p.type === "agent")
+    .sort((a, b) => a.x - b.x)
+    .map((p) => p.id)
+    .join(",");
+};
+check(
+  "geometry: the phone keeps both territories flanking the brain",
+  (() => {
+    const colonies = narrowPos.filter((n) => n.type === "specialist");
+    if (colonies.length !== 2) return false;
+    const [a, b] = [...colonies].sort((p, q) => p.x - q.x);
+    return a.x < 0 && a.y < 0 && b.x > 0 && b.y < 0 && a.y === b.y;
+  })(),
+  narrowPos
+    .filter((n) => n.type === "specialist")
+    .map((n) => `${n.id}@(${Math.round(n.x)},${Math.round(n.y)})`)
+    .join(" ")
+);
+check(
+  "geometry: the phone keeps every territory's workers in the same order",
+  orderOf(narrowPos, "col-a") === orderOf(worstCasePos, "col-a") &&
+    orderOf(narrowPos, "col-b") === orderOf(worstCasePos, "col-b"),
+  `narrow a=${orderOf(narrowPos, "col-a")} b=${orderOf(narrowPos, "col-b")} | wide a=${orderOf(worstCasePos, "col-a")} b=${orderOf(worstCasePos, "col-b")}`
+);
+check(
+  "geometry: the phone keeps operations under the same owner",
+  (() => {
+    const edges = getTopologyEdges(runtime, agentsExpanded, undefined, { narrow: true });
+    return ["t1", "t4", "t5"].every((id) => {
+      const owner = runtime.tasks.find((t) => t.id === id)?.ownerAgentId as string;
+      const e = edges.find((edge) => edge.target === id);
+      const op = narrowPos.find((p) => p.id === id);
+      const agent = narrowPos.find((p) => p.id === owner);
+      return e?.source === owner && op !== undefined && agent !== undefined && op.x === agent.x && op.y > agent.y;
+    });
+  })(),
+  ["t1", "t4", "t5"].join(",")
+);
 
 // ── Determinism ──
 const posNodesAgain = getTopologyNodes(runtime, agentsExpanded);
@@ -340,6 +601,119 @@ const stable = posNodes.every((n) => {
   return other && other.position.x === n.position.x && other.position.y === n.position.y;
 });
 check("layout determinism: identical across calls", stable);
+
+/* ── Deterministic *order*, not just deterministic pixels ──
+ * Re-running the same build is trivially stable; the failure this guards is
+ * feeding the same graph in a different order and getting a different
+ * picture. That is not hypothetical here: the snapshot route reads colonies,
+ * agents and tasks with a bare `findMany`, so the order the layout sees is the
+ * order Postgres happened to use, and a worker's children could change places
+ * between two renders of an unchanged graph.
+ *
+ * The layout therefore orders by creation time with the id as tie-break. The
+ * fixture below is the real shape of the problem — two territories, three
+ * workers each, deliberately *shuffled* input — and the assertion is the order a
+ * reader is promised: left to right by creation, with the last worker
+ * easternmost. */
+const at = (base: Date, minutes: number) => new Date(base.getTime() + minutes * 60_000);
+const orderBase = new Date("2026-01-01T00:00:00.000Z");
+const orderedRt: WorkforceRuntime = {
+  ...runtime,
+  colonies: [
+    { id: "col-res", name: "Research Colony", status: "ACTIVE", agentIds: ["a-res", "a-web", "a-src"], timestamps: { createdAt: at(orderBase, 0), updatedAt: at(orderBase, 0) } },
+    { id: "col-eng", name: "Engineering Colony", status: "ACTIVE", agentIds: ["a-arch", "a-coder", "a-qa"], timestamps: { createdAt: at(orderBase, 10), updatedAt: at(orderBase, 10) } },
+  ],
+  agents: [
+    // Deliberately not in creation order, and not grouped by territory.
+    { ...runtime.agents[0], id: "a-qa", name: "QA", colonyId: "col-eng", runtimeState: "idle", createdAt: at(orderBase, 103), updatedAt: at(orderBase, 103) },
+    { ...runtime.agents[0], id: "a-web", name: "Web Analyst", colonyId: "col-res", runtimeState: "idle", createdAt: at(orderBase, 21), updatedAt: at(orderBase, 21) },
+    { ...runtime.agents[0], id: "a-arch", name: "Architect", colonyId: "col-eng", runtimeState: "idle", createdAt: at(orderBase, 101), updatedAt: at(orderBase, 101) },
+    { ...runtime.agents[0], id: "a-res", name: "Researcher", colonyId: "col-res", runtimeState: "idle", createdAt: at(orderBase, 20), updatedAt: at(orderBase, 20) },
+    { ...runtime.agents[0], id: "a-coder", name: "Coder", colonyId: "col-eng", runtimeState: "idle", createdAt: at(orderBase, 102), updatedAt: at(orderBase, 102) },
+    { ...runtime.agents[0], id: "a-src", name: "Source Reviewer", colonyId: "col-res", runtimeState: "idle", createdAt: at(orderBase, 22), updatedAt: at(orderBase, 22) },
+  ],
+  tasks: [],
+};
+const orderedExpanded = new Set(["col-res", "col-eng"]);
+const readingOrder = (rt: WorkforceRuntime): string => {
+  const l = buildTopologyLayout(rt, false);
+  const rootsOf = (colony: string) => {
+    const roots = rt.agents.filter((a) => a.colonyId === colony && !a.parentId);
+    const sorted = l.agents;
+    return roots
+      .map((a) => ({ id: a.id, x: sorted.get(a.id)?.x ?? 0 }))
+      .sort((p, q) => p.x - q.x)
+      .map((p) => p.id)
+      .join(" ");
+  };
+  return `territories=${Array.from(l.territories.keys()).join(" ")} | research=${rootsOf("col-res")} | engineering=${rootsOf("col-eng")}`;
+};
+const orderedRead = readingOrder(orderedRt);
+check(
+  "order: siblings read left to right in creation order, whatever order they arrive in",
+  orderedRead === "territories=col-res col-eng | research=a-res a-web a-src | engineering=a-arch a-coder a-qa",
+  orderedRead
+);
+/* QA is the last worker engineering created, so when the territory's roots share
+ * a row it has to end up easternmost — the specific promise the previous layout
+ * broke, where a territory with six workers pushed the last one to the far side
+ * of the brain's own column. Measured on the wide tier, where three roots fit on
+ * one row; the phone tier wraps to two per row, and there the invariant is the
+ * reading order asserted above rather than raw x. */
+check(
+  "order: the last-created worker in a territory is the easternmost one",
+  (() => {
+    const layout = buildTopologyLayout(orderedRt, false);
+    const byColony = new Map<string, typeof orderedRt.agents>();
+    for (const a of orderedRt.agents) {
+      byColony.set(a.colonyId as string, [...(byColony.get(a.colonyId as string) ?? []), a]);
+    }
+    return Array.from(byColony.values()).every((members) => {
+      const newest = [...members].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).pop();
+      if (!newest) return false;
+      const mine = layout.agents.get(newest.id)?.x ?? 0;
+      return members.every((b) => (layout.agents.get(b.id)?.x ?? -Infinity) <= mine);
+    });
+  })(),
+  orderedRt.agents
+    .map((a) => `${a.name}@${Math.round(buildTopologyLayout(orderedRt, false).agents.get(a.id)?.x ?? 0)}`)
+    .join(" ")
+);
+/* Reordering the input must not move a single card. This is the property that
+ * makes the order a decision instead of an accident. */
+const shuffleRt: WorkforceRuntime = {
+  ...orderedRt,
+  colonies: [...orderedRt.colonies].reverse(),
+  agents: [...orderedRt.agents].reverse(),
+};
+check(
+  "order: shuffling the input leaves every coordinate unchanged",
+  (() => {
+    const a = buildTopologyLayout(orderedRt, false);
+    const b = buildTopologyLayout(shuffleRt, false);
+    const same = (x?: { x: number; y: number }, y?: { x: number; y: number }) =>
+      x !== undefined && y !== undefined && x.x === y.x && x.y === y.y;
+    return (
+      same(a.brain, b.brain) &&
+      Array.from(orderedRt.agents).every((agent) => same(a.agents.get(agent.id), b.agents.get(agent.id)))
+    );
+  })(),
+  `ordered=${readingOrder(orderedRt)} shuffled=${readingOrder(shuffleRt)}`
+);
+check(
+  "order: the brain is the origin for the real two-territory shape too",
+  (() => {
+    const l = buildTopologyLayout(orderedRt, false);
+    const res = l.territories.get("col-res");
+    const eng = l.territories.get("col-eng");
+    return (
+      l.brain.x === 0 && l.brain.y === 0 &&
+      res !== undefined && eng !== undefined &&
+      res.x < 0 && res.y < 0 && eng.x > 0 && eng.y < 0 && res.y === eng.y
+    );
+  })(),
+  `res=${JSON.stringify(buildTopologyLayout(orderedRt, false).territories.get("col-res"))} eng=${JSON.stringify(buildTopologyLayout(orderedRt, false).territories.get("col-eng"))}`
+);
 
 // ── Flash placement: without a DOM (SSR / tests) falls back to owner +116 ──
 const flashNodes = getTopologyNodes(runtime, agentsExpanded, undefined, {
@@ -422,6 +796,106 @@ const edgesOverview = getTopologyEdges(runtime, collapsed, undefined, {
   tempEdges: [{ id: "temp:delegation:e1", kind: "delegation", source: "ag-1", target: "ag-4", eventId: "e1", occurredAt: Date.now() }],
 });
 check("edges: temp edges withheld while endpoints collapsed", !edgesOverview.some((e) => e.animated));
+
+/* ── Edge handles: an edge may only name a handle its endpoint actually has.
+ *
+ * Naming a missing handle does not throw here — React Flow logs it in the
+ * browser and anchors the edge at the node centre instead, so the bug shows up
+ * as console noise in dev and a slightly wrong curve in production, and every
+ * other check in this file still passes. The inventory below is the contract
+ * the node components render; `flash` deliberately has none, which is what
+ * keeps it out of the graph's edge set. */
+const HANDLE_INVENTORY: Record<string, { source: Set<string>; target: Set<string> }> = {
+  brain: { source: new Set([HANDLE_IDS.out, HANDLE_IDS.outLeft, HANDLE_IDS.outRight]), target: new Set() },
+  specialist: {
+    source: new Set([HANDLE_IDS.out, HANDLE_IDS.outLeft, HANDLE_IDS.outRight]),
+    target: new Set([HANDLE_IDS.in, HANDLE_IDS.inLeft, HANDLE_IDS.inRight]),
+  },
+  agent: {
+    source: new Set([HANDLE_IDS.out, HANDLE_IDS.outLeft, HANDLE_IDS.outRight]),
+    target: new Set([HANDLE_IDS.in, HANDLE_IDS.inLeft, HANDLE_IDS.inRight]),
+  },
+  /* subagent renders AgentShell, so it has the same handles as an agent */
+  subagent: {
+    source: new Set([HANDLE_IDS.out, HANDLE_IDS.outLeft, HANDLE_IDS.outRight]),
+    target: new Set([HANDLE_IDS.in, HANDLE_IDS.inLeft, HANDLE_IDS.inRight]),
+  },
+  operation: { source: new Set(), target: new Set([HANDLE_IDS.in, HANDLE_IDS.inLeft, HANDLE_IDS.inRight]) },
+  flash: { source: new Set(), target: new Set() },
+};
+check(
+  "edges: every edge names handles both of its endpoints actually render",
+  (() => {
+    const nodeType = new Map<string, string>(
+      getTopologyNodes(runtime, agentsExpanded).map((n) => [n.id as string, n.type as string])
+    );
+    return [...edgesDeep, ...edgesOverview].every((e) => {
+      const src = HANDLE_INVENTORY[nodeType.get(e.source) ?? ""];
+      const tgt = HANDLE_INVENTORY[nodeType.get(e.target) ?? ""];
+      if (!src || !tgt) return false;
+      return (
+        (e.sourceHandle == null || src.source.has(e.sourceHandle)) &&
+        (e.targetHandle == null || tgt.target.has(e.targetHandle))
+      );
+    });
+  })(),
+  [...edgesDeep, ...edgesOverview]
+    .map((e) => `${e.id}:${e.source ?? "?"}->${e.target ?? "?"} ${e.sourceHandle ?? "-"}/${e.targetHandle ?? "-"}`)
+    .join(" ")
+);
+/* A spoke to a territory that sits beside the brain has to leave sideways,
+ * otherwise it detours out of the bottom and back up. */
+const spokeHandles = edgesDeep
+  .filter((e) => e.source === BRAIN_NODE_ID)
+  .map((e) => e.sourceHandle);
+check(
+  "edges: brain spokes use lateral handles when the territory is beside the brain",
+  spokeHandles.length > 0 && spokeHandles.every((h) => h === HANDLE_IDS.outLeft || h === HANDLE_IDS.outRight),
+  spokeHandles.join(",")
+);
+/* An operation is directly beneath its owner, so its edge is vertical. If this
+ * ever picks a lateral handle, the eye is told the operation belongs to a
+ * neighbour — which is the one misreading the whole hub layout exists to
+ * remove. */
+const opHandles = edgesDeep
+  .filter((e) => e.target === "t1" || e.target === "t4" || e.target === "t5")
+  .map((e) => `${e.sourceHandle}/${e.targetHandle}`);
+check(
+  "edges: an operation under its owner uses the vertical handle pair",
+  opHandles.length > 0 && opHandles.every((h) => h === `${HANDLE_IDS.out}/${HANDLE_IDS.in}`),
+  opHandles.join(" ")
+);
+/* Transient edges pick handles the same way ownership edges do. They used to
+ * name no handles at all, which meant a delegation that crossed the graph left
+ * the *top* of its sender, looped over the top of the receiver and came down —
+ * a shape that reads as a parent→child relationship the event never claimed. */
+const tempDeep = getTopologyEdges(runtime, agentsExpanded, undefined, {
+  tempEdges: [
+    { id: "d1", kind: "delegation", source: "ag-1", target: "ag-3", eventId: "e1", label: "Delegated", occurredAt: Date.now() },
+    { id: "v1", kind: "verification", source: "ag-1", target: "t1", eventId: "e2", label: "Verifying", occurredAt: Date.now() },
+  ],
+});
+const cross = tempDeep.find((e) => e.id === "temp:d1");
+const verifying = tempDeep.find((e) => e.id === "temp:v1");
+check(
+  "edges: a transient edge crossing to the far side leaves sideways",
+  cross !== undefined &&
+    cross.sourceHandle === HANDLE_IDS.outRight &&
+    cross.targetHandle === HANDLE_IDS.inLeft,
+  `${cross?.sourceHandle ?? "-"}/${cross?.targetHandle ?? "-"}`
+);
+check(
+  "edges: a transient edge onto its own operation enters from the top",
+  verifying !== undefined &&
+    verifying.sourceHandle === HANDLE_IDS.out &&
+    verifying.targetHandle === HANDLE_IDS.in,
+  `${verifying?.sourceHandle ?? "-"}/${verifying?.targetHandle ?? "-"}`
+);
+check(
+  "edges: a transient edge never changes what the graph claims to be",
+  tempDeep.filter((e) => e.id.startsWith("temp:")).every((e) => e.animated === true && e.data?.kind !== undefined),
+  tempDeep.map((e) => `${e.id}:${e.animated}:${String(e.data?.kind)}`).join(" ")
+);
 
 // ── Brain health derivation (§14: aggregate, not node-propagation) ──
 const states = (list: string[]): InstanceType<typeof Array> => list;
@@ -687,11 +1161,73 @@ const tierOverlaps = tierCases.flatMap(([label, rt]) => [
 ]);
 check("spacing: no overlap at any tier, wide or narrow", tierOverlaps.length === 0, tierOverlaps.join(" | "));
 
-/* Prove the multi-colony path is genuinely exercised rather than vacuous: both
- * territory cards must exist and clear the required separation — along x when
- * colonies sit side by side, along y when the narrow layout stacks them. */
+/* ── The ring has to hold for every sector count, not just the two the other
+ * fixtures happen to build.
+ *
+ * The ring's difficulty is not the number of territories, it is their
+ * inequality: one busy territory and one nearly empty one sit on adjacent
+ * rays, so the busy block is much wider than its neighbour and can reach across
+ * the hub. Even sizes hide that entirely, so the sweep makes each territory a
+ * different size on purpose. */
+const ringRuntime = (territories: Array<[roots: number, subs: number]>): WorkforceRuntime => {
+  const colonies: WorkforceRuntime["colonies"] = [];
+  const agents: WorkforceRuntime["agents"] = [];
+  const tasks: WorkforceRuntime["tasks"] = [];
+  territories.forEach(([roots, subs], ci) => {
+    const id = `t${ci}`;
+    colonies.push({ id, name: `Ring ${ci}`, status: "ACTIVE", agentIds: [], timestamps: runtime.colonies[0].timestamps });
+    for (let i = 0; i < roots; i += 1) {
+      const rootId = `t${ci}-r${i}`;
+      agents.push({ ...runtime.agents[0], id: rootId, name: rootId, parentId: undefined, colonyId: id, runtimeState: "idle" });
+      colonies[ci].agentIds.push(rootId);
+      for (let s = 0; s < subs; s += 1) {
+        agents.push({ ...runtime.agents[3], id: `${rootId}s${s}`, name: `${rootId}s${s}`, parentId: rootId, colonyId: id, runtimeState: "idle" });
+      }
+      tasks.push({ ...runtime.tasks[0], id: `${rootId}-t`, description: "op", ownerAgentId: rootId, status: "RUNNING" });
+    }
+  });
+  return { ...runtime, colonies, agents, tasks };
+};
+/* Uneven on purpose: the widest block is first, so it is the one that has to
+ * push the whole ring outward rather than sitting comfortably inside it. */
+const ringCases: Array<[string, WorkforceRuntime]> = [
+  ["2 uneven", ringRuntime([[7, 2], [1, 0]])],
+  ["3 uneven", ringRuntime([[6, 2], [1, 0], [3, 1]])],
+  ["4 uneven", ringRuntime([[5, 1], [1, 0], [3, 0], [2, 1]])],
+  ["5 uneven", ringRuntime([[4, 1], [1, 0], [3, 0], [2, 0], [1, 1]])],
+  ["6 uneven", ringRuntime([[4, 1], [1, 0], [2, 0], [3, 0], [1, 1], [2, 1]])],
+  ["7 uneven", ringRuntime([[3, 1], [1, 0], [2, 0], [2, 0], [1, 0], [2, 1], [1, 0]])],
+  ["8 uneven", ringRuntime([[3, 0], [1, 0], [2, 0], [2, 0], [1, 0], [2, 0], [1, 0], [2, 1]])],
+];
+const ringOverlaps = ringCases.flatMap(([label, rt]) => allOverlappingSteps(`${label}/wide`, rt, false));
+check("hub: no card ever overlaps another, at any sector count", ringOverlaps.length === 0, ringOverlaps.join(" | "));
+/* The hub is the one card every sector points at, so a block reaching across it
+ * is the failure the ring exists to prevent — and it is the failure uneven
+ * blocks are most likely to cause. */
 check(
-  "spacing: two territory columns clear the required separation on both axes",
+  "hub: no block ever reaches across the hub, at any sector count",
+  ringCases.every(([, rt]) => {
+    const placed = placedFromLayout(buildTopologyLayout(rt, false));
+    const hub = placed.find((p) => p.type === "brain")!;
+    return placed.every((p) => p.id === "brain" || !overlaps(hub, p));
+  }),
+  ringCases
+    .map(([label, rt]) => {
+      const placed = placedFromLayout(buildTopologyLayout(rt, false));
+      const hub = placed.find((p) => p.type === "brain")!;
+      const hits = placed.filter((p) => p.id !== "brain" && overlaps(hub, p)).map((p) => p.id);
+      return hits.length ? `${label}: ${hits.join(",")}` : "";
+    })
+    .filter(Boolean)
+    .join(" | ")
+);
+
+/* Prove the multi-territory path is genuinely exercised rather than vacuous: both
+ * territory cards must exist, sit on opposite sides of the hub, and clear the
+ * required lateral separation — at every viewport size, because "narrow" is a
+ * spacing tier now and not a second graph. */
+check(
+  "spacing: two territories clear the required separation at every size",
   (() => {
     for (const narrow of [false, true]) {
       const layout = buildTopologyLayout(twoColonyRt, narrow);
@@ -699,15 +1235,11 @@ check(
       const [a, b] = Array.from(layout.territories.values());
       const dx = Math.abs(b.x - a.x);
       const dy = Math.abs(b.y - a.y);
-      if (narrow) {
-        // Stacked: the cards share a column, so height has to clear them.
-        if (dx > 1) return false;
-        if (dy < layout.spacing.territoryGap + CARD_H.specialist) return false;
-      } else {
-        // Side by side: the gap is measured between outer card edges.
-        if (dy > 1) return false;
-        if (dx < layout.spacing.territoryGap + CARD_W.specialist) return false;
-      }
+      // Flanking: same height, opposite sides of the origin, and the gap is
+      // measured between the outer edges of the two cards.
+      if (dy > 1) return false;
+      if (Math.sign(a.x) !== -Math.sign(b.x)) return false;
+      if (dx < layout.spacing.territoryGap + CARD_W.specialist) return false;
     }
     return true;
   })(),

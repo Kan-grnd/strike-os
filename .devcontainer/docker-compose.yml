@@ -1,0 +1,33 @@
+services:
+  # The dev environment. The repository is bind-mounted, so nothing here is
+  # baked into an image and `npm ci` results survive a rebuild.
+  app:
+    image: mcr.microsoft.com/devcontainers/typescript-node:22
+    volumes:
+      - ..:/workspace:cached
+    command: sleep infinity
+    environment:
+      # Host name `db` resolves inside the compose network, not on the host.
+      DATABASE_URL: postgresql://strike:strikeos@db:5432/strike_os?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # The app targets PostgreSQL on every platform, including local dev, so the
+  # provider cannot drift between environments. SQLite is not an option here.
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: strike
+      POSTGRES_PASSWORD: strikeos
+      POSTGRES_DB: strike_os
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U strike -d strike_os"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  db-data:

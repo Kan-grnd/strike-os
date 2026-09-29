@@ -16,9 +16,21 @@ export const THEME_IDS = [
   "strike",
   "mist",
   "forest",
+  "vercel",
+  "vercel-light",
 ] as const;
 
 export type ThemeId = (typeof THEME_IDS)[number];
+
+/** Narrowing guard for values that arrive from storage or the settings API. */
+export function isThemeId(value: unknown): value is ThemeId {
+  return typeof value === "string" && (THEME_IDS as readonly string[]).includes(value);
+}
+
+/** Coerces any unknown/retired theme id to a live pack, defaulting to Abyssal. */
+export function normalizeThemeId(value: unknown, fallback: ThemeId = DEFAULT_THEME): ThemeId {
+  return isThemeId(value) ? value : fallback;
+}
 
 export interface ThemePack {
   id: ThemeId;
@@ -117,6 +129,22 @@ export const THEME_PACKS: ThemePack[] = [
     bg: "#13251d",
     surface: "#203229",
     accent: "#7eae5b",
+  },
+  {
+    id: "vercel",
+    name: "Vercel",
+    tagline: "Pure black dark · Vercel blue",
+    bg: "#000000",
+    surface: "#111111",
+    accent: "#006be6",
+  },
+  {
+    id: "vercel-light",
+    name: "Vercel Light",
+    tagline: "Pure white light · Vercel blue",
+    bg: "#ffffff",
+    surface: "#fafafa",
+    accent: "#006be6",
   },
 ];
 
