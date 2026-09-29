@@ -31,7 +31,7 @@ export function OperationNode({ id, data }: NodeProps) {
     /* Shell only — Details below is the real, focusable control. */
     <div
       title={`${entity.description} — inspect for details`}
-      className="node-list-in group relative w-44 cursor-pointer rounded-lg border border-border bg-card px-3 py-2 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40"
+      className="node-list-in group relative w-44 cursor-pointer rounded-lg border glass-node px-3 py-2 transition-colors hover:border-primary/50 hover:bg-accent/40"
     >
       <Handle type="target" position={Position.Top} id={HANDLE_IDS.in} />
       <SideHandles target />

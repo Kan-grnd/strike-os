@@ -143,15 +143,15 @@ export default function WorkflowsPage() {
               </h4>
               <p className="text-sm text-muted-foreground">{simResult.name}</p>
               <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="rounded-lg bg-card p-3 border">
+                <div className="rounded-lg p-3 border glass">
                   <p className="text-xs text-muted-foreground">Steps</p>
                   <p className="font-bold text-xl">{simResult.actions?.length || 0}</p>
                 </div>
-                <div className="rounded-lg bg-card p-3 border">
+                <div className="rounded-lg p-3 border glass">
                   <p className="text-xs text-muted-foreground">Est. Cost</p>
                   <p className="font-bold text-xl">${(simResult.totalCost || 0).toFixed(3)}</p>
                 </div>
-                <div className="rounded-lg bg-card p-3 border">
+                <div className="rounded-lg p-3 border glass">
                   <p className="text-xs text-muted-foreground">Est. Duration</p>
                   <p className="font-bold text-xl">{Math.round(simResult.totalDuration / 1000)}s</p>
                 </div>

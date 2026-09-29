@@ -229,7 +229,7 @@ export function ChatHistoryNav({ collapsed }: { collapsed: boolean }) {
             role="dialog"
             aria-label="AI Chat"
             style={{ top: flyTop }}
-            className="fixed left-[4.5rem] z-50 flex max-h-[70vh] w-72 flex-col overflow-hidden rounded-lg border border-border bg-card p-3 shadow-xl"
+            className="fixed left-[4.5rem] z-50 flex max-h-[70vh] w-72 flex-col overflow-hidden rounded-lg border glass-elevated p-3"
           >
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">

@@ -465,6 +465,264 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
   }
 }
 
+/* ─── Glass material system ──────────────────────────────────────
+   Strike OS should read as a layered control system, not a sheet of
+   frosted plastic. Everything below is a TRANSPARENCY, BLUR, BORDER or
+   SHADOW decision derived from the pack tokens that already exist — no
+   new hue, no new brand colour, no recoloured state. A pack still
+   supplies the colour; this layer only supplies the material.
+
+   Opacity, not colour, is the whole contrast story. Light packs get a
+   higher fill because their card/background gap is only 2-4%, and
+   high-contrast drops the material entirely rather than shipping a
+   decoration that pack's users did not ask for. */
+
+@layer base {
+  /* Order matters and it is not arbitrary. `:root` is always present and it
+     is the ghost/light pack, so the light block comes first and the dark
+     packs are named explicitly after it. Reversing these two silently
+     hands every dark theme the light material - which is exactly the kind
+     of bug that only shows up as "the dark themes look a bit flat".
+
+     Every value below is an alpha, a blur radius, or a shadow assembled
+     from --foreground. That is the whole trick: a pack still supplies the
+     colour, and switching packs changes the colour while leaving the
+     material identical. */
+
+  /* Light packs. Their cards sit 2-4% off the page, so a dark-pack fill
+     melts the card into the background and takes muted-foreground text
+     with it. Raising the alpha is the fix; recolouring is not. The lit
+     top edge inverts here too - a white highlight is invisible on a
+     light surface, so it becomes a faint inner shadow that still reads
+     as an edge. */
+  :root,
+  .ghost,
+  .sandstorm,
+  .mist,
+  .vercel-light {
+    --glass-alpha-card: 0.82;
+    --glass-alpha-elevated: 0.9;
+    --glass-alpha-bar: 0.74;
+    --glass-alpha-recessed: 0.66;
+    --glass-alpha-node: 0.92;
+    --glass-alpha-node-strong: 0.96;
+    --glass-alpha-scrim: 0.6;
+
+    --glass-border-alpha: 0.1;
+    --glass-border-strong-alpha: 0.18;
+    --glass-highlight-alpha: 0.05;
+
+    --glass-shadow-control:
+      0 4px 14px hsl(var(--foreground) / 0.06),
+      0 1px 3px hsl(var(--foreground) / 0.05);
+    --glass-shadow:
+      0 8px 30px hsl(var(--foreground) / 0.07),
+      0 2px 8px hsl(var(--foreground) / 0.05);
+    --glass-shadow-elevated:
+      0 18px 48px hsl(var(--foreground) / 0.1),
+      0 4px 12px hsl(var(--foreground) / 0.06);
+  }
+
+  /* Dark packs. Cards are far enough from the page colour to carry a
+     lighter fill, so the material reads as depth rather than as fog. */
+  .dark,
+  .abyssal,
+  .ember,
+  .cobalt,
+  .abyss-teal,
+  .strike,
+  .forest,
+  .onyx,
+  .vercel {
+    --glass-alpha-card: 0.68;
+    --glass-alpha-elevated: 0.78;
+    --glass-alpha-bar: 0.55;
+    --glass-alpha-recessed: 0.5;
+    --glass-alpha-node: 0.82;
+    --glass-alpha-node-strong: 0.9;
+    --glass-alpha-scrim: 0.72;
+
+    --glass-border-alpha: 0.14;
+    --glass-border-strong-alpha: 0.24;
+    --glass-highlight-alpha: 0.06;
+
+    --glass-shadow-control:
+      0 4px 14px hsl(var(--foreground) / 0.1),
+      0 1px 3px hsl(var(--foreground) / 0.08);
+    --glass-shadow:
+      0 8px 30px hsl(var(--foreground) / 0.1),
+      0 2px 8px hsl(var(--foreground) / 0.08);
+    --glass-shadow-elevated:
+      0 18px 48px hsl(var(--foreground) / 0.16),
+      0 4px 12px hsl(var(--foreground) / 0.1);
+  }
+
+  /* The blur radii and the composited values are pack-independent, so they
+     are declared once. Declared as var() references rather than resolved
+     colours on purpose: --card changing above re-composes --glass-bg on
+     its own, and no pack block has to know this layer exists. */
+  :root {
+    --glass-blur-sm: 10px;
+    --glass-blur-md: 16px;
+    --glass-blur-lg: 22px;
+    --glass-saturate: 1.15;
+
+    --glass-bg: hsl(var(--card) / var(--glass-alpha-card));
+    --glass-bg-elevated: hsl(var(--popover) / var(--glass-alpha-elevated));
+    --glass-border: hsl(var(--foreground) / var(--glass-border-alpha));
+    --glass-border-strong: hsl(var(--foreground) / var(--glass-border-strong-alpha));
+    --glass-highlight: inset 0 1px 0 hsl(var(--foreground) / var(--glass-highlight-alpha));
+  }
+
+  /* High contrast asks for a flat, unambiguous interface. Same palette,
+     material removed: opaque surfaces, no blur, and the pack's own strong
+     borders doing the separating. Last, so nothing above re-enables it. */
+  .high-contrast {
+    --glass-alpha-card: 1;
+    --glass-alpha-elevated: 1;
+    --glass-alpha-bar: 1;
+    --glass-alpha-recessed: 1;
+    --glass-alpha-node: 1;
+    --glass-alpha-node-strong: 1;
+    --glass-alpha-scrim: 0.75;
+
+    --glass-border-alpha: 1;
+    --glass-border-strong-alpha: 1;
+    --glass-highlight-alpha: 0;
+
+    --glass-blur-sm: 0px;
+    --glass-blur-md: 0px;
+    --glass-blur-lg: 0px;
+
+    --glass-shadow-control: none;
+    --glass-shadow: none;
+    --glass-shadow-elevated: none;
+  }
+
+  /* No backdrop-filter means no depth cue at all, so the material falls
+     back to fully opaque rather than to a translucent flat rectangle.
+     Overriding the alphas (not just the blur) is what keeps text contrast
+     identical to the pre-glass UI. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    :root,
+    .ghost,
+    .sandstorm,
+    .mist,
+    .vercel-light,
+    .dark,
+    .abyssal,
+    .ember,
+    .cobalt,
+    .abyss-teal,
+    .strike,
+    .forest,
+    .onyx,
+    .vercel {
+      --glass-alpha-card: 1;
+      --glass-alpha-elevated: 1;
+      --glass-alpha-bar: 1;
+      --glass-alpha-recessed: 1;
+      --glass-alpha-node: 1;
+      --glass-alpha-node-strong: 1;
+    }
+  }
+}
+
+@layer components {
+  /* Level 1 - the working surface. Cards, panels, the composer. */
+  .glass {
+    background: var(--glass-bg);
+    border-color: var(--glass-border);
+    box-shadow: var(--glass-shadow), var(--glass-highlight);
+    -webkit-backdrop-filter: blur(var(--glass-blur-md)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur-md)) saturate(var(--glass-saturate));
+  }
+
+  /* Level 2 - floating above the working surface. Inspectors, dialogs,
+     popovers, menus, the topology legend and focus chip. */
+  .glass-elevated {
+    background: var(--glass-bg-elevated);
+    border-color: var(--glass-border-strong);
+    box-shadow: var(--glass-shadow-elevated), var(--glass-highlight);
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturate));
+  }
+
+  /* Level 3 - active, selected, or currently focused. The only tint in
+     the system that is not a surface colour, and it is the pack's own
+     focus colour at low alpha. It carries its own fill so it can stand
+     alone on a bordered surface. */
+  .glass-focus {
+    background: hsl(var(--ring) / 0.12);
+    border-color: hsl(var(--ring) / 0.55);
+    box-shadow:
+      var(--glass-shadow-elevated),
+      0 0 0 1px hsl(var(--ring) / 0.28),
+      var(--glass-highlight);
+  }
+
+  /* Shell chrome. The thinnest fill in the system, because these are the
+     surfaces content scrolls underneath and they must never read as a
+     sheet laid over the page. */
+  .glass-bar {
+    background: hsl(var(--background) / var(--glass-alpha-bar));
+    border-color: var(--glass-border);
+    box-shadow: var(--glass-highlight);
+    -webkit-backdrop-filter: blur(var(--glass-blur-md)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur-md)) saturate(var(--glass-saturate));
+  }
+
+  /* Recessed - inputs read as a well cut into the surface rather than a
+     card resting on it. The inset shadow is what carries that read. */
+  .glass-recessed {
+    background: hsl(var(--background) / var(--glass-alpha-recessed));
+    border-color: hsl(var(--foreground) / 0.12);
+    box-shadow: inset 0 1px 2px hsl(var(--foreground) / 0.06);
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+    backdrop-filter: blur(var(--glass-blur-sm));
+  }
+
+  /* Small raised controls - outline buttons, chips, selects. Translucent
+     with a lit top edge, but no blur: a settings page can hold a couple of
+     dozen of these and their area, not their count, is what a blur costs.
+     Primary and destructive variants stay solid - a translucent CTA loses
+     the contrast that made it the CTA. */
+  .glass-control {
+    background: hsl(var(--card) / var(--glass-alpha-card));
+    border-color: var(--glass-border);
+    box-shadow: var(--glass-shadow-control), var(--glass-highlight);
+  }
+
+  /* Topology cards: translucent, hairline-bordered, lit along the top -
+     and deliberately NO backdrop-filter. A live graph can hold 50+ of
+     these, and each is its own blur context over an animating canvas;
+     that is the one place this material would trade frames for a
+     texture. The translucency and the lit border carry the glass read
+     while edges, handles and labels stay perfectly sharp. */
+  .glass-node {
+    background: hsl(var(--card) / var(--glass-alpha-node));
+    border-color: var(--glass-border);
+    box-shadow: var(--glass-shadow-control), var(--glass-highlight);
+  }
+
+  /* The brain is one element, so it can afford real blur and earns the
+     strongest material in the graph. Its status colour is untouched. */
+  .glass-node-strong {
+    background: hsl(var(--card) / var(--glass-alpha-node-strong));
+    border-color: var(--glass-border-strong);
+    box-shadow: var(--glass-shadow-elevated), var(--glass-highlight);
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-saturate));
+  }
+
+  /* Page backdrop behind a dialog. */
+  .glass-scrim {
+    background: hsl(var(--background) / var(--glass-alpha-scrim));
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+    backdrop-filter: blur(var(--glass-blur-sm));
+  }
+}
+
 /* ─── Density ───────────────────────────────────────────────────
    appearance.density maps to documentElement.dataset.density (wired in
    the Settings page). Comfortable = current spacing (no overrides);

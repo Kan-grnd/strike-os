@@ -43,12 +43,12 @@ export default function KnowledgePage() {
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <div className="p-6 lg:col-span-2 rounded-lg border bg-card">
+        <div className="p-6 lg:col-span-2 rounded-lg border glass">
           <h2 className="font-semibold mb-4 flex items-center gap-2"><span style={{display: 'inline-block', width: '16px', height: '16px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', borderRadius: '50%'}} /> Graph</h2>
           <div className="rounded-lg bg-muted/30 p-4 min-h-[400px]">
             <div className="space-y-2 max-h-[350px] overflow-auto">
               {nodes.map((node: any) => (
-                <div key={node.id} className="flex items-center gap-3 p-3 rounded-lg bg-card border">
+                <div key={node.id} className="flex items-center gap-3 p-3 rounded-lg border glass">
                   <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
                     <span style={{fontSize: '16px'}}>🧠</span>
                   </div>
@@ -62,7 +62,7 @@ export default function KnowledgePage() {
           </div>
         </div>
 
-        <div className="p-6 rounded-lg border bg-card">
+        <div className="p-6 rounded-lg border glass">
           <h2 className="font-semibold mb-4">Connections</h2>
           <div className="space-y-2 max-h-[300px] overflow-auto">
             {edges.slice(0, 20).map((edge: any, i: number) => (

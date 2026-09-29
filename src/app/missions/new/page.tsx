@@ -85,22 +85,22 @@ export default function NewMissionPage() {
             <h2 className="font-semibold">Simulation Preview</h2>
           </div>
           <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className="rounded-lg bg-card p-3 text-center border">
+            <div className="rounded-lg p-3 text-center border glass">
               <p className="text-xs text-muted-foreground">Steps</p>
               <p className="font-bold text-xl">{simResult.steps.length}</p>
             </div>
-            <div className="rounded-lg bg-card p-3 text-center border">
+            <div className="rounded-lg p-3 text-center border glass">
               <p className="text-xs text-muted-foreground">Est. Cost</p>
               <p className="font-bold text-xl">${simResult.totalCost.toFixed(3)}</p>
             </div>
-            <div className="rounded-lg bg-card p-3 text-center border">
+            <div className="rounded-lg p-3 text-center border glass">
               <p className="text-xs text-muted-foreground">Est. Duration</p>
               <p className="font-bold text-xl">{Math.round(simResult.totalDuration / 1000)}s</p>
             </div>
           </div>
           <div className="space-y-2">
             {simResult.steps.map((step: any) => (
-              <div key={step.step} className="flex items-center gap-3 rounded-md bg-card p-3 border">
+              <div key={step.step} className="flex items-center gap-3 rounded-md p-3 border glass">
                 <Badge variant="outline" className="font-mono">{step.step}</Badge>
                 <div className="flex-1">
                   <p className="text-sm font-medium">{step.description}</p>

@@ -71,7 +71,7 @@ export default function GlobalShell({ children }: { children: React.ReactNode })
       </Suspense>
       <main className="flex-1 min-w-0 overflow-auto relative">
         <EditModeProvider>
-          <header className="sticky top-0 z-[82] bg-background border-b h-14 flex items-center justify-between px-6">
+          <header className="sticky top-0 z-[82] glass-bar border-b h-14 flex items-center justify-between px-6">
             <span className="text-xl font-bold shrink-0">Strike OS</span>
             <CommandBar />
             <div className="flex items-center gap-2 shrink-0">

@@ -80,7 +80,7 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
     <div
       title={`${entity.name} — ${presenting.label}${entity.type ? ` (${entity.type})` : ""}; inspect for details`}
       className={cn(
-        "node-list-in group relative cursor-pointer rounded-lg border border-border bg-card px-3 py-2 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40",
+        "node-list-in group relative cursor-pointer rounded-lg border glass-node px-3 py-2 transition-colors hover:border-primary/50 hover:bg-accent/40",
         small ? "w-56" : "w-60",
         attention && "ring-1 ring-warning/50"
       )}

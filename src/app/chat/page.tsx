@@ -389,7 +389,7 @@ function ChatPageInner() {
                                 "rounded-xl px-3.5 py-2.5 text-[13.5px] leading-relaxed [overflow-wrap:anywhere]",
                                 isUser
                                   ? "bg-primary text-primary-foreground"
-                                  : "border border-border bg-card text-card-foreground"
+                                  : "border glass-node text-card-foreground"
                               )}
                             >
                               <p className="whitespace-pre-wrap">{m.content}</p>

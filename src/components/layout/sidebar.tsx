@@ -181,7 +181,7 @@ export function Sidebar({ collapsed = false, onCollapsedChange, suppressAnimatio
   return (
     <div
       className={cn(
-        "relative flex h-screen flex-col border-r bg-card",
+        "relative flex h-screen flex-col border-r glass-bar",
         collapsed ? "w-16" : "w-60",
         suppressAnimation ? "transition-none" : "transition-all duration-200"
       )}

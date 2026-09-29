@@ -866,7 +866,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
         type="button"
         aria-label="Close ticket modal"
         onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 glass-scrim"
       />
       <div
         ref={panelRef}
@@ -874,7 +874,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
         aria-modal="true"
         aria-label="File edit ticket"
         tabIndex={-1}
-        className="relative flex max-h-[calc(100dvh-1rem)] w-[640px] max-w-full flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl outline-none"
+        className="relative flex max-h-[calc(100dvh-1rem)] w-[640px] max-w-full flex-col overflow-hidden rounded-xl border glass-elevated outline-none"
       >
         {filedId ? (
           <div className="flex flex-col items-center gap-4 px-6 py-14 text-center">

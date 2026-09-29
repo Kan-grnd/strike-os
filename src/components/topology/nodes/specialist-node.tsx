@@ -33,7 +33,7 @@ export function SpecialistNode({ id, data }: NodeProps) {
     /* Shell only — the expand toggle and Details below are real buttons. */
     <div
       title={entity.name}
-      className="node-list-in group relative w-60 cursor-pointer rounded-lg border border-border bg-card px-3 py-2 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40"
+      className="node-list-in group relative w-60 cursor-pointer rounded-lg border glass-node px-3 py-2 transition-colors hover:border-primary/50 hover:bg-accent/40"
     >
       <Handle type="target" position={Position.Top} id={HANDLE_IDS.in} />
       <Handle type="source" position={Position.Bottom} id={HANDLE_IDS.out} />

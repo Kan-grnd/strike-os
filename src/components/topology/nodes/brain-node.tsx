@@ -27,7 +27,7 @@ export function BrainNode({ id, data }: NodeProps) {
     /* Shell only — it contains real buttons, so it must not claim to be one. */
     <div
       title="STRIKE BRAIN — inspect the complete topology"
-      className="node-list-in group relative w-64 cursor-pointer rounded-lg border border-border bg-card px-3 py-2 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40"
+      className="node-list-in group relative w-64 cursor-pointer rounded-lg border glass-node-strong px-3 py-2 transition-colors hover:border-primary/50 hover:bg-accent/40"
     >
       <Handle type="source" position={Position.Bottom} id={HANDLE_IDS.out} />
       <SideHandles source />

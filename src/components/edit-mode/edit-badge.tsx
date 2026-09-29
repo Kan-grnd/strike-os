@@ -29,7 +29,7 @@ export function EditBadge() {
     // Sits below the 56px header, never on top of it: anchored at the top of
     // the viewport this panel buried the command bar on desktop and all three
     // header buttons on mobile, turning them into dead clicks.
-    <div className="pointer-events-auto fixed top-16 left-1/2 z-[95] flex max-h-[calc(100vh-5.5rem)] w-max max-w-[calc(100vw-1rem)] -translate-x-1/2 flex-col gap-1.5 rounded-lg border border-cyan-400/40 bg-background/95 p-1.5 shadow-lg backdrop-blur">
+    <div className="pointer-events-auto fixed top-16 left-1/2 z-[95] flex max-h-[calc(100vh-5.5rem)] w-max max-w-[calc(100vw-1rem)] -translate-x-1/2 flex-col gap-1.5 rounded-lg border border-cyan-400/40 glass-elevated p-1.5">
       <div className="flex items-center gap-2">
         <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-cyan-400" />
         <span className="text-[11px] leading-none font-semibold tracking-wide text-cyan-300 uppercase">

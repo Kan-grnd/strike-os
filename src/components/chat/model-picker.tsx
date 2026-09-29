@@ -38,7 +38,7 @@ export function ModelPicker({
       <SelectPrimitive.Trigger
         aria-label="Model"
         className={cn(
-          "flex h-8 min-w-0 max-w-[46%] shrink items-center gap-1.5 rounded-full border border-input bg-background px-2.5 text-[12px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:ring-2 data-[state=open]:ring-ring/40 disabled:opacity-50"
+          "flex h-8 min-w-0 max-w-[46%] shrink items-center gap-1.5 rounded-full border glass-control px-2.5 text-[12px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:ring-2 data-[state=open]:ring-ring/40 disabled:opacity-50"
         )}
       >
         <span className="truncate">
@@ -58,7 +58,7 @@ export function ModelPicker({
           side="top"
           align="start"
           sideOffset={6}
-          className="z-50 max-h-64 overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-md"
+          className="z-50 max-h-64 overflow-hidden rounded-lg border glass-elevated text-popover-foreground"
         >
           <SelectPrimitive.ScrollUpButton className="flex h-5 items-center justify-center text-muted-foreground">
             <ChevronDown className="h-3.5 w-3.5 rotate-180" />
