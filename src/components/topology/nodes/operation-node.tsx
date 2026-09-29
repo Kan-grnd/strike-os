@@ -3,10 +3,11 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Play } from "lucide-react";
 import type { TaskRuntime } from "@/lib/runtime/types";
-import type { TopologyNodeData } from "@/lib/runtime/selectors";
+import { HANDLE_IDS, type TopologyNodeData } from "@/lib/runtime/selectors";
 import { formatState } from "@/lib/runtime/presentation";
 import { CardButton } from "./card-button";
 import { ActionRow } from "./action-row";
+import { SideHandles } from "./side-handles";
 
 interface OperationNodeData extends TopologyNodeData<TaskRuntime> {
   ownerName?: string;
@@ -32,7 +33,8 @@ export function OperationNode({ id, data }: NodeProps) {
       title={`${entity.description} — inspect for details`}
       className="node-list-in group relative w-44 cursor-pointer rounded-lg border border-border bg-card px-3 py-2 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40"
     >
-      <Handle type="target" position={Position.Top} id="in" />
+      <Handle type="target" position={Position.Top} id={HANDLE_IDS.in} />
+      <SideHandles target />
       {/* The title owns the full row. It used to share a row with the status
         * badge, and at w-44 a "COMPLETED" badge plus gap-3 left the operation's
         * name only ~34px — too little to identify the operation at all. Status

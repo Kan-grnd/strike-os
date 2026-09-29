@@ -3,10 +3,11 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Building2 } from "lucide-react";
 import type { ColonyRuntime } from "@/lib/runtime/types";
-import type { TopologyNodeData } from "@/lib/runtime/selectors";
+import { HANDLE_IDS, type TopologyNodeData } from "@/lib/runtime/selectors";
 import { specialistLabel } from "@/lib/runtime/layout";
 import { CardButton } from "./card-button";
 import { ActionRow } from "./action-row";
+import { SideHandles } from "./side-handles";
 
 interface SpecialistNodeData extends TopologyNodeData<ColonyRuntime> {
   stats?: { total: number; active: number; waiting: number; errors: number };
@@ -34,8 +35,9 @@ export function SpecialistNode({ id, data }: NodeProps) {
       title={entity.name}
       className="node-list-in group relative w-60 cursor-pointer rounded-lg border border-border bg-card px-3 py-2 shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40"
     >
-      <Handle type="target" position={Position.Top} id="in" />
-      <Handle type="source" position={Position.Bottom} id="out" />
+      <Handle type="target" position={Position.Top} id={HANDLE_IDS.in} />
+      <Handle type="source" position={Position.Bottom} id={HANDLE_IDS.out} />
+      <SideHandles target source />
       <div className="flex items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-1.5">
           <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />

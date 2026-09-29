@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { useTheme } from "next-themes";
 import {
   Settings as SettingsIcon,
   Save,
@@ -25,7 +24,18 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { THEME_PACKS, DEFAULT_THEME } from "@/lib/theme-packs";
+import {
+  THEME_PACKS,
+  DEFAULT_THEME,
+  isThemeId,
+  normalizeThemeId,
+  type ThemeId,
+} from "@/lib/theme-packs";
+import {
+  hasExplicitThemeChoice,
+  useThemeSelection,
+  WORKSPACE_DEFAULT_THEME_KEY,
+} from "@/components/ui/theme-provider";
 import useSWR from "swr";
 import {
   useSettings,
@@ -276,12 +286,41 @@ function AppearanceTab({
   save: (k: string, v: string) => Promise<void>;
   isSaving: (k?: string) => boolean;
 }) {
-  const { theme, setTheme } = useTheme();
+  const { theme, chooseTheme, followWorkspaceDefault } = useThemeSelection();
   const activePack = THEME_PACKS.some((p) => p.id === theme) ? theme : DEFAULT_THEME;
   const themeRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const workspaceDefault = normalizeThemeId(
+    settings?.[WORKSPACE_DEFAULT_THEME_KEY],
+    DEFAULT_THEME
+  );
+  /* null until the client has read storage, so the override row never
+     hydrates with the wrong answer. */
+  const [pinnedLocally, setPinnedLocally] = useState<boolean | null>(null);
 
-  const focusPack = (index: number) => {
-    themeRefs.current[index]?.focus();
+  useEffect(() => {
+    setPinnedLocally(hasExplicitThemeChoice());
+  }, []);
+
+  const pick = (id: ThemeId, index?: number) => {
+    chooseTheme(id);
+    setPinnedLocally(true);
+    if (index !== undefined) themeRefs.current[index]?.focus();
+  };
+
+  const setWorkspaceDefault = async (value: string) => {
+    if (!isThemeId(value)) return;
+    await save(WORKSPACE_DEFAULT_THEME_KEY, value);
+    if (!hasExplicitThemeChoice()) {
+      // This browser was following the default, so track it live.
+      followWorkspaceDefault(value);
+    }
+  };
+
+  const resetToWorkspaceDefault = () => {
+    followWorkspaceDefault(workspaceDefault);
+    setPinnedLocally(false);
+    const pack = THEME_PACKS.find((p) => p.id === workspaceDefault);
+    toast.success(`Following workspace default — ${pack?.name ?? workspaceDefault}`);
   };
 
   /** WAI-ARIA radiogroup keyboard pattern: arrows move selection + focus; roving tabindex. */
@@ -294,8 +333,7 @@ function AppearanceTab({
     else if (e.key === "End") next = THEME_PACKS.length - 1;
     if (next !== null) {
       e.preventDefault();
-      setTheme(THEME_PACKS[next].id);
-      focusPack(next);
+      pick(THEME_PACKS[next].id, next);
     }
   };
 
@@ -322,10 +360,7 @@ function AppearanceTab({
                   role="radio"
                   aria-checked={selected}
                   tabIndex={selected ? 0 : -1}
-                  onClick={() => {
-                    setTheme(p.id);
-                    focusPack(idx);
-                  }}
+                  onClick={() => pick(p.id, idx)}
                   className={cn(
                     "flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     selected
@@ -357,6 +392,42 @@ function AppearanceTab({
             })}
           </div>
         </FormRow>
+      </Card>
+
+      <Card className="p-6">
+        <FormRow
+          label="Default theme"
+          hint="Used by browsers that have not picked a theme of their own"
+        >
+          <select
+            aria-label="Default theme"
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm h-10"
+            value={workspaceDefault}
+            onChange={(e) => setWorkspaceDefault(e.target.value)}
+            disabled={isSaving(WORKSPACE_DEFAULT_THEME_KEY)}
+          >
+            {THEME_PACKS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </FormRow>
+        {pinnedLocally && (
+          <div className="mt-2 flex items-center justify-between gap-4 rounded-md border border-border bg-muted/50 px-3 py-2">
+            <p className="text-xs text-muted-foreground">
+              This browser is pinned to its own theme and ignores the default.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={resetToWorkspaceDefault}
+            >
+              Use workspace default
+            </Button>
+          </div>
+        )}
       </Card>
 
       <Card className="p-6">

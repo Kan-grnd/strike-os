@@ -376,6 +376,70 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
     color-scheme: light;
   }
 
+  .vercel {
+    --background: 0 0% 0%; /* #000000 pure black */
+    --foreground: 0 0% 98%; /* #fafafa */
+    --card: 0 0% 6.7%; /* #111111 */
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 8%; /* #141414 */
+    --popover-foreground: 0 0% 98%;
+    --primary: 212 100% 45%; /* #006be6 Vercel blue, one step down from
+                                 #0070f3 so white button text clears AA (4.95:1) */
+    --primary-foreground: 0 0% 100%; /* AA 4.55:1 on white text */
+    --secondary: 0 0% 8%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 6.7%;
+    --muted-foreground: 0 0% 56%; /* #8f8f8f — AA 6.5:1 on black */
+    --accent: 0 0% 10%; /* #1a1a1a hover */
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
+    --destructive-foreground: 0 0% 6%;
+    --success: 158 64% 52%; /* #34d399 ok (immutable) */
+    --success-foreground: 0 0% 6%;
+    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
+    --warning-foreground: 0 0% 6%;
+    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
+    --info: 211 100% 60%; /* #3396ff readable blue on black */
+    --info-foreground: 0 0% 6%;
+    --border: 0 0% 17%; /* #2b2b2b */
+    --input: 0 0% 12%; /* #1f1f1f */
+    --ring: 212 100% 45%;
+
+    color-scheme: dark;
+  }
+
+  .vercel-light {
+    --background: 0 0% 100%; /* #ffffff pure white */
+    --foreground: 0 0% 9%; /* #171717 */
+    --card: 0 0% 98%; /* #fafafa */
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 212 100% 45%; /* #006be6 Vercel blue, one step down from
+                                 #0070f3 so white button text clears AA (4.95:1) */
+    --primary-foreground: 0 0% 100%; /* AA 4.55:1 on white text */
+    --secondary: 0 0% 95%; /* #f2f2f2 */
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 95%;
+    --muted-foreground: 0 0% 40%; /* #666666 — AA 5.7:1 on white */
+    --accent: 0 0% 92%; /* #ebebeb hover */
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
+    --destructive-foreground: 0 0% 10%;
+    --success: 158 64% 52%; /* #34d399 ok (immutable) */
+    --success-foreground: 0 0% 10%;
+    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
+    --warning-foreground: 0 0% 10%;
+    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
+    --info: 212 90% 40%; /* #0a63c2 deep blue on white */
+    --info-foreground: 0 0% 100%;
+    --border: 0 0% 92%; /* #eaeaea */
+    --input: 0 0% 92%;
+    --ring: 212 100% 45%;
+
+    color-scheme: light;
+  }
+
   /* Accent overrides — appearance.accent (none = pack default).
      Recolors --primary + --ring while keeping contrast via a dark-on-light
      foreground that works on every pack. */

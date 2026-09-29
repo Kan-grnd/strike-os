@@ -44,7 +44,7 @@ const nodeTypes = {
 
 /** Marks a floating element the camera has to keep clear of. It lives on the
  *  inspector, the one panel big enough to sit on top of a branch. Corner chips
- *  — the hint, the legend, the connection badge — are deliberately not marked:
+ *  — the legend, the connection badge — are deliberately not marked:
  *  they overlap a corner of the pane, and displacing the whole graph to clear
  *  one would shove the graph sideways to avoid a small box. */
 const OVERLAY_ATTR = "data-topology-overlay";
@@ -63,7 +63,6 @@ function TopologyCanvas() {
   const [focusAgentId, setFocusAgentId] = useState<string | null>(null);
   const [selection, setSelection] = useState<InspectorSelection | null>(null);
   const [narrow, setNarrowState] = useState(false);
-  const [dismissedHint, setDismissedHint] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { getNodes, getNodesBounds, getViewport, setViewport } = useReactFlow();
   const runtime = useRuntime();
@@ -551,28 +550,6 @@ function TopologyCanvas() {
         onPaneClick={onPaneClick}
         zoomOnDoubleClick={false}
       />
-
-      {/* Hint chip */}
-      {!dismissedHint && (
-        <div className="fixed top-16 left-4 z-40 animate-in motion-reduce:animate-none slide-in-from-top-2 duration-200">
-          <div className={cn(
-            "flex items-center gap-2 rounded-lg border border-border bg-background/95 px-3 py-2 text-sm text-muted-foreground shadow-lg",
-            narrow && "max-w-[calc(100vw-2rem)]"
-          )}>
-            <span className="flex-1">
-              Scroll to zoom. Open a card to see what's inside. Details opens the side panel.
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setDismissedHint(true)}
-              aria-label="Dismiss hint"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
 
       {selection && (
         <InspectorPanel

@@ -9,7 +9,7 @@ import type {
   TempEdge,
   WorkforceRuntime,
 } from "./types";
-import { buildAdaptiveTopologyLayout, buildTopologyLayout, type TopologyLayout, type ViewportSize } from "./layout";
+import { buildAdaptiveTopologyLayout, buildTopologyLayout, CARD_SIZE, type TopologyLayout, type ViewportSize } from "./layout";
 
 /**
  * Manual disclosure: zoom is pure scale; the visible node set is decided only
@@ -17,6 +17,22 @@ import { buildAdaptiveTopologyLayout, buildTopologyLayout, type TopologyLayout, 
  * children (territory → agents, agent/sub-agent → sub-agents + operations).
  */
 export const BRAIN_NODE_ID = "brain";
+
+/** Handle ids every node component and the edge builder have to agree on.
+ *
+ * `in`/`out` are the original top/bottom pair. The lateral pair exists because
+ * the hub layout puts a territory beside the brain rather than below it, so a
+ * brain→territory edge now leaves sideways; without a side handle React Flow
+ * would route it out of the bottom of the brain and back up the top of the
+ * territory, which reads as a detour rather than a spoke. */
+export const HANDLE_IDS = {
+  in: "in",
+  out: "out",
+  inLeft: "in-left",
+  inRight: "in-right",
+  outLeft: "out-left",
+  outRight: "out-right",
+} as const;
 
 export type TopologyNodeType = "brain" | "specialist" | "agent" | "subagent" | "operation" | "flash";
 export type TopologyLevel = "core" | "territory" | "agent" | "sub" | "op";
@@ -396,12 +412,55 @@ export function getTopologyEdges(
 
   const edges: Edge[] = [];
   const dimTrue = () => ({ opacity: 0.2 });
+  /* Where an endpoint sits decides which pair of handles the edge uses. Layout
+   * positions are centre-x/top-y, so the endpoint that matters is the card's
+   * centre: `y + h / 2`, not `y`. Using top edges put a diagonal
+   * brain→territory spoke on the top/bottom pair, because the brain's top edge
+   * and a raised territory's top edge are close together even though the two
+   * cards are unmistakably side by side — and the edge left the bottom of the
+   * brain, looped under it and came back up into the territory's top. */
+  const anchorOf = (id: string): { x: number; centreY: number; kind: string } | null => {
+    if (id === BRAIN_NODE_ID) {
+      return { x: layout.brain.x, centreY: layout.brain.y + CARD_SIZE.brain.h / 2, kind: "brain" };
+    }
+    for (const [kind, bag] of [
+      ["specialist", layout.territories],
+      ["agent", layout.agents],
+      ["sub", layout.subAgents],
+      ["operation", layout.operations],
+    ] as const) {
+      const p = bag.get(id);
+      if (p) return { x: p.x, centreY: p.y + CARD_SIZE[kind].h / 2, kind };
+    }
+    return null;
+  };
+  const handlesFor = (source: string, target: string): Pick<Edge, "sourceHandle" | "targetHandle"> => {
+    const from = anchorOf(source);
+    const to = anchorOf(target);
+    /* An operation is a leaf: it has no outgoing edge, so it gets no source
+     * handle and no handle ids are named. A transient edge whose endpoints are
+     * not both in the layout (a flash-only id, an entity that collapsed
+     * mid-flight) falls back to React Flow's own defaults rather than being
+     * dropped. */
+    if (!from || !to || from.kind === "operation") return {};
+    const dx = to.x - from.x;
+    const dy = to.centreY - from.centreY;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      return dx > 0
+        ? { sourceHandle: HANDLE_IDS.outRight, targetHandle: HANDLE_IDS.inLeft }
+        : { sourceHandle: HANDLE_IDS.outLeft, targetHandle: HANDLE_IDS.inRight };
+    }
+    return dy > 0
+      ? { sourceHandle: HANDLE_IDS.out, targetHandle: HANDLE_IDS.in }
+      : { sourceHandle: HANDLE_IDS.outLeft, targetHandle: HANDLE_IDS.inRight };
+  };
   const push = (id: string, source: string, target: string, stroke: string) => {
     if (!visible.has(source) || !visible.has(target)) return;
     edges.push({
       id,
       source,
       target,
+      ...handlesFor(source, target),
       type: "default",
       style: {
         stroke,
@@ -428,7 +487,10 @@ export function getTopologyEdges(
   }
 
   // Transient relationships: only from real runtime events, always animated,
-  // always age out (swept by the store).
+  // always age out (swept by the store). They pick their handles the same way
+  // ownership edges do — a delegation that crosses to the far side of the graph
+  // used to exit the top of its sender and re-enter the target's top, which made
+  // an event read as a parent→child relationship it never claimed to be.
   for (const t of opts.tempEdges ?? []) {
     if (!visible.has(t.source) || !visible.has(t.target)) continue;
     const style =
@@ -441,6 +503,7 @@ export function getTopologyEdges(
       id: `temp:${t.id}`,
       source: t.source,
       target: t.target,
+      ...handlesFor(t.source, t.target),
       type: "default",
       animated: true,
       label: t.label,

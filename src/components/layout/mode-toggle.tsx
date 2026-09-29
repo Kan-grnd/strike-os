@@ -1,18 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useThemeSelection } from "@/components/ui/theme-provider";
 
 /**
  * Header dark/light toggle. Resolves the current appearance from the live
  * document (every theme pack sets `color-scheme` explicitly), so it stays
  * correct even while `theme` is a future/"system" value. Clicking toggles
- * between the two flagship packs: dark → ghost, light → abyssal.
+ * between the two flagship packs: dark → ghost, light → abyssal. Picking one
+ * pins it as this browser's own theme, so the workspace default stops applying.
  */
 export function ModeToggle() {
-  const { theme, setTheme } = useTheme();
+  const { theme, chooseTheme } = useThemeSelection();
   const [mounted, setMounted] = React.useState(false);
   const [isDark, setIsDark] = React.useState(true);
 
@@ -44,7 +45,7 @@ export function ModeToggle() {
       size="icon"
       className="h-9 w-9"
       type="button"
-      onClick={() => setTheme(isDark ? "ghost" : "abyssal")}
+      onClick={() => chooseTheme(isDark ? "ghost" : "abyssal")}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >

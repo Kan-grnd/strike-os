@@ -5,6 +5,7 @@ export const SETTING_KEYS = [
   "appearance.density",
   "appearance.radius",
   "appearance.accent",
+  "appearance.defaultThemeId",
   "refresh.preset",
   "automations.requireApproval",
 ] as const;
@@ -18,6 +19,7 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
   "appearance.density": "comfortable",
   "appearance.radius": "0.5rem",
   "appearance.accent": "none",
+  "appearance.defaultThemeId": "abyssal",
   "refresh.preset": "normal",
   "automations.requireApproval": "false",
 };

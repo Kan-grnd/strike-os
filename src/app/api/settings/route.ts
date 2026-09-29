@@ -2,10 +2,16 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { eventBus } from "@/lib/events";
 import { SETTING_KEYS, SETTING_DEFAULTS, type SettingKey } from "@/lib/settings";
+import { DEFAULT_THEME, isThemeId } from "@/lib/theme-packs";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+/**
+ * Builds the settings payload from defaults + stored rows. Stored values that
+ * no longer validate (a retired theme pack, say) are normalized on read so
+ * clients never have to defend against them.
+ */
+async function readSettings() {
   const rows = await prisma.systemSetting.findMany({
     where: { key: { in: SETTING_KEYS as unknown as string[] } },
   });
@@ -13,7 +19,14 @@ export async function GET() {
   rows.forEach((r) => {
     settings[r.key] = r.value;
   });
-  return NextResponse.json({ settings });
+  if (!isThemeId(settings["appearance.defaultThemeId"])) {
+    settings["appearance.defaultThemeId"] = DEFAULT_THEME;
+  }
+  return settings;
+}
+
+export async function GET() {
+  return NextResponse.json({ settings: await readSettings() });
 }
 
 export async function PUT(req: Request) {
@@ -32,6 +45,12 @@ export async function PUT(req: Request) {
       if (typeof value !== "string") {
         return NextResponse.json(
           { error: `Setting "${key}" must be a string` },
+          { status: 400 }
+        );
+      }
+      if (key === "appearance.defaultThemeId" && !isThemeId(value)) {
+        return NextResponse.json(
+          { error: `Unknown theme pack: ${value}` },
           { status: 400 }
         );
       }
@@ -59,15 +78,7 @@ export async function PUT(req: Request) {
       payload: { keys: entries.map((e) => e.key) },
     });
 
-    const rows = await prisma.systemSetting.findMany({
-      where: { key: { in: SETTING_KEYS as unknown as string[] } },
-    });
-    const settings: Record<string, string> = { ...SETTING_DEFAULTS };
-    rows.forEach((r) => {
-      settings[r.key] = r.value;
-    });
-
-    return NextResponse.json({ settings });
+    return NextResponse.json({ settings: await readSettings() });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "Failed to save settings" }, { status: 500 });

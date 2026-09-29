@@ -2,11 +2,12 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import type { AgentRuntime } from "@/lib/runtime/types";
-import type { TopologyNodeData } from "@/lib/runtime/selectors";
+import { HANDLE_IDS, type TopologyNodeData } from "@/lib/runtime/selectors";
 import { agentStatePresentation } from "@/lib/runtime/presentation";
 import { cn } from "@/lib/utils";
 import { CardButton } from "./card-button";
 import { ActionRow } from "./action-row";
+import { SideHandles } from "./side-handles";
 
 export interface AgentNodeData extends TopologyNodeData<AgentRuntime> {
   operation?: string;
@@ -84,8 +85,9 @@ export function AgentShell({ id, activate, data, nodeType }: AgentShellProps) {
         attention && "ring-1 ring-warning/50"
       )}
     >
-      <Handle type="target" position={Position.Top} id="in" />
-      <Handle type="source" position={Position.Bottom} id="out" />
+      <Handle type="target" position={Position.Top} id={HANDLE_IDS.in} />
+      <Handle type="source" position={Position.Bottom} id={HANDLE_IDS.out} />
+      <SideHandles target source />
       <div className="flex items-center justify-between gap-3">
         <span className={cn("min-w-0 truncate font-semibold", small ? "text-xs" : "text-sm")}>
           {entity.name}
