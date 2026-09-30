@@ -66,3 +66,18 @@ export function safeJsonArray(raw: unknown): string[] {
   const parsed = safeJson<unknown>(raw, []);
   return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
 }
+
+export function formatCost(cost?: number | null): string {
+  if (cost === null || cost === undefined || Number.isNaN(cost)) return "—";
+  const fixed = cost.toFixed(4);
+  return `$${fixed.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "")}`;
+}
+
+export function formatDuration(ms?: number | null): string {
+  if (ms === null || ms === undefined || Number.isNaN(ms)) return "—";
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return rem ? `${m}m ${rem}s` : `${m}m`;
+}

@@ -3,9 +3,13 @@
 import { useState } from "react";
 import useSWR from "swr";
 
-const fetcher = (url: string) =>
+export const fetcher = (url: string) =>
   fetch(url).then((r) => {
-    if (!r.ok) throw new Error(`Request failed: ${r.status}`);
+    if (!r.ok) {
+      const err = new Error(`Request failed: ${r.status}`) as Error & { status?: number };
+      err.status = r.status;
+      throw err;
+    }
     return r.json();
   });
 
@@ -74,6 +78,10 @@ export function useAgents(filters?: Record<string, string>) {
 
 export function useMission(id?: string) {
   return useSWR<{ mission: any; events: any[] }>(id ? `/api/missions/${id}` : null, fetcher);
+}
+
+export function useTask(id?: string) {
+  return useSWR<{ task: any }>(id ? `/api/tasks/${id}` : null, fetcher);
 }
 
 export function useColonies() {
