@@ -12,6 +12,7 @@ export async function GET() {
           name: true,
           type: true,
           status: true,
+          runtimeState: true,
         },
       },
     },

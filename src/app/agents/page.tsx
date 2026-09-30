@@ -1,50 +1,41 @@
 "use client";
 
-import { useState } from "react";
-import useSWR from "swr";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Users, Search, Plus, Boxes, Cpu, Wrench, Brain, Zap, Target, Eye,
-  ChevronRight, Filter,
+  Users, Search, Plus, Cpu, Wrench, Brain, Target, Eye,
+  ChevronRight, X, RotateCcw, AlertCircle,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, safeJsonArray } from "@/lib/utils";
+import { useAgents, useColonies } from "@/hooks/useApi";
+import {
+  AGENT_TYPE_COLOR, AGENT_TYPE_OPTIONS, AGENT_STATUS_COLOR, AGENT_STATUS_OPTIONS,
+  ATTENTION_STATES, ATTENTION_LABELS, ATTENTION_COLOR,
+} from "@/lib/agent-meta";
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
-
-const statusColor: Record<string, string> = {
-  IDLE: "bg-muted text-muted-foreground",
-  RUNNING: "bg-success/10 text-success",
-  WAITING: "bg-warning/10 text-warning",
-  PAUSED: "bg-info/10 text-info",
-  ERROR: "bg-destructive/10 text-destructive",
-  OFFLINE: "bg-muted text-faint",
-};
-
-const typeColor: Record<string, string> = {
-  ARCHITECT: "border-info/40 text-info",
-  PLANNER: "border-warning/40 text-warning",
-  SPECIALIST: "border-success/40 text-success",
-  WORKER: "border-primary/40 text-primary",
-  OBSERVER: "border-muted-foreground/40 text-muted-foreground",
-  EVALUATOR: "border-accent-foreground/40 text-accent-foreground",
-  SUB_AGENT: "border-accent/40 text-accent",
-  CORE: "border-primary text-primary",
-};
-
-export default function AgentsPage() {
+function Agents() {
+  const searchParams = useSearchParams();
+  const colonyParam = searchParams.get("colonyId") ?? "";
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [typeFilter, setTypeFilter] = useState<string>("");
-  const { data, isLoading } = useSWR(
-    `/api/agents${statusFilter ? `?status=${statusFilter}` : ""}${typeFilter ? `?type=${typeFilter}` : ""}`,
-    fetcher
-  );
+  const [statusFilter, setStatusFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [colonyFilter, setColonyFilter] = useState(colonyParam);
+  useEffect(() => {
+    setColonyFilter(colonyParam);
+  }, [colonyParam]);
+  const { data, isLoading, error, mutate } = useAgents({
+    status: statusFilter,
+    type: typeFilter,
+    colonyId: colonyFilter,
+  });
+  const { data: coloniesData } = useColonies();
+  const colonies = coloniesData?.colonies || [];
+  const colonyName = colonies.find((c: any) => c.id === colonyFilter)?.name;
 
   const agents = (data?.agents || []).filter(
     (a: any) =>
@@ -52,6 +43,8 @@ export default function AgentsPage() {
       a.name.toLowerCase().includes(search.toLowerCase()) ||
       a.description?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const hasFilters = !!(statusFilter || typeFilter || colonyFilter);
 
   return (
     <div className="p-6 space-y-6">
@@ -68,8 +61,8 @@ export default function AgentsPage() {
         </Link>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 basis-full sm:basis-auto sm:max-w-sm sm:min-w-[16rem]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
           <Input
             placeholder="Search agents..."
@@ -79,67 +72,111 @@ export default function AgentsPage() {
           />
         </div>
         <select
+          aria-label="Filter by status"
           className="rounded-md border bg-background px-3 py-2 text-sm"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
           <option value="">All Status</option>
-          <option value="IDLE">Idle</option>
-          <option value="RUNNING">Running</option>
-          <option value="WAITING">Waiting</option>
-          <option value="ERROR">Error</option>
+          {AGENT_STATUS_OPTIONS.map((s) => (
+            <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>
+          ))}
         </select>
         <select
+          aria-label="Filter by type"
           className="rounded-md border bg-background px-3 py-2 text-sm"
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
         >
           <option value="">All Types</option>
-          <option value="ARCHITECT">Architect</option>
-          <option value="PLANNER">Planner</option>
-          <option value="SPECIALIST">Specialist</option>
-          <option value="WORKER">Worker</option>
-          <option value="OBSERVER">Observer</option>
+          {AGENT_TYPE_OPTIONS.map((t) => (
+            <option key={t} value={t}>{t.charAt(0) + t.slice(1).toLowerCase()}</option>
+          ))}
         </select>
+        {colonyFilter && (
+          <Badge variant="secondary" className="gap-1.5 px-2.5 py-1">
+            Colony: {colonyName || colonyFilter}
+            <button
+              aria-label="Clear colony filter"
+              className="ml-0.5 rounded-full hover:bg-foreground/10"
+              onClick={() => setColonyFilter("")}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+        )}
+        {hasFilters && (
+          <button
+            className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+            onClick={() => {
+              setStatusFilter("");
+              setTypeFilter("");
+              setColonyFilter("");
+            }}
+          >
+            Clear filters
+          </button>
+        )}
       </div>
 
-      {isLoading && agents.length === 0 && (
+      {error && (
+        <Card className="p-8 text-center">
+          <AlertCircle className="h-10 w-10 mx-auto text-destructive mb-3" />
+          <p className="text-lg font-medium">Couldn't load agents</p>
+          <p className="text-sm text-muted-foreground mt-1">Something went wrong fetching your workforce.</p>
+          <Button variant="outline" className="mt-4 gap-2" onClick={() => mutate()}>
+            <RotateCcw className="h-4 w-4" /> Retry
+          </Button>
+        </Card>
+      )}
+
+      {!error && isLoading && agents.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">Loading agents...</div>
       )}
-      {!isLoading && agents.length === 0 && (
+      {!error && !isLoading && agents.length === 0 && (
         <Card className="p-12 text-center">
           <Users className="h-12 w-12 mx-auto text-faint mb-4" />
           <p className="text-lg font-medium">No agents yet</p>
-          <p className="text-sm text-muted-foreground mt-1">Create your first workforce member</p>
-          <Link href="/architect">
-            <Button className="mt-4 gap-2"><Plus className="h-4 w-4" /> Create Agent</Button>
-          </Link>
+          <p className="text-sm text-muted-foreground mt-1">
+            {hasFilters ? "No agents match the current filters." : "Create your first workforce member"}
+          </p>
+          {!hasFilters && (
+            <Link href="/architect">
+              <Button className="mt-4 gap-2"><Plus className="h-4 w-4" /> Create Agent</Button>
+            </Link>
+          )}
         </Card>
       )}
 
       <div className="grid gap-4">
         {agents.map((agent: any) => {
-          const caps = JSON.parse(agent.capabilities || "[]") as string[];
-          const toolIds = JSON.parse(agent.tools || "[]") as string[];
-          const modelIds = JSON.parse(agent.models || "[]") as string[];
+          const caps = safeJsonArray(agent.capabilities);
+          const toolIds = safeJsonArray(agent.tools);
+          const modelIds = safeJsonArray(agent.models);
+          const needsAttention = ATTENTION_STATES.has(agent.runtimeState);
           return (
             <Link key={agent.id} href={`/agents/${agent.id}`}>
               <Card className="p-6 hover:border-primary/40 transition-colors cursor-pointer group">
                 <div className="flex items-start gap-4">
-                  <div className={cn("rounded-lg p-3 shrink-0 border", typeColor[agent.type] || "border-primary/40")}>
+                  <div className={cn("rounded-lg p-3 shrink-0 border", AGENT_TYPE_COLOR[agent.type] || "border-primary/40")}>
                     {agent.type === "ARCHITECT" ? <Brain className="h-5 w-5" /> :
                      agent.type === "PLANNER" ? <Target className="h-5 w-5" /> :
                      agent.type === "OBSERVER" ? <Eye className="h-5 w-5" /> :
                      <Users className="h-5 w-5" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-semibold text-base">{agent.name}</h3>
-                      <Badge className={cn("text-xs", statusColor[agent.status])}>{agent.status}</Badge>
+                      <Badge className={cn("text-xs", AGENT_STATUS_COLOR[agent.status])}>{agent.status}</Badge>
                       <Badge variant="outline" className="text-xs">{agent.type}</Badge>
+                      {needsAttention && (
+                        <Badge className={cn("text-xs", ATTENTION_COLOR[agent.runtimeState])}>
+                          {ATTENTION_LABELS[agent.runtimeState] ?? agent.runtimeState}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{agent.description}</p>
-                    <div className="flex items-center gap-4 mt-3 text-xs text-faint">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-faint">
                       {caps.length > 0 && (
                         <span className="flex items-center gap-1">
                           <Target className="h-3 w-3" /> {caps.length} capabilities
@@ -160,7 +197,7 @@ export default function AgentsPage() {
                       )}
                     </div>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-faint group-hover:text-foreground transition-colors" />
+                  <ChevronRight className="h-4 w-4 text-faint group-hover:text-foreground transition-colors shrink-0" />
                 </div>
               </Card>
             </Link>
@@ -168,5 +205,13 @@ export default function AgentsPage() {
         })}
       </div>
     </div>
+  );
+}
+
+export default function AgentsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[50vh]" />}>
+      <Agents />
+    </Suspense>
   );
 }

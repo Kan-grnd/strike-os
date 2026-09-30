@@ -7,17 +7,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Brain, Target, Wrench, Cpu, Loader2, CheckCircle2, X, Play, RotateCcw, ShieldCheck } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Sparkles, Loader2, CheckCircle2, X, XCircle, Play, RotateCcw, ShieldCheck } from "lucide-react";
+import { cn, safeJson, safeJsonArray } from "@/lib/utils";
+import { CAPABILITY_CATALOG } from "@/lib/capabilities";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
-
-const CAPABILITY_CATALOG: Record<string, string[]> = {
-  "Research & Intel": ["intel.research", "source.evaluation", "authority.rating", "report.synthesis", "web.analysis", "cadence.tracking"],
-  "Code & Engineering": ["system.design", "pipeline.architecture", "code.python", "data.pipelines"],
-  "Data & Analysis": ["quality.validation", "accuracy.audit"],
-  "Specialist Bundles": ["intel.deep_research", "authority.verification", "intel.synthesis", "pipeline.bootstrap", "code.modularization", "schedule.orchestration", "source.provenance", "precision.measurement", "audit.trail", "cadence.monitoring", "delta.signal", "notify.thresholds"],
-};
 
 const TOOL_CATALOG: Record<string, string[]> = {
   "Web": ["search"],
@@ -67,6 +61,21 @@ export default function AgentArchitectPage() {
   };
 
   const applyBundle = (bundle: any) => {
+    const dirty =
+      goal.trim() !== "" ||
+      name !== "" ||
+      selectedCapabilities.length > 0 ||
+      selectedTools.length > 0 ||
+      selectedModels.length > 0 ||
+      colonyId !== "";
+    if (
+      dirty &&
+      !window.confirm(
+        `Apply template "${bundle.label}"? This will replace your current form selections.`
+      )
+    ) {
+      return;
+    }
     const colony = colonies.find((c: any) => c.name === bundle.colonyName);
     const modelIds = [bundle.modelPolicy.primary, ...bundle.modelPolicy.fallbacks]
       .map((n: string) => models.find((m: any) => m.name === n)?.id)
@@ -125,10 +134,9 @@ export default function AgentArchitectPage() {
         setForgeMsg({ ok: false, text: data.error ?? "Trial failed" });
       } else {
         const t = data.trial;
-        const mark = t.verdict === "PASS" ? "✓" : "✗";
         setForgeMsg({
           ok: t.verdict === "PASS",
-          text: `${bundle.label} trial ${mark} ${t.verdict} · ${(t.durationMs / 1000).toFixed(1)}s · $${(t.cost ?? 0).toFixed(4)} · ${t.trace?.length ?? 0} trace steps${
+          text: `${bundle.label} trial ${t.verdict} · ${(t.durationMs / 1000).toFixed(1)}s · $${(t.cost ?? 0).toFixed(4)} · ${t.trace?.length ?? 0} trace steps${
             t.verdict === "FAIL" && t.reason ? ` — ${t.reason}` : ""
           }`,
         });
@@ -151,7 +159,7 @@ export default function AgentArchitectPage() {
     try {
       // Find existing agent that can do any of these capabilities
       const existingAgent = existingAgents.find((a: any) => {
-        const caps = JSON.parse(a.capabilities || "[]") as string[];
+        const caps = safeJsonArray(a.capabilities);
         return caps.some((c) => selectedCapabilities.includes(c));
       });
 
@@ -223,9 +231,9 @@ export default function AgentArchitectPage() {
       )}
 
       {result && !result.ok && (
-        <Card className="p-6 border-warning/40 bg-warning/5">
+        <Card className="p-6 border-destructive/40 bg-destructive/5">
           <div className="flex items-center gap-3">
-            <X className="h-5 w-5 text-warning" />
+            <X className="h-5 w-5 text-destructive" />
             <div>
               <p className="font-semibold">Cannot create</p>
               <p className="text-sm text-muted-foreground">{result.error}</p>
@@ -235,12 +243,12 @@ export default function AgentArchitectPage() {
       )}
 
       {forgeMsg && (
-        <Card className={cn("p-4", forgeMsg.ok ? "border-success/40 bg-success/5" : "border-warning/40 bg-warning/5")}>
+        <Card className={cn("p-4", forgeMsg.ok ? "border-success/40 bg-success/5" : "border-destructive/40 bg-destructive/5")}>
           <div className="flex items-center gap-3">
             {forgeMsg.ok ? (
               <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
             ) : (
-              <X className="h-5 w-5 text-warning shrink-0" />
+              <XCircle className="h-5 w-5 text-destructive shrink-0" />
             )}
             <p className="text-sm text-muted-foreground">{forgeMsg.text}</p>
           </div>
@@ -270,7 +278,7 @@ export default function AgentArchitectPage() {
               ? "paused"
               : "installed";
             const lastTrial = install?.trialHistory
-              ? (JSON.parse(install.trialHistory) as any[]).slice(-1)[0]
+              ? safeJson<any[]>(install.trialHistory, []).slice(-1)[0]
               : null;
             return (
               <div
@@ -325,16 +333,22 @@ export default function AgentArchitectPage() {
                 {lastTrial && (
                   <p
                     className={cn(
-                      "text-[11px] font-medium",
-                      lastTrial.verdict === "PASS" ? "text-success" : "text-warning"
+                      "text-[11px] font-medium flex items-center gap-1",
+                      lastTrial.verdict === "PASS" ? "text-success" : "text-destructive"
                     )}
                   >
-                    {lastTrial.verdict === "PASS" ? "✓" : "✗"} {lastTrial.verdict} ·{" "}
-                    {(lastTrial.durationMs / 1000).toFixed(1)}s · ${(lastTrial.cost ?? 0).toFixed(4)} ·{" "}
-                    {lastTrial.trace?.length ?? 0} trace steps
-                    {lastTrial.verdict === "FAIL" && lastTrial.reason
-                      ? ` — ${lastTrial.reason}`
-                      : ""}
+                    {lastTrial.verdict === "PASS" ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5 shrink-0" />
+                    )}
+                    <span>
+                      {lastTrial.verdict} ·{(lastTrial.durationMs / 1000).toFixed(1)}s · $
+                      {(lastTrial.cost ?? 0).toFixed(4)} · {lastTrial.trace?.length ?? 0} trace steps
+                      {lastTrial.verdict === "FAIL" && lastTrial.reason
+                        ? ` — ${lastTrial.reason}`
+                        : ""}
+                    </span>
                   </p>
                 )}
                 <div className="flex flex-wrap gap-2 pt-1">
@@ -394,6 +408,7 @@ export default function AgentArchitectPage() {
           <p className="text-xs text-muted-foreground mb-3">Describe what this agent should do</p>
           <Input
             placeholder="e.g. An agent that researches competitors, evaluates source authority, and flags signal changes for my intel workforce"
+            aria-label="Goal"
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
             className="h-12"
@@ -402,8 +417,9 @@ export default function AgentArchitectPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-sm font-medium">Agent Name</label>
+            <label className="text-sm font-medium" htmlFor="agent-name">Agent Name</label>
             <Input
+              id="agent-name"
               placeholder="Competitive Intel Analyst"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -411,8 +427,9 @@ export default function AgentArchitectPage() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium">Type</label>
+            <label className="text-sm font-medium" htmlFor="agent-type">Type</label>
             <select
+              id="agent-type"
               className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm h-10"
               value={type}
               onChange={(e) => setType(e.target.value)}
@@ -426,8 +443,9 @@ export default function AgentArchitectPage() {
         </div>
 
         <div>
-          <label className="text-sm font-medium">Colony</label>
+          <label className="text-sm font-medium" htmlFor="agent-colony">Colony</label>
           <select
+            id="agent-colony"
             className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm h-10"
             value={colonyId}
             onChange={(e) => setColonyId(e.target.value)}
@@ -453,7 +471,9 @@ export default function AgentArchitectPage() {
                 {caps.map((cap) => (
                   <button
                     key={cap}
+                    type="button"
                     onClick={() => toggleCapability(cap)}
+                    aria-pressed={selectedCapabilities.includes(cap)}
                     className={cn(
                       "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                       selectedCapabilities.includes(cap)
@@ -479,7 +499,9 @@ export default function AgentArchitectPage() {
           {tools.map((tool: any) => (
             <button
               key={tool.id}
+              type="button"
               onClick={() => toggleTool(tool.name)}
+              aria-pressed={selectedTools.includes(tool.name)}
               className={cn(
                 "rounded-md border px-3 py-2 text-left text-sm transition-colors",
                 selectedTools.includes(tool.name)
@@ -494,12 +516,19 @@ export default function AgentArchitectPage() {
         </div>
       </Card>
 
-      <div className="flex items-center justify-end gap-3">
-        <Button variant="outline" onClick={() => router.push("/agents")}>Cancel</Button>
-        <Button onClick={handleSubmit} disabled={submitting} className="gap-2">
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          Create Agent
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          {selectedModels.length === 0
+            ? "No models selected — the default model set will be used."
+            : `${selectedModels.length} model${selectedModels.length > 1 ? "s" : ""} selected.`}
+        </p>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={() => router.push("/agents")}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={submitting} className="gap-2">
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            Create Agent
+          </Button>
+        </div>
       </div>
     </div>
   );

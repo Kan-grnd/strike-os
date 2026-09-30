@@ -1,0 +1,31 @@
+export const CAPABILITY_CATALOG: Record<string, string[]> = {
+  "Research & Intel": [
+    "intel.research",
+    "source.evaluation",
+    "authority.rating",
+    "report.synthesis",
+    "web.analysis",
+    "cadence.tracking",
+  ],
+  "Code & Engineering": [
+    "system.design",
+    "pipeline.architecture",
+    "code.python",
+    "data.pipelines",
+  ],
+  "Data & Analysis": ["quality.validation", "accuracy.audit"],
+  "Specialist Bundles": [
+    "intel.deep_research",
+    "authority.verification",
+    "intel.synthesis",
+    "pipeline.bootstrap",
+    "code.modularization",
+    "schedule.orchestration",
+    "source.provenance",
+    "precision.measurement",
+    "audit.trail",
+    "cadence.monitoring",
+    "delta.signal",
+    "notify.thresholds",
+  ],
+};

@@ -52,3 +52,17 @@ export function pluralize(count: number, singular: string, plural?: string): str
   if (count === 1) return singular;
   return plural || `${singular}s`;
 }
+
+export function safeJson<T>(raw: unknown, fallback: T): T {
+  if (typeof raw !== "string" || raw.length === 0) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+export function safeJsonArray(raw: unknown): string[] {
+  const parsed = safeJson<unknown>(raw, []);
+  return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
+}
