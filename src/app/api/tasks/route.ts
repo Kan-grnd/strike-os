@@ -17,9 +17,18 @@ export async function GET(req: Request) {
       ...(agentId ? { ownerAgentId: agentId } : {}),
     },
     orderBy: { createdAt: "desc" },
+    include: { mission: { select: { goal: true } } },
   });
 
-  return NextResponse.json({ tasks });
+  const agentIds = Array.from(new Set(tasks.map((t) => t.ownerAgentId).filter((id): id is string => Boolean(id))));
+  const agents = agentIds.length
+    ? await prisma.agent.findMany({ where: { id: { in: agentIds } }, select: { id: true, name: true } })
+    : [];
+  const names = new Map(agents.map((a) => [a.id, a.name]));
+
+  return NextResponse.json({
+    tasks: tasks.map((t) => ({ ...t, agentName: t.ownerAgentId ? (names.get(t.ownerAgentId) ?? null) : null })),
+  });
 }
 
 export async function POST(req: Request) {
