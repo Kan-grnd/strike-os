@@ -9,7 +9,7 @@ import { SidebarPanel, SecondaryNav } from "@/components/layout/sidebar-panel";
 import { SidebarDrawer } from "@/components/layout/sidebar-drawer";
 import {
   SidebarFooter,
-  SidebarRailActivity,
+  SidebarRailAttention,
   SidebarStatusDot,
   useSidebarStatus,
 } from "@/components/layout/sidebar-footer";
@@ -181,11 +181,11 @@ export function AppSidebar({
   const openDomainId = level2Open ? selected?.id ?? null : null;
   /* With Level 2 open, the panel's Status row already says whether the platform
      is online — a second dot for it in the rail is two controls telling the same
-     story. The rail instead shows what the panel does not: work in flight.
-     Closed, there is nothing to shoulder the rail, so the dot stays. */
+     story. The rail instead shows what the panel does not: work sitting on the
+     user. Closed, there is nothing to shoulder the rail, so the dot stays. */
   const railFooter =
     level2Open ? (
-      <SidebarRailActivity />
+      <SidebarRailAttention />
     ) : (
       <SidebarStatusDot status={status} />
     );

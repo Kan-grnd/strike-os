@@ -2,8 +2,8 @@
 
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { Activity } from "lucide-react";
-import { useAgents, useHealth, useMissions, useTasks } from "@/hooks/useApi";
+import { Bell } from "lucide-react";
+import { useAgents, useApprovals, useHealth, useMissions, useTasks } from "@/hooks/useApi";
 import {
   Tooltip,
   TooltipContent,
@@ -41,59 +41,60 @@ export function useSidebarStatus() {
 
 type SidebarStatus = ReturnType<typeof useSidebarStatus>;
 
-/* Mission statuses that mean "the machine is working on this": RUNNING is in
-   flight, the queued set is waiting for a slot or agent. PLANNING (a draft the
-   user is still deciding on) and PAUSED/CANCELLED are deliberately not work in
-   motion, so they neither pulse nor count. */
-const MISSION_RUNNING = new Set(["RUNNING"]);
-const MISSION_QUEUED = new Set(["QUEUED", "READY", "WAITING"]);
-const TASK_RUNNING = new Set(["RUNNING"]);
-const TASK_QUEUED = new Set(["QUEUED"]);
+/* Agent runtime states that mean the user, not the machine, has to act next.
+   Mirrors ATTENTION_PENDING_STATES in lib/runtime/selectors.ts so the rail and
+   the topology agree about what "attention required" means. */
+const AGENT_ATTENTION_STATES = new Set(["waiting_for_approval", "blocked", "failed"]);
 
 /**
- * Work-in-flight for the rail's activity signal.
- *
- * Reads the same `/api/missions` and `/api/tasks` the Missions and Tasks pages
- * read, with the same unfiltered keys, so SWR dedupes — mounting this never
- * doubles the payloads those pages already fetch. No polling of its own: it
- * revalidates on mount and focus like everything else, and a stale snapshot is
- * acceptable for a badge whose job is "something is happening", not precision.
+ * Things that need the user, across every surface that has a "waiting on you"
+ * notion. All four sources are the same unfiltered endpoints the pages read, so
+ * SWR dedupes — the badge never doubles any payload a page already fetches.
+ * Degraded signals belong to the panel's Status row, not here: on error the
+ * whole badge goes quiet rather than inventing a number from a partial read.
  */
-export function useSidebarActivity() {
-  const { data: missions } = useMissions();
+export function useSidebarAttention() {
+  const { data: approvals } = useApprovals();
+  const { data: agents } = useAgents();
   const { data: tasks } = useTasks();
-  /* One request landing before the other cannot produce a truthful badge, so
-     both must be in. On an error neither is, which renders the quiet visual —
-     degraded health belongs to the panel's Status row, not the rail. */
-  const loading = missions === undefined || tasks === undefined;
+  const { data: missions } = useMissions();
+  const loading =
+    approvals === undefined ||
+    agents === undefined ||
+    tasks === undefined ||
+    missions === undefined;
 
-  let missionsRunning = 0;
-  let missionsQueued = 0;
-  let tasksRunning = 0;
-  let tasksQueued = 0;
+  let approvalsPending = 0;
+  let agentsStuck = 0;
+  let tasksFailed = 0;
+  let missionsFailed = 0;
+  let missionsPaused = 0;
 
-  if (Array.isArray(missions?.missions)) {
-    for (const m of missions.missions) {
-      if (MISSION_RUNNING.has(m?.status)) missionsRunning++;
-      else if (MISSION_QUEUED.has(m?.status)) missionsQueued++;
+  if (Array.isArray(approvals?.approvals)) {
+    for (const a of approvals.approvals) {
+      if (a?.status === "PENDING") approvalsPending++;
+    }
+  }
+  if (Array.isArray(agents?.agents)) {
+    for (const a of agents.agents) {
+      if (AGENT_ATTENTION_STATES.has(a?.runtimeState)) agentsStuck++;
     }
   }
   if (Array.isArray(tasks?.tasks)) {
     for (const t of tasks.tasks) {
-      if (TASK_RUNNING.has(t?.status)) tasksRunning++;
-      else if (TASK_QUEUED.has(t?.status)) tasksQueued++;
+      if (t?.status === "FAILED") tasksFailed++;
+    }
+  }
+  if (Array.isArray(missions?.missions)) {
+    for (const m of missions.missions) {
+      if (m?.status === "FAILED") missionsFailed++;
+      /* PAUSED needs the user to Resume — same class of "you must act" as a
+         failure, so it counts towards attention. */
+      else if (m?.status === "PAUSED") missionsPaused++;
     }
   }
 
-  return {
-    missionsRunning,
-    missionsQueued,
-    tasksRunning,
-    tasksQueued,
-    running: missionsRunning + tasksRunning,
-    queued: missionsQueued + tasksQueued,
-    loading,
-  };
+  return { approvalsPending, agentsStuck, tasksFailed, missionsFailed, missionsPaused, loading };
 }
 
 function joinParts(parts: string[]) {
@@ -104,58 +105,74 @@ function joinParts(parts: string[]) {
  * The rail's footer while the Level-2 panel is open.
  *
  * The panel already reports connectivity, so a second status dot there would be
- * two controls saying the same thing. Instead this shows the thing the panel
- * does not: work in flight across missions and tasks. Busy, the icon pulses and
- * carries the count; idle, it sits dimmed. Either way it stays a link, so it is
- * a predictable hop to /missions rather than a dead ornament.
+ * two controls saying the same thing. This instead surfaces what the panel does
+ * not: work sitting on the user. A bell with a count, zero state dimmed.
+ *
+ * Where a click lands follows the worst thing first and the home of that worst
+ * thing. One wrinkle: nothing in the app resolves approvals yet — there is no
+ * approvals page or approve/deny action (the `approvals` table is written by the
+ * runtime but never surfaced), so approvals point at the agents they concern.
+ * That is a deliberate stand-in, not a fix; the resolution UI is a follow-up.
  */
-export function SidebarRailActivity() {
-  const {
-    missionsRunning,
-    missionsQueued,
-    tasksRunning,
-    tasksQueued,
-    running,
-    queued,
-    loading,
-  } = useSidebarActivity();
-  const busy = !loading && running + queued > 0;
+export function SidebarRailAttention() {
+  const { approvalsPending, agentsStuck, tasksFailed, missionsFailed, missionsPaused, loading } =
+    useSidebarAttention();
+  const total =
+    approvalsPending + agentsStuck + tasksFailed + missionsFailed + missionsPaused;
+  const attention = !loading && total > 0;
 
   const label = loading
-    ? "Loading activity"
-    : busy
+    ? "Loading attention"
+    : attention
       ? joinParts([
-          missionsRunning
-            ? `${missionsRunning} mission${missionsRunning === 1 ? "" : "s"} running`
+          approvalsPending
+            ? `${approvalsPending} approval${approvalsPending === 1 ? "" : "s"} pending`
             : "",
-          missionsQueued
-            ? `${missionsQueued} mission${missionsQueued === 1 ? "" : "s"} queued`
+          agentsStuck
+            ? `${agentsStuck} agent${agentsStuck === 1 ? "" : "s"} stuck`
             : "",
-          tasksRunning ? `${tasksRunning} task${tasksRunning === 1 ? "" : "s"} running` : "",
-          tasksQueued ? `${tasksQueued} task${tasksQueued === 1 ? "" : "s"} queued` : "",
+          tasksFailed ? `${tasksFailed} failed task${tasksFailed === 1 ? "" : "s"}` : "",
+          missionsFailed
+            ? `${missionsFailed} failed mission${missionsFailed === 1 ? "" : "s"}`
+            : "",
+          missionsPaused
+            ? `${missionsPaused} paused mission${missionsPaused === 1 ? "" : "s"}`
+            : "",
         ])
-      : "No running work";
-  const tip = loading ? label : busy ? `${running} running · ${queued} queued` : "All quiet";
+      : "All clear";
+  const tip = label;
+
+  const href = approvalsPending || agentsStuck
+    ? "/agents"
+    : tasksFailed
+      ? "/tasks"
+      : "/missions";
+  /* Idle, the badge is pure status ("all clear") and has nothing to resolve, so
+     it stays a live region rather than a link to nowhere; the moment something
+     needs the user it becomes the hop to the worst thing's home. */
+  const triggerCls = cn(
+    "flex h-8 w-full items-center justify-center gap-1 rounded-md",
+    "transition-colors hover:bg-accent/50 hover:text-foreground",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+    attention ? "text-foreground" : "text-muted-foreground"
+  );
+  const bell = (
+    <Bell aria-hidden="true" className={cn("h-3.5 w-3.5", attention && "text-warning")} />
+  );
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Link
-          href="/missions"
-          aria-label={label}
-          className={cn(
-            "flex h-8 w-full items-center justify-center gap-1 rounded-md",
-            "transition-colors hover:bg-accent/50 hover:text-foreground",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
-            busy ? "text-foreground" : "text-muted-foreground"
-          )}
-        >
-          <Activity
-            aria-hidden="true"
-            className={cn("h-3.5 w-3.5", busy && "animate-pulse motion-reduce:animate-none")}
-          />
-          {busy && <span className="text-xs tabular-nums font-medium">{running + queued}</span>}
-        </Link>
+        {attention ? (
+          <Link href={href} aria-label={label} className={triggerCls}>
+            {bell}
+            <span className="text-xs tabular-nums font-medium">{total}</span>
+          </Link>
+        ) : (
+          <span role="status" tabIndex={0} aria-label={label} className={triggerCls}>
+            {bell}
+          </span>
+        )}
       </TooltipTrigger>
       <TooltipContent side="right">{tip}</TooltipContent>
     </Tooltip>

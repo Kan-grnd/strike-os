@@ -80,6 +80,10 @@ export function useMissions() {
   return useSWR<{ missions: any[] }>("/api/missions", fetcher);
 }
 
+export function useApprovals() {
+  return useSWR<{ approvals: any[] }>("/api/approvals", fetcher);
+}
+
 export function useTools() {
   return useSWR<{ tools: any[] }>("/api/tools", fetcher);
 }
