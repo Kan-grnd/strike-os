@@ -196,7 +196,12 @@ export function AppSidebar({
       <div className={cn("relative flex h-screen shrink-0", suppressAnimation ? "transition-none" : "")}>
         <div
           className={cn(
-            "flex h-full",
+            /* The panel mounts the instant the width starts animating, so
+               without clipping it paints at full size over the page for the
+               duration of the transition — a flash of panel over content that
+               reads as breakage. Clipping to the growing box turns the opening
+               into a clean left-to-right reveal instead. */
+            "flex h-full overflow-hidden",
             !suppressAnimation &&
               "transition-[width] duration-200 motion-reduce:transition-none"
           )}
@@ -209,8 +214,12 @@ export function AppSidebar({
             registerRef={registerRef}
             footer={railFooter}
           />
+          {/* Persistent push layout: the panel is a sibling that takes its own
+              192px, never a squeezed child of the animating row. `shrink-0`
+              guards the one opening where the row is the flex parent deciding
+              how its children share the 200ms of shrinking width. */}
           {showInlinePanel && selected && (
-            <div onKeyDown={onPanelKeyDown}>
+            <div className="shrink-0" onKeyDown={onPanelKeyDown}>
               <SidebarPanel
                 domain={selected}
                 activeHref={activeHref}
