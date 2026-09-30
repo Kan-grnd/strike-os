@@ -94,11 +94,11 @@ export default function TasksPage() {
               : `${tasks.length} ${pluralize(tasks.length, "task")}`}
           </p>
           <div className="overflow-x-auto pb-2">
-            <div className={cn("grid gap-3 divide-x divide-border/60", filtered ? "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-7 min-w-[1100px]")}>
-              {columns.map((g) => {
+            <div className={cn("grid gap-3 divide-x divide-border/30", filtered ? "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-7 min-w-[1100px]")}>
+              {columns.map((g, idx) => {
                 const group = groupTasks(g);
                 return (
-                  <div key={g}>
+                  <div key={g} className={idx > 0 ? "pl-4" : undefined}>
                     <h3 className="text-xs font-semibold mb-2 flex items-center gap-2">
                       <span className={cn("px-1.5 py-0.5 rounded", TASK_STATUS_COLOR[g])}>{g}</span>
                       <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">{group.length}</span>
