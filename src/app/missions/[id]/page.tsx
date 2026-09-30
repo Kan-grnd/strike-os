@@ -102,7 +102,7 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/missions">
+        <Link href="/work?type=missions">
           <Button variant="ghost" size="sm" className="gap-2"><ArrowLeft className="h-4 w-4" /> Back</Button>
         </Link>
       </div>

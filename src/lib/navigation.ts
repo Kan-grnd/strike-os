@@ -3,11 +3,11 @@ import {
   Activity,
   BookOpen,
   Boxes,
+  Briefcase,
   Cpu,
   Database,
   FileText,
   Gauge,
-  GitBranch,
   Globe,
   Layers,
   LayoutDashboard,
@@ -21,7 +21,6 @@ import {
   Target,
   Users,
   Wrench,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 
@@ -101,21 +100,15 @@ export const NAV_DOMAINS: NavigationDomain[] = [
     icon: Target,
     children: [
       {
-        label: "Missions",
-        href: "/missions",
-        /* `/missions/new` is a sibling of `/missions/:id`, not a child of it,
-         * but it is the same destination from a nav point of view. */
-        matches: ["/missions"],
+        label: "Work",
+        href: "/work",
+        /* The legacy list routes redirect to /work; matching them keeps a
+         * mission/workflow detail page (or an old bookmark) lighting up the
+         * same item instead of going dark while the panel stays put. */
+        matches: ["/work", "/missions", "/workflows"],
       },
       { label: "Tasks", href: "/tasks", matches: ["/tasks"] },
-      { label: "Workflows", href: "/workflows", matches: ["/workflows"] },
     ],
-  },
-  {
-    id: "automation",
-    label: "Automation",
-    icon: Zap,
-    children: [{ label: "Automations", href: "/automations", matches: ["/automations"] }],
   },
   {
     id: "intelligence",
@@ -181,10 +174,8 @@ const CHILD_ICONS: Record<string, IconComponent> = {
   "/colonies": Boxes,
   "/architect": Sparkles,
   "/capabilities": Target,
-  "/missions": Target,
+  "/work": Briefcase,
   "/tasks": ListTodo,
-  "/workflows": GitBranch,
-  "/automations": Zap,
   "/memory": Database,
   "/knowledge": Network,
   "/decisions": BookOpen,
