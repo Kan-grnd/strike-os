@@ -122,7 +122,29 @@ export function AppSidebar({
 
   const selected: NavigationDomain | null = domainById(selectedId) ?? routeDomain;
 
+  /* Whether Level 2 is on screen right now, in whichever form it takes. The
+     panel and the drawer are the same thing to the user; only the container
+     differs. */
+  const level2Open = narrow ? drawerOpen : panelOpen;
+
   const selectDomain = (id: string) => {
+    /* Pressing the icon of the domain already showing is a close. This is why
+       the rail no longer carries a separate collapse button: the control that
+       opened the panel is the one that puts it away, which is both fewer
+       controls and the one a user reaches for. */
+    if (selected?.id === id && level2Open) {
+      if (narrow) {
+        setDrawerOpen(false);
+      } else {
+        onPanelOpenChange?.(false);
+      }
+      /* Selection is deliberately left alone. Closing hides the panel, it does
+         not forget the domain, so the same icon reopens it — and the stored
+         value is untouched, because nothing about the user changed. Focus stays
+         on the icon they just pressed rather than being dumped on the body by
+         the panel unmounting. */
+      return;
+    }
     setSelectedId(id);
     persistDomain(id);
     if (narrow) {
@@ -141,14 +163,6 @@ export function AppSidebar({
     else railRefs.current.delete(id);
   }, []);
 
-  const togglePanel = () => {
-    if (narrow) {
-      setDrawerOpen((v) => !v);
-      return;
-    }
-    onPanelOpenChange?.(!panelOpen);
-  };
-
   /* Escape inside the panel returns to the rail item that opened it, so focus
      never falls back to the document body. */
   const onPanelKeyDown = (e: React.KeyboardEvent) => {
@@ -159,6 +173,11 @@ export function AppSidebar({
   const activeHref = routeDomain?.id === selected?.id ? routeChild?.href ?? null : null;
 
   const showInlinePanel = panelOpen && !narrow && !!selected;
+  /* The rail shows which domain is on screen, which is not the same as which
+     domain is selected: closing the panel leaves the selection intact so the
+     same icon reopens it, and an icon for a panel nobody can see must not look
+     active. */
+  const openDomainId = level2Open ? selected?.id ?? null : null;
   const railFooter = <SidebarStatusDot status={status} />;
   const panelFooter = <SidebarFooter status={status} />;
 
@@ -174,12 +193,10 @@ export function AppSidebar({
           style={{ width: showInlinePanel ? "16rem" : "4rem" }}
         >
           <SidebarRail
-            selectedId={selected?.id ?? null}
+            openDomainId={openDomainId}
             routeId={routeDomain?.id ?? null}
             onSelect={selectDomain}
             registerRef={registerRef}
-            onTogglePanel={togglePanel}
-            panelOpen={narrow ? drawerOpen : panelOpen}
             footer={railFooter}
           />
           {showInlinePanel && selected && (
