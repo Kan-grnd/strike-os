@@ -94,7 +94,7 @@ export default function TasksPage() {
               : `${tasks.length} ${pluralize(tasks.length, "task")}`}
           </p>
           <div className="overflow-x-auto pb-2">
-            <div className={cn("grid gap-3", filtered ? "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-7 min-w-[1100px]")}>
+            <div className={cn("grid gap-3 divide-x divide-border/60", filtered ? "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-7 min-w-[1100px]")}>
               {columns.map((g) => {
                 const group = groupTasks(g);
                 return (
