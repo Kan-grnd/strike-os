@@ -5,11 +5,11 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { WorkflowFlow } from "@/components/workflow/workflow-flow";
 import { WorkflowEditorDrawer } from "@/components/workflow/workflow-editor-drawer";
 import { ArrowLeft, Play, Pause, Square, RefreshCw, Zap, CheckCircle2 } from "lucide-react";
 import { useAutomation } from "@/hooks/useApi";
+import { DataTable, type DataTableColumn } from "@/components/execution/data-table";
 import { safeJson, cn, formatDuration, formatCost } from "@/lib/utils";
 import { AUTOMATION_STATUS_COLOR, RUN_STATUS_COLOR, TRIGGER_LABELS } from "@/lib/execution-meta";
 
@@ -28,6 +28,91 @@ type Automation = {
   errorCount: number;
   runs: Run[];
 };
+
+type StepRow = { index: number; action: { type: string; config?: Record<string, unknown> } };
+
+const stepSummary = (a: StepRow["action"]) =>
+  String(a.config?.goal || a.config?.message || a.config?.description || "");
+
+/** A factory, called from the component, so each row's Edit button can reach
+ *  the drawer state. The accessible name is deliberately unchanged from when
+ *  these steps were a stack of buttons, so the same name still describes the
+ *  same action. */
+const stepColumns = (onEdit: (index: number) => void): DataTableColumn<StepRow>[] => [
+  {
+    header: "Step",
+    width: "70px",
+    render: (r) => <Badge variant="outline" className="font-mono">{r.index + 1}</Badge>,
+  },
+  {
+    header: "Action",
+    width: "200px",
+    render: (r) => <span className="font-mono text-xs text-muted-foreground">{r.action.type}</span>,
+  },
+  {
+    header: "Summary",
+    render: (r) => (
+      <span className="truncate block max-w-[320px]">{stepSummary(r.action)}</span>
+    ),
+  },
+  {
+    header: "",
+    width: "80px",
+    align: "right",
+    render: (r) => (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 px-2"
+        aria-label={`Edit step ${r.index + 1}: ${stepSummary(r.action) || r.action.type}`}
+        onClick={() => onEdit(r.index)}
+      >
+        Edit
+      </Button>
+    ),
+  },
+];
+
+const RUN_COLUMNS: DataTableColumn<Run>[] = [
+  {
+    header: "Status",
+    width: "130px",
+    render: (run) => (
+      <span className="flex items-center gap-2">
+        <span className={cn("h-2 w-2 rounded-full shrink-0", RUN_STATUS_COLOR[run.status]?.split(" ")[0] || "bg-muted")} />
+        <Badge variant="outline" className="text-xs uppercase">{run.status}</Badge>
+      </span>
+    ),
+  },
+  {
+    header: "Started",
+    width: "180px",
+    render: (run) => (
+      <span className="font-mono text-xs whitespace-nowrap">{new Date(run.startedAt).toLocaleString()}</span>
+    ),
+  },
+  {
+    header: "Duration",
+    width: "110px",
+    align: "right",
+    render: (run) => <span className="text-xs">{formatDuration(run.duration)}</span>,
+  },
+  {
+    header: "Cost",
+    width: "100px",
+    align: "right",
+    render: (run) => <span className="text-xs text-muted-foreground">{formatCost(run.cost)}</span>,
+  },
+  {
+    header: "Error",
+    render: (run) =>
+      run.error ? (
+        <span className="text-xs text-destructive block truncate max-w-[280px]" title={run.error}>{run.error}</span>
+      ) : (
+        <span className="text-xs text-muted-foreground">—</span>
+      ),
+  },
+];
 
 export default function AutomationDetailPage({ params }: { params: { id: string } }) {
   const { data, error, isLoading, mutate } = useAutomation(params.id);
@@ -180,77 +265,79 @@ export default function AutomationDetailPage({ params }: { params: { id: string 
         <p className="text-sm text-destructive bg-destructive/5 border border-destructive/20 rounded-md px-3 py-2">{actionError}</p>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="p-6 lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold flex items-center gap-2">
-              <Zap className="h-4 w-4 text-primary" /> Flow
-            </h2>
-            <span className="text-xs text-muted-foreground">{actions.length} steps</span>
-          </div>
-          {actions.length > 0 ? (
-            <>
-              <WorkflowFlow title="Execution Sequence" actions={actions.map((a, i) => ({ ...a, index: i }))} />
-              <div className="space-y-1">
-                {actions.map((a, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setEditingIndex(i)}
-                    className="w-full text-left flex items-center gap-3 rounded-md bg-muted/30 px-3 py-2 border hover:border-primary/40 transition-colors"
-                    aria-label={`Edit step ${i + 1}: ${a.config?.goal || a.type}`}
-                  >
-                    <Badge variant="outline" className="font-mono">{i + 1}</Badge>
-                    <span className="font-mono text-xs text-muted-foreground truncate flex-1">{a.type}</span>
-                    <span className="text-sm text-muted-foreground truncate">{String(a.config?.goal || a.config?.message || a.config?.description || "")}</span>
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">Click a step to edit its type and configuration</p>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">No steps defined yet.</p>
-          )}
-          {saveError && <p className="text-sm text-destructive">{saveError}</p>}
-        </Card>
-
-        <Card className="p-6 space-y-3">
-          <h2 className="font-semibold">Status</h2>
-          <div className="rounded-lg bg-muted p-3 space-y-1 text-sm">
-            <div className="flex justify-between"><span>Last run</span><span className="font-mono">{formatWhen(automation.lastRun)}</span></div>
-            <div className="flex justify-between"><span>Next run</span><span className="font-mono">{formatWhen(automation.nextRun)}</span></div>
-            <div className="flex justify-between"><span>Runs</span><span className="font-mono">{automation.runCount || 0}</span></div>
-            <div className="flex justify-between"><span>Errors</span><span className="font-mono">{automation.errorCount || 0}</span></div>
-          </div>
-          <Separator />
-          <h2 className="font-semibold">Trigger</h2>
-          <Badge variant="outline">{TRIGGER_LABELS[triggerType] || triggerType}{triggerDetail ? ` — ${triggerDetail}` : ""}</Badge>
-          <h2 className="font-semibold mt-2">Conditions</h2>
-          <p className="text-xs text-muted-foreground">{conditionKeys.length ? conditionKeys.map((k) => `${k}: ${String(conditions[k])}`).join(" · ") : "No conditions set"}</p>
-        </Card>
+      {/* One horizontal spec strip: the same facts the sidebar cards carried,
+          read across. */}
+      <div className="grid grid-cols-2 gap-px rounded-lg border border-border bg-border overflow-hidden lg:grid-cols-6">
+        <div className="bg-background p-3">
+          <p className="text-xs text-muted-foreground">Status</p>
+          <p className="mt-1"><Badge className={AUTOMATION_STATUS_COLOR[status] || "bg-muted text-muted-foreground"}>{status}</Badge></p>
+        </div>
+        <div className="bg-background p-3">
+          <p className="text-xs text-muted-foreground">Trigger</p>
+          <p className="mt-1"><Badge variant="outline" className="whitespace-nowrap">{TRIGGER_LABELS[triggerType] || triggerType}{triggerDetail ? ` — ${triggerDetail}` : ""}</Badge></p>
+        </div>
+        <div className="bg-background p-3">
+          <p className="text-xs text-muted-foreground">Last run</p>
+          <p className="mt-1 text-sm font-mono">{formatWhen(automation.lastRun)}</p>
+        </div>
+        <div className="bg-background p-3">
+          <p className="text-xs text-muted-foreground">Next run</p>
+          <p className="mt-1 text-sm font-mono">{formatWhen(automation.nextRun)}</p>
+        </div>
+        <div className="bg-background p-3">
+          <p className="text-xs text-muted-foreground">Runs</p>
+          <p className="mt-1 text-sm font-semibold tabular-nums">{automation.runCount || 0}</p>
+        </div>
+        <div className="bg-background p-3">
+          <p className="text-xs text-muted-foreground">Errors</p>
+          <p className={cn("mt-1 text-sm font-semibold tabular-nums", (automation.errorCount || 0) > 0 && "text-destructive")}>
+            {automation.errorCount || 0}
+          </p>
+        </div>
       </div>
 
-      <Card className="p-6">
-        <h2 className="font-semibold mb-3 flex items-center gap-2">
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary" /> Flow
+          </h2>
+          <span className="text-xs text-muted-foreground">{actions.length} steps</span>
+        </div>
+        {actions.length > 0 ? (
+          <>
+            <WorkflowFlow title="Execution Sequence" actions={actions.map((a, i) => ({ ...a, index: i }))} />
+            <DataTable
+              columns={stepColumns(setEditingIndex)}
+              rows={actions.map((a, i) => ({ index: i, action: a }))}
+              rowKey={(r) => String(r.index)}
+              minWidth="520px"
+              caption="Automation steps, click one to edit it"
+              onRowClick={(r) => setEditingIndex(r.index)}
+            />
+            <p className="text-xs text-muted-foreground">Click a step to edit its type and configuration</p>
+            {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">No steps defined yet.</p>
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="font-semibold flex items-center gap-2">
           <CheckCircle2 className="h-4 w-4 text-primary" /> Run History
         </h2>
         {(!automation.runs || automation.runs.length === 0) ? (
           <p className="text-sm text-muted-foreground">No runs yet.</p>
         ) : (
-          <div className="space-y-2 max-h-60 overflow-auto">
-            {automation.runs.map((run) => (
-              <div key={run.status + run.startedAt} className="flex items-center gap-3 rounded-md bg-muted/30 px-3 py-2 text-sm">
-                <span className={cn("h-2 w-2 rounded-full", RUN_STATUS_COLOR[run.status]?.split(" ")[0] || "bg-muted")} />
-                <Badge variant="outline" className="text-xs uppercase">{run.status}</Badge>
-                <span className="font-mono text-xs">{new Date(run.startedAt).toLocaleString()}</span>
-                <span className="flex-1">{formatDuration(run.duration)}</span>
-                <span className="text-xs text-muted-foreground">{formatCost(run.cost)}</span>
-                {run.error && <span className="text-xs text-destructive truncate max-w-[180px]">{run.error}</span>}
-              </div>
-            ))}
-          </div>
+          <DataTable
+            columns={RUN_COLUMNS}
+            rows={automation.runs}
+            rowKey={(run) => `${run.status}-${run.startedAt}`}
+            minWidth="680px"
+            caption="Recent automation runs"
+          />
         )}
-      </Card>
+      </section>
 
       {editingAction && editingIndex !== null && (
         <WorkflowEditorDrawer

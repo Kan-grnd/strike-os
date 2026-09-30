@@ -8,10 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, ArrowRight, RefreshCw, Sparkles, X, AlertCircle, Zap, Briefcase } from "lucide-react";
+import { Plus, Search, RefreshCw, Sparkles, X, AlertCircle, Zap, Briefcase } from "lucide-react";
 import { useMissions, useAutomations, createAutomation } from "@/hooks/useApi";
 import { MissionProgressBar } from "@/components/execution/mission-progress-bar";
-import { formatCost, formatDuration, pluralize, safeJson, cn } from "@/lib/utils";
+import { DataTable, type DataTableColumn } from "@/components/execution/data-table";
+import { formatCost, pluralize, safeJson, cn } from "@/lib/utils";
 import {
   MISSION_STATUS_COLOR,
   MISSION_STATUS_OPTIONS,
@@ -52,90 +53,147 @@ const statusValidFor = (facet: Facet, status: string) => {
 const parseStatus = (facet: Facet, v: string | null) =>
   v && statusValidFor(facet, v) ? v : "";
 
-/** Segment widths clamped to the track that remains, so rounded percentages can
- *  never overflow the progress bar (the old bar summed past 100%). */
-
+/** Sort key that tolerates a missing or unparseable timestamp by sorting last
+ *  instead of poisoning the comparison. */
 const timeOf = (v?: string) => {
   if (!v) return -Infinity;
   const n = new Date(v).getTime();
   return Number.isNaN(n) ? -Infinity : n;
 };
 
-function MissionRow({ m }: { m: any }) {
-  const prog = missionProgress(m);
-  return (
-    <Link href={`/missions/${m.id}`}>
-      <Card className="p-6 hover:border-primary/40 transition-colors cursor-pointer group">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <h2 className="font-semibold">{m.goal}</h2>
-              <Badge className={MISSION_STATUS_COLOR[m.status] || "bg-muted text-muted-foreground"}>{m.status}</Badge>
-            </div>
-            <p className="text-xs text-muted-foreground">Priority {m.priority} • Created {m.createdAt ? new Date(m.createdAt).toLocaleDateString() : "—"}</p>
-            <div className="mt-3">
-              <div className="flex items-center justify-between text-xs mb-1 gap-2">
-                <span className="text-muted-foreground">Progress</span>
-                <span className="text-muted-foreground">
-                  {prog.pct}%
-                  {prog.failed > 0 && <span className="text-destructive">{` · ${prog.failed} failed`}</span>}
-                  {prog.cancelled > 0 && <span className="text-muted-foreground">{` · ${prog.cancelled} cancelled`}</span>}
-                </span>
-              </div>
-              <MissionProgressBar mission={m} />
-            </div>
-            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-              <span>{prog.total} tasks</span>
-              <span>{formatCost(m.totalCost)}</span>
-              <span>{formatDuration(m.duration)}</span>
-            </div>
-          </div>
-          <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
-        </div>
-      </Card>
-    </Link>
-  );
-}
+/** Relative time for the Updated column. `updatedAt` is absent from some
+ *  payloads, so it falls back to `createdAt` and then to an em dash rather
+ *  than rendering "Invalid Date". */
+const formatWhen = (iso?: string | null) => {
+  if (!iso) return "—";
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return "—";
+  const diff = Date.now() - t;
+  if (diff < 60000) return "just now";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  if (diff < 7 * 86400000) return `${Math.floor(diff / 86400000)}d ago`;
+  return new Date(t).toLocaleDateString();
+};
 
-function AutomationRow({ a }: { a: any }) {
-  const trigger = safeJson<Record<string, unknown>>(a.trigger, {});
-  const actions = safeJson<Array<unknown>>(a.actions, []);
-  const Icon = triggerIcons[String(trigger.type)];
-  return (
-    <Link href={`/workflows/${a.id}`}>
-      <Card className="p-5 hover:border-primary/40 transition-colors cursor-pointer group">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="rounded-md bg-muted p-2 shrink-0">{Icon ? <Icon className="h-5 w-5 text-muted-foreground" /> : <Zap className="h-5 w-5 text-muted-foreground" />}</div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <h2 className="font-semibold">{a.name}</h2>
-                <Badge className={AUTOMATION_STATUS_COLOR[a.status] || "bg-muted text-muted-foreground"}>{a.status}</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground line-clamp-1">{a.description || "No description"}</p>
-              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
-                <span className="flex items-center gap-1">{Icon ? <Icon className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />} {String(trigger.type || "manual")}</span>
-                <span>Actions: {Array.isArray(actions) ? actions.length : 0}</span>
-                <span>Runs: {a.runCount || 0}</span>
-                <span>Errors: {a.errorCount || 0}</span>
-              </div>
-            </div>
-          </div>
-          <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
-        </div>
-      </Card>
-    </Link>
-  );
-}
+const triggerOf = (a: any) => safeJson<Record<string, unknown>>(a.trigger, {});
 
-function GuardHeader({ label, count }: { label: string; count: number }) {
-  return (
-    <div className="flex items-center gap-2 pt-2" aria-label={`Unknown status ${label}`}>
-      <Badge className="bg-muted text-muted-foreground">{label}</Badge>
-      <span className="text-xs text-muted-foreground">{count} {pluralize(count, "item")} with an unrecognised status</span>
-    </div>
-  );
-}
+/* One row shape for both entity types, so a single table can hold them
+ * interleaved by date without branching on the page. */
+type WorkRow = { kind: "mission" | "automation"; record: any };
+
+const COLUMNS: DataTableColumn<WorkRow>[] = [
+  {
+    header: "Item",
+    render: ({ kind, record }) => (
+      <div className="min-w-[220px] max-w-[420px]">
+        <Link
+          href={kind === "mission" ? `/missions/${record.id}` : `/workflows/${record.id}`}
+          className="font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded-sm"
+        >
+          {kind === "mission" ? record.goal : record.name}
+        </Link>
+        <p className="text-xs text-muted-foreground truncate">
+          {kind === "mission"
+            ? `Priority ${record.priority} • ${record.totalCost != null ? formatCost(record.totalCost) : "—"}`
+            : record.description || "No description"}
+        </p>
+      </div>
+    ),
+  },
+  {
+    header: "Type",
+    width: "120px",
+    render: ({ kind }) =>
+      kind === "mission" ? (
+        <Badge variant="outline">Mission</Badge>
+      ) : (
+        <Badge variant="outline">Automation</Badge>
+      ),
+  },
+  {
+    header: "Status",
+    width: "130px",
+    render: ({ kind, record }) => {
+      const color =
+        kind === "mission"
+          ? MISSION_STATUS_COLOR[record.status]
+          : AUTOMATION_STATUS_COLOR[record.status];
+      return <Badge className={color || "bg-muted text-muted-foreground"}>{record.status}</Badge>;
+    },
+  },
+  {
+    header: "Activity",
+    width: "190px",
+    render: ({ kind, record }) => {
+      if (kind === "automation") {
+        return (
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {record.runCount || 0} runs
+            {record.errorCount > 0 && <span className="text-destructive"> · {record.errorCount} errors</span>}
+          </span>
+        );
+      }
+      const prog = missionProgress(record);
+      return (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{prog.pct}%</span>
+            <span>· {prog.total} tasks</span>
+            {prog.failed > 0 && <span className="text-destructive">· {prog.failed} failed</span>}
+          </div>
+          <MissionProgressBar mission={record} className="w-24" />
+        </div>
+      );
+    },
+  },
+  {
+    header: "Trigger",
+    width: "130px",
+    render: ({ kind, record }) => {
+      if (kind === "mission") return <span className="text-xs text-muted-foreground">—</span>;
+      const Icon = triggerIcons[String(triggerOf(record).type)];
+      return (
+        <span className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
+          {Icon ? <Icon className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
+          {String(triggerOf(record).type || "manual")}
+        </span>
+      );
+    },
+  },
+  {
+    header: "Updated",
+    width: "110px",
+    align: "right",
+    render: ({ record }) => (
+      <span className="text-xs text-muted-foreground whitespace-nowrap">
+        {formatWhen(record.updatedAt || record.createdAt)}
+      </span>
+    ),
+  },
+];
+
+/** Quarantined rows: real records whose status this build does not recognise.
+ *  They stay visible and clickable rather than vanishing from the list, behind
+ *  one note row that says how many and why. */
+const guardNote = (rows: WorkRow[]) =>
+  rows.length === 0
+    ? []
+    : [
+        {
+          key: "guard",
+          content: (
+            <span className="flex flex-wrap items-center gap-2">
+              <Badge className="bg-muted text-muted-foreground">
+                {new Set(rows.map((r) => String(r.record.status))).size === 1
+                  ? rows[0].record.status
+                  : "OTHER"}
+              </Badge>
+              {rows.length} {pluralize(rows.length, "item")} with an unrecognised status
+            </span>
+          ),
+        },
+      ];
 
 function WorkBoard() {
   const router = useRouter();
@@ -213,12 +271,23 @@ function WorkBoard() {
   const unknownA = !status ? bucketA.filter((a: any) => matchesSearch(a.name || a.description) && !KNOWN_AUTOMATION.has(a.status)) : [];
 
   const filtered = Boolean(search || status || facet !== "all");
-  const itemsShown = shownM.length + shownA.length;
 
-  const items = [
-    ...shownM.map((m: any) => ({ kind: "mission" as const, createdAt: m.createdAt, mission: m })),
-    ...shownA.map((a: any) => ({ kind: "automation" as const, createdAt: a.createdAt, automation: a })),
-  ].sort((x, y) => timeOf(y.createdAt) - timeOf(x.createdAt));
+  const items: WorkRow[] = [
+    ...shownM.map((m: any) => ({ kind: "mission" as const, record: m })),
+    ...shownA.map((a: any) => ({ kind: "automation" as const, record: a })),
+  ].sort((x, y) => timeOf(y.record.createdAt) - timeOf(x.record.createdAt));
+
+  /* Off-vocabulary statuses are quarantined below the main rows rather than
+     hidden: the record is real, we just cannot colour it correctly. */
+  const quarantined: WorkRow[] = [
+    ...unknownM.map((m: any) => ({ kind: "mission" as const, record: m })),
+    ...unknownA.map((a: any) => ({ kind: "automation" as const, record: a })),
+  ].sort((x, y) => timeOf(y.record.createdAt) - timeOf(x.record.createdAt));
+
+  /* Anything we can show — known-status rows plus the quarantine note. Gating
+     the table and the empty state on the known-status count alone would render
+     a blank page when every record happens to carry an off-vocab status. */
+  const visibleCount = items.length + quarantined.length;
 
   const simulate = async () => {
     if (!newAutomation.trim() || planning) return;
@@ -418,14 +487,14 @@ function WorkBoard() {
         </Card>
       )}
 
-      {anyLoading && itemsShown === 0 && (
+      {anyLoading && visibleCount === 0 && (
         <div className="space-y-1 text-sm text-muted-foreground py-2" aria-live="polite">
           {missionsRelevant && missionsLoading && <p>Loading missions...</p>}
           {automationsRelevant && automationsLoading && <p>Loading automations...</p>}
         </div>
       )}
 
-      {!anyLoading && !missionsError && !automationsError && itemsShown === 0 && (
+      {!anyLoading && !missionsError && !automationsError && visibleCount === 0 && (
         <Card className="p-12 text-center space-y-4">
           <Briefcase className="h-12 w-12 mx-auto text-muted-foreground" />
           {search || status ? (
@@ -459,32 +528,19 @@ function WorkBoard() {
         </Card>
       )}
 
-      {itemsShown > 0 && (
+      {visibleCount > 0 && (
         <>
           <p className="text-sm text-muted-foreground" aria-live="polite">
-            {filtered ? `${itemsShown} of ${baseCount} ${pluralize(baseCount, "item")} match` : `${baseCount} ${pluralize(baseCount, "item")}`}
+            {filtered ? `${visibleCount} of ${baseCount} ${pluralize(baseCount, "item")} match` : `${baseCount} ${pluralize(baseCount, "item")}`}
           </p>
-          <div className="grid gap-4">
-            {items.map((it) =>
-              it.kind === "mission" ? (
-                <MissionRow key={it.mission.id} m={it.mission} />
-              ) : (
-                <AutomationRow key={it.automation.id} a={it.automation} />
-              )
-            )}
-            {unknownM.length > 0 && (
-              <>
-                <GuardHeader label={new Set(unknownM.map((m: any) => m.status)).size === 1 ? unknownM[0].status : "OTHER"} count={unknownM.length} />
-                {unknownM.map((m: any) => <MissionRow key={`u-${m.id}`} m={m} />)}
-              </>
-            )}
-            {unknownA.length > 0 && (
-              <>
-                <GuardHeader label={new Set(unknownA.map((a: any) => a.status)).size === 1 ? unknownA[0].status : "OTHER"} count={unknownA.length} />
-                {unknownA.map((a: any) => <AutomationRow key={`u-${a.id}`} a={a} />)}
-              </>
-            )}
-          </div>
+          <DataTable
+            columns={COLUMNS}
+            rows={[...items, ...quarantined]}
+            notes={guardNote(quarantined)}
+            rowKey={(r) => `${r.kind}-${r.record.id}`}
+            minWidth="860px"
+            caption="Missions and automations"
+          />
         </>
       )}
     </div>

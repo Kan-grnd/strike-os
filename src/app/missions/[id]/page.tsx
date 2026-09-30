@@ -5,12 +5,114 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Play, Pause, Square, RefreshCw, Sparkles, AlertCircle } from "lucide-react";
 import { useMission } from "@/hooks/useApi";
 import { MissionProgressBar } from "@/components/execution/mission-progress-bar";
+import { DataTable, type DataTableColumn } from "@/components/execution/data-table";
 import { safeJson, formatCost, formatDuration } from "@/lib/utils";
-import { MISSION_STATUS_COLOR, missionProgress } from "@/lib/execution-meta";
+import { MISSION_STATUS_COLOR, TASK_STATUS_COLOR, missionProgress } from "@/lib/execution-meta";
+
+const PLAN_COLUMNS: DataTableColumn<any>[] = [
+  {
+    header: "Step",
+    width: "70px",
+    render: (s) => <Badge variant="outline" className="font-mono">{s.step}</Badge>,
+  },
+  { header: "Description", render: (s) => <span className="font-medium">{s.description}</span> },
+  {
+    header: "Agent",
+    width: "180px",
+    render: (s) => <span className="text-xs text-muted-foreground">{s.agentType}</span>,
+  },
+  {
+    header: "Est.",
+    width: "90px",
+    align: "right",
+    render: (s) => (
+      <span className="text-xs text-muted-foreground whitespace-nowrap">
+        {formatDuration(s.estimatedDuration)}
+      </span>
+    ),
+  },
+];
+
+const TASK_COLUMNS: DataTableColumn<any>[] = [
+  {
+    header: "Status",
+    width: "120px",
+    render: (t) => (
+      <Badge className={TASK_STATUS_COLOR[t.status] || "bg-muted text-muted-foreground"}>{t.status}</Badge>
+    ),
+  },
+  {
+    header: "Description",
+    render: (t) => (
+      <Link href={`/tasks/${t.id}`} className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded-sm">
+        {t.description}
+      </Link>
+    ),
+  },
+  {
+    header: "Owner",
+    width: "150px",
+    render: (t) => (
+      <span className="text-xs text-muted-foreground font-mono truncate block">
+        {t.ownerAgentId ? t.ownerAgentId.slice(0, 8) : "—"}
+      </span>
+    ),
+  },
+];
+
+const EVENT_COLUMNS: DataTableColumn<any>[] = [
+  {
+    header: "Type",
+    width: "170px",
+    render: (e) => <span className="font-mono text-xs font-medium">{e.type}</span>,
+  },
+  {
+    header: "Time",
+    width: "180px",
+    render: (e) => (
+      <span className="text-xs text-muted-foreground whitespace-nowrap">
+        {new Date(e.timestamp).toLocaleString()}
+      </span>
+    ),
+  },
+  {
+    header: "Links",
+    width: "150px",
+    render: (e) => (
+      <span className="flex items-center gap-2 text-xs">
+        {e.agentId && (
+          <Link href={`/agents/${e.agentId}`} className="text-info hover:underline font-mono">
+            agent {e.agentId.slice(0, 8)}
+          </Link>
+        )}
+        {e.taskId && (
+          <Link href={`/tasks/${e.taskId}`} className="text-info hover:underline font-mono">
+            task {e.taskId.slice(0, 8)}
+          </Link>
+        )}
+        {!e.agentId && !e.taskId && <span className="text-muted-foreground">—</span>}
+      </span>
+    ),
+  },
+  {
+    header: "Payload",
+    render: (e) => {
+      const payload = safeJson<Record<string, unknown>>(e.payload, {});
+      const text = Object.keys(payload)
+        .filter((k) => typeof payload[k] === "string" && (payload[k] as string).length > 0)
+        .map((k) => `${k}: ${String(payload[k]).slice(0, 120)}`)
+        .join(" · ");
+      return (
+        <span className="text-xs text-muted-foreground truncate block max-w-[360px]" title={text}>
+          {text || "—"}
+        </span>
+      );
+    },
+  },
+];
 
 export default function MissionDetailPage({ params }: { params: { id: string } }) {
   const { data, error, isLoading, mutate } = useMission(params.id);
@@ -20,6 +122,12 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
 
   const mission = data?.mission;
   const events = data?.events || [];
+  /* The table caption promises newest-last, so sort rather than trust the
+     API's order. Unparseable timestamps sink to the bottom instead of
+     rendering "Invalid Date" at the top of the log. */
+  const eventsByTime = [...events].sort(
+    (a: any, b: any) => (new Date(a.timestamp).getTime() || 0) - (new Date(b.timestamp).getTime() || 0)
+  );
 
   const handleStatus = async (action: "start" | "pause" | "resume" | "cancel") => {
     if (busy) return;
@@ -157,88 +265,84 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
         </p>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4">
+      {/* One dense strip instead of four stat cards: the same four numbers,
+          read across instead of down. */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border rounded-lg overflow-hidden border">
+        <div className="bg-background p-3">
           <p className="text-xs text-muted-foreground">Progress</p>
-          <p className="font-bold text-2xl">{prog.pct}%</p>
-          {prog.failed > 0 && <p className="text-xs text-destructive">{prog.failed} failed</p>}
-          {prog.cancelled > 0 && <p className="text-xs text-muted-foreground">{prog.cancelled} cancelled</p>}
-          <MissionProgressBar mission={mission} className="mt-2" />
-        </Card>
-        <Card className="p-4"><p className="text-xs text-muted-foreground">Tasks</p><p className="font-bold text-2xl">{prog.total}</p></Card>
-        <Card className="p-4"><p className="text-xs text-muted-foreground">Cost</p><p className="font-bold text-2xl">{formatCost(mission.totalCost)}</p></Card>
-        <Card className="p-4"><p className="text-xs text-muted-foreground">Duration</p><p className="font-bold text-2xl">{formatDuration(mission.duration)}</p></Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="p-6 lg:col-span-2">
-          <h2 className="font-semibold mb-4">Plan</h2>
-          {plan.length > 0 ? (
-            <div className="space-y-2">
-              {plan.map((step: any) => (
-                <div key={step.step} className="flex items-center gap-3 rounded-md bg-muted/30 px-3 py-2 border">
-                  <Badge variant="outline" className="font-mono">{step.step}</Badge>
-                  <div className="flex-1 min-w-0"><p className="text-sm font-medium">{step.description}</p><p className="text-xs text-muted-foreground">{step.agentType}</p></div>
-                  <span className="text-xs text-muted-foreground">{formatDuration(step.estimatedDuration)}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">No plan defined yet.</p>
-              <Button onClick={genPlan} disabled={busy !== null} className="gap-2">
-                <Sparkles className="h-3.5 w-3.5" /> Generate Plan
-              </Button>
-            </div>
+          <p className="font-bold text-xl tabular-nums">{prog.pct}%</p>
+          {(prog.failed > 0 || prog.cancelled > 0) && (
+            <p className="text-xs">
+              {prog.failed > 0 && <span className="text-destructive">{prog.failed} failed</span>}
+              {prog.failed > 0 && prog.cancelled > 0 && <span className="text-muted-foreground"> · </span>}
+              {prog.cancelled > 0 && <span className="text-muted-foreground">{prog.cancelled} cancelled</span>}
+            </p>
           )}
-        </Card>
-
-        <Card className="p-6">
-          <h2 className="font-semibold mb-3">Tasks</h2>
-          {!mission.tasks?.length ? (
-            <p className="text-sm text-muted-foreground">No tasks assigned</p>
-          ) : (
-            <div className="space-y-2">
-              {mission.tasks.map((t: any) => (
-                <Link key={t.id} href={`/tasks/${t.id}`}>
-                  <div className="flex items-center gap-2 text-sm p-2 rounded-md hover:bg-muted transition-colors">
-                    <Badge variant="outline" className="text-xs font-mono">{t.status}</Badge>
-                    <span className="truncate">{t.description}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </Card>
-      </div>
-
-      <Separator />
-
-      <div>
-        <h2 className="font-semibold mb-2">Events</h2>
-        <div className="max-h-64 overflow-auto space-y-2">
-          {events.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No events yet.</p>
-          ) : events.slice(0, 20).map((e: any) => {
-            const payload = safeJson<Record<string, unknown>>(e.payload, {});
-            const payloadText = Object.keys(payload)
-              .filter((k) => typeof payload[k] === "string" && (payload[k] as string).length > 0)
-              .map((k) => `${k}: ${String(payload[k]).slice(0, 120)}`)
-              .join(" · ");
-            return (
-              <div key={e.id} className="rounded-md bg-muted/30 px-3 py-2 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono font-medium">{e.type}</span>
-                  <span className="text-muted-foreground">{new Date(e.timestamp).toLocaleString()}</span>
-                  {e.agentId && <Link href={`/agents/${e.agentId}`} className="text-info hover:underline truncate">agent {e.agentId.slice(0, 8)}</Link>}
-                  {e.taskId && <Link href={`/tasks/${e.taskId}`} className="text-info hover:underline truncate">task {e.taskId.slice(0, 8)}</Link>}
-                </div>
-                {payloadText && <p className="text-muted-foreground mt-1 truncate">{payloadText}</p>}
-              </div>
-            );
-          })}
+          <MissionProgressBar mission={mission} className="mt-1.5" />
+        </div>
+        <div className="bg-background p-3">
+          <p className="text-xs text-muted-foreground">Tasks</p>
+          <p className="font-bold text-xl tabular-nums">{prog.total}</p>
+        </div>
+        <div className="bg-background p-3">
+          <p className="text-xs text-muted-foreground">Cost</p>
+          <p className="font-bold text-xl tabular-nums">{formatCost(mission.totalCost)}</p>
+        </div>
+        <div className="bg-background p-3">
+          <p className="text-xs text-muted-foreground">Duration</p>
+          <p className="font-bold text-xl tabular-nums">{formatDuration(mission.duration)}</p>
         </div>
       </div>
+
+      <section className="space-y-2">
+        <h2 className="font-semibold">Plan</h2>
+        {plan.length > 0 ? (
+          <DataTable
+            columns={PLAN_COLUMNS}
+            rows={plan}
+            rowKey={(s: any) => String(s.step)}
+            minWidth="560px"
+            caption="Mission plan steps"
+          />
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm text-muted-foreground">No plan defined yet.</p>
+            <Button onClick={genPlan} disabled={busy !== null} className="gap-2">
+              <Sparkles className="h-3.5 w-3.5" /> Generate Plan
+            </Button>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="font-semibold">Tasks</h2>
+        {!mission.tasks?.length ? (
+          <p className="text-sm text-muted-foreground">No tasks assigned</p>
+        ) : (
+          <DataTable
+            columns={TASK_COLUMNS}
+            rows={mission.tasks}
+            rowKey={(t: any) => t.id}
+            minWidth="480px"
+            caption="Tasks assigned to this mission"
+          />
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="font-semibold">Events</h2>
+        {events.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No events yet.</p>
+        ) : (
+          <DataTable
+            columns={EVENT_COLUMNS}
+            rows={eventsByTime.slice(0, 20)}
+            rowKey={(e: any) => e.id}
+            minWidth="620px"
+            caption="Mission events, newest last"
+          />
+        )}
+      </section>
     </div>
   );
 }
