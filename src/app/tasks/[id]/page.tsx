@@ -1,20 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import useSWR from "swr";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, RefreshCw } from "lucide-react";
-import { fetcher } from "@/hooks/useApi";
+import { useTask } from "@/hooks/useApi";
 import { safeJson, formatCost, formatDuration } from "@/lib/utils";
 import { TASK_STATUS_COLOR } from "@/lib/execution-meta";
 
 export default function TaskDetailPage({ params }: { params: { id: string } }) {
-  const { data, error, isLoading, mutate } = useSWR<{ task: any }>(`/api/tasks/${params.id}`, fetcher, {
-    refreshInterval: 2000,
-  });
+  const { data, error, isLoading, mutate } = useTask(params.id);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState("");
 

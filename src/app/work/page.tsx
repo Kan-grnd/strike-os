@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, ArrowRight, RefreshCw, Sparkles, X, AlertCircle, Zap, Briefcase } from "lucide-react";
 import { useMissions, useAutomations, createAutomation } from "@/hooks/useApi";
+import { MissionProgressBar } from "@/components/execution/mission-progress-bar";
 import { formatCost, formatDuration, pluralize, safeJson, cn } from "@/lib/utils";
 import {
   MISSION_STATUS_COLOR,
@@ -28,18 +29,23 @@ const triggerIcons: Record<string, React.ComponentType<{ className?: string }>> 
   manual: ({ className }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 20V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><path d="M4 20h16"/></svg>,
 };
 
-type Facet = "all" | "missions" | "workflows";
+type Facet = "all" | "missions" | "automations";
+
+const FACETS: readonly Facet[] = ["all", "missions", "automations"];
+const FACET_LABEL: Record<Facet, string> = { all: "All", missions: "Missions", automations: "Automations" };
 
 const KNOWN_MISSION = new Set<string>(MISSION_STATUS_OPTIONS);
 const KNOWN_AUTOMATION = new Set<string>(AUTOMATION_STATUS_OPTIONS);
 
+/** `workflows` is the legacy facet name (pre-rename bookmarks and old redirect
+ *  targets). It resolves to `automations`, and the caller rewrites the URL. */
 const parseFacet = (v: string | null): Facet =>
-  v === "missions" || v === "workflows" ? v : "all";
+  v === "missions" || v === "automations" || v === "workflows" ? (v === "missions" ? "missions" : "automations") : "all";
 
 const statusValidFor = (facet: Facet, status: string) => {
   if (!status) return true;
   if (facet === "missions") return KNOWN_MISSION.has(status);
-  if (facet === "workflows") return KNOWN_AUTOMATION.has(status);
+  if (facet === "automations") return KNOWN_AUTOMATION.has(status);
   return KNOWN_MISSION.has(status) || KNOWN_AUTOMATION.has(status);
 };
 
@@ -48,23 +54,6 @@ const parseStatus = (facet: Facet, v: string | null) =>
 
 /** Segment widths clamped to the track that remains, so rounded percentages can
  *  never overflow the progress bar (the old bar summed past 100%). */
-function ClampedProgress({ pct, failedPct, cancelledPct }: { pct: number; failedPct: number; cancelledPct: number }) {
-  let used = 0;
-  const seg = (w: number) => {
-    const c = Math.min(Math.max(w, 0), 100 - used);
-    used += c;
-    return c;
-  };
-  const widths = [seg(pct), seg(failedPct), seg(cancelledPct)];
-  const visible = widths.map((w) => w > 0).filter(Boolean).length;
-  return (
-    <div className="h-2 w-full rounded-full bg-muted overflow-hidden flex" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(used)} aria-label="Mission progress">
-      {widths[0] > 0 && <div className="h-full rounded-l-full bg-primary" style={{ width: `${widths[0]}%` }} />}
-      {widths[1] > 0 && <div className="h-full bg-destructive" style={{ width: `${widths[1]}%` }} />}
-      {widths[2] > 0 && <div className={cn("h-full bg-muted-foreground/40", visible === 1 && "rounded-r-full")} style={{ width: `${widths[2]}%` }} />}
-    </div>
-  );
-}
 
 const timeOf = (v?: string) => {
   if (!v) return -Infinity;
@@ -74,8 +63,6 @@ const timeOf = (v?: string) => {
 
 function MissionRow({ m }: { m: any }) {
   const prog = missionProgress(m);
-  const failedPct = prog.total ? Math.round((prog.failed / prog.total) * 100) : 0;
-  const cancelledPct = prog.total ? Math.round((prog.cancelled / prog.total) * 100) : 0;
   return (
     <Link href={`/missions/${m.id}`}>
       <Card className="p-6 hover:border-primary/40 transition-colors cursor-pointer group">
@@ -95,7 +82,7 @@ function MissionRow({ m }: { m: any }) {
                   {prog.cancelled > 0 && <span className="text-muted-foreground">{` · ${prog.cancelled} cancelled`}</span>}
                 </span>
               </div>
-              <ClampedProgress pct={prog.pct} failedPct={failedPct} cancelledPct={cancelledPct} />
+              <MissionProgressBar mission={m} />
             </div>
             <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
               <span>{prog.total} tasks</span>
@@ -110,7 +97,7 @@ function MissionRow({ m }: { m: any }) {
   );
 }
 
-function WorkflowRow({ a }: { a: any }) {
+function AutomationRow({ a }: { a: any }) {
   const trigger = safeJson<Record<string, unknown>>(a.trigger, {});
   const actions = safeJson<Array<unknown>>(a.actions, []);
   const Icon = triggerIcons[String(trigger.type)];
@@ -157,20 +144,26 @@ function WorkBoard() {
   const [status, setStatus] = useState<string>(() => parseStatus(parseFacet(searchParams.get("type")), searchParams.get("status")));
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
-  const [newWorkflow, setNewWorkflow] = useState("");
+  const [newAutomation, setNewAutomation] = useState("");
   const [planning, setPlanning] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
   const [simResult, setSimResult] = useState<any>(null);
 
   const { data: missionsData, error: missionsError, isLoading: missionsLoading, mutate: mutateMissions } = useMissions();
-  const { data: workflowsData, error: workflowsError, isLoading: workflowsLoading, mutate: mutateWorkflows } = useAutomations();
+  const { data: automationsData, error: automationsError, isLoading: automationsLoading, mutate: mutateAutomations } = useAutomations();
 
   useEffect(() => {
-    const t = parseFacet(searchParams.get("type"));
+    const rawType = searchParams.get("type");
+    const t = parseFacet(rawType);
     setFacet(t);
     setStatus(parseStatus(t, searchParams.get("status")));
-  }, [searchParams]);
+    if (rawType && rawType !== t) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("type", t);
+      router.replace(`/work?${params.toString()}`);
+    }
+  }, [searchParams, router]);
 
   const applyQuery = (t: Facet, s: string) => {
     const params = new URLSearchParams();
@@ -200,42 +193,42 @@ function WorkBoard() {
   };
 
   const openCreate = () => {
-    if (facet !== "workflows") setFacetFilter("workflows");
+    if (facet !== "automations") setFacetFilter("automations");
     setShowCreate(true);
   };
 
   const M = missionsData?.missions || [];
-  const W = workflowsData?.automations || [];
-  const bucketM = facet === "workflows" ? [] : M;
-  const bucketW = facet === "missions" ? [] : W;
-  const baseCount = bucketM.length + bucketW.length;
+  const A = automationsData?.automations || [];
+  const bucketM = facet === "automations" ? [] : M;
+  const bucketA = facet === "missions" ? [] : A;
+  const baseCount = bucketM.length + bucketA.length;
 
   const searchTerm = search.trim().toLowerCase();
   const matchesSearch = (text?: string) => !searchTerm || (text || "").toLowerCase().includes(searchTerm);
 
   const shownM = bucketM.filter((m: any) => matchesSearch(m.goal) && (status ? m.status === status : KNOWN_MISSION.has(m.status)));
-  const shownW = bucketW.filter((a: any) => matchesSearch(a.name || a.description) && (status ? a.status === status : KNOWN_AUTOMATION.has(a.status)));
+  const shownA = bucketA.filter((a: any) => matchesSearch(a.name || a.description) && (status ? a.status === status : KNOWN_AUTOMATION.has(a.status)));
 
   const unknownM = !status ? bucketM.filter((m: any) => matchesSearch(m.goal) && !KNOWN_MISSION.has(m.status)) : [];
-  const unknownW = !status ? bucketW.filter((a: any) => matchesSearch(a.name || a.description) && !KNOWN_AUTOMATION.has(a.status)) : [];
+  const unknownA = !status ? bucketA.filter((a: any) => matchesSearch(a.name || a.description) && !KNOWN_AUTOMATION.has(a.status)) : [];
 
   const filtered = Boolean(search || status || facet !== "all");
-  const itemsShown = shownM.length + shownW.length;
+  const itemsShown = shownM.length + shownA.length;
 
   const items = [
     ...shownM.map((m: any) => ({ kind: "mission" as const, createdAt: m.createdAt, mission: m })),
-    ...shownW.map((a: any) => ({ kind: "workflow" as const, createdAt: a.createdAt, workflow: a })),
+    ...shownA.map((a: any) => ({ kind: "automation" as const, createdAt: a.createdAt, automation: a })),
   ].sort((x, y) => timeOf(y.createdAt) - timeOf(x.createdAt));
 
   const simulate = async () => {
-    if (!newWorkflow.trim() || planning) return;
+    if (!newAutomation.trim() || planning) return;
     setPlanning(true);
     setCreateError("");
     try {
       const res = await fetch("/api/automations/simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ goal: newWorkflow }),
+        body: JSON.stringify({ goal: newAutomation }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -250,30 +243,30 @@ function WorkBoard() {
   };
 
   const create = async () => {
-    if (!newWorkflow.trim() || !simResult || creating) return;
+    if (!newAutomation.trim() || !simResult || creating) return;
     setCreating(true);
     setCreateError("");
     try {
       const data = await createAutomation({
-        name: newWorkflow.slice(0, 80),
-        description: newWorkflow,
+        name: newAutomation.slice(0, 80),
+        description: newAutomation,
         trigger: simResult.trigger || { type: "manual" },
         conditions: simResult.conditions || {},
         actions: simResult.actions || [],
         status: "DRAFT",
       });
-      if (!data.automation) throw new Error(data.error || "Failed to create workflow");
-      await mutateWorkflows();
+      if (!data.automation) throw new Error(data.error || "Failed to create automation");
+      await mutateAutomations();
       router.push(`/workflows/${data.automation.id}`);
     } catch (e: any) {
-      setCreateError(e?.message || "Failed to create workflow.");
+      setCreateError(e?.message || "Failed to create automation.");
       setCreating(false);
     }
   };
 
-  const missionsRelevant = facet !== "workflows";
-  const workflowsRelevant = facet !== "missions";
-  const anyLoading = (missionsRelevant && missionsLoading) || (workflowsRelevant && workflowsLoading);
+  const missionsRelevant = facet !== "automations";
+  const automationsRelevant = facet !== "missions";
+  const anyLoading = (missionsRelevant && missionsLoading) || (automationsRelevant && automationsLoading);
 
   return (
     <div className="p-6 space-y-6">
@@ -287,7 +280,7 @@ function WorkBoard() {
             <Button className="gap-2"><Plus className="h-4 w-4" /> New Mission</Button>
           </Link>
           <Button variant="outline" onClick={openCreate} className="gap-2">
-            <Plus className="h-4 w-4" /> New Workflow
+            <Plus className="h-4 w-4" /> New Automation
           </Button>
         </div>
       </div>
@@ -304,7 +297,7 @@ function WorkBoard() {
           />
         </div>
         <div role="group" aria-label="Filter by type" className="flex rounded-md border bg-background p-1 gap-1">
-          {(["all", "missions", "workflows"] as const).map((t) => (
+          {FACETS.map((t) => (
             <button
               key={t}
               type="button"
@@ -315,7 +308,7 @@ function WorkBoard() {
                 facet === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {t === "all" ? "All" : t === "missions" ? "Missions" : "Workflows"}
+              {FACET_LABEL[t]}
             </button>
           ))}
         </div>
@@ -328,17 +321,17 @@ function WorkBoard() {
           className="rounded-md border bg-background px-3 py-2 text-sm h-10"
         >
           <option value="">All statuses</option>
-          {facet !== "workflows" && (facet === "missions" ? (
+          {missionsRelevant && (facet === "missions" ? (
             MISSION_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)
           ) : (
             <optgroup label="Mission status">
               {MISSION_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
             </optgroup>
           ))}
-          {facet !== "missions" && (facet === "workflows" ? (
+          {automationsRelevant && (facet === "automations" ? (
             AUTOMATION_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)
           ) : (
-            <optgroup label="Workflow status">
+            <optgroup label="Automation status">
               {AUTOMATION_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
             </optgroup>
           ))}
@@ -353,23 +346,25 @@ function WorkBoard() {
       {showCreate && (
         <Card className="p-6 space-y-4 border-primary/30">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Create Workflow</h2>
-            <Button variant="ghost" size="icon" aria-label="Close create workflow dialog" onClick={() => { setShowCreate(false); setSimResult(null); setCreateError(""); }}>
+            <h2 className="font-semibold">Create Automation</h2>
+            <Button variant="ghost" size="icon" aria-label="Close create automation dialog" onClick={() => { setShowCreate(false); setSimResult(null); setCreateError(""); }}>
               <X className="h-4 w-4" />
             </Button>
           </div>
+          <label className="sr-only" htmlFor="new-automation-goal">Describe your automation</label>
           <Textarea
-            placeholder="Describe your workflow... e.g. Every day at 9 AM research competitors and alert me if something changes"
-            value={newWorkflow}
-            onChange={(e) => { setNewWorkflow(e.target.value); setSimResult(null); setCreateError(""); }}
+            id="new-automation-goal"
+            placeholder="Describe your automation... e.g. Every day at 9 AM research competitors and alert me if something changes"
+            value={newAutomation}
+            onChange={(e) => { setNewAutomation(e.target.value); setSimResult(null); setCreateError(""); }}
             className="min-h-[100px]"
           />
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <Button onClick={simulate} disabled={planning || !newWorkflow.trim()} className="gap-2">
+            <Button onClick={simulate} disabled={planning || !newAutomation.trim()} className="gap-2">
               {planning ? "Planning..." : <><Sparkles className="h-4 w-4" /> Simulate Plan</>}
             </Button>
-            <Button onClick={create} disabled={creating || !newWorkflow.trim() || !simResult} className="gap-2">
-              <Sparkles className="h-4 w-4" /> {creating ? "Creating..." : "Create Workflow"}
+            <Button onClick={create} disabled={creating || !newAutomation.trim() || !simResult} className="gap-2">
+              <Sparkles className="h-4 w-4" /> {creating ? "Creating..." : "Create Automation"}
             </Button>
           </div>
 
@@ -413,11 +408,11 @@ function WorkBoard() {
           </Button>
         </Card>
       )}
-      {(workflowsRelevant && workflowsError) && (
+      {(automationsRelevant && automationsError) && (
         <Card className="p-8 text-center space-y-4">
-          <p className="text-lg font-medium text-destructive">Failed to load workflows</p>
-          <p className="text-sm text-muted-foreground">{workflowsError.message}</p>
-          <Button variant="outline" onClick={() => mutateWorkflows()} className="gap-2">
+          <p className="text-lg font-medium text-destructive">Failed to load automations</p>
+          <p className="text-sm text-muted-foreground">{automationsError.message}</p>
+          <Button variant="outline" onClick={() => mutateAutomations()} className="gap-2">
             <RefreshCw className="h-4 w-4" /> Retry
           </Button>
         </Card>
@@ -426,11 +421,11 @@ function WorkBoard() {
       {anyLoading && itemsShown === 0 && (
         <div className="space-y-1 text-sm text-muted-foreground py-2" aria-live="polite">
           {missionsRelevant && missionsLoading && <p>Loading missions...</p>}
-          {workflowsRelevant && workflowsLoading && <p>Loading workflows...</p>}
+          {automationsRelevant && automationsLoading && <p>Loading automations...</p>}
         </div>
       )}
 
-      {!anyLoading && !missionsError && !workflowsError && itemsShown === 0 && (
+      {!anyLoading && !missionsError && !automationsError && itemsShown === 0 && (
         <Card className="p-12 text-center space-y-4">
           <Briefcase className="h-12 w-12 mx-auto text-muted-foreground" />
           {search || status ? (
@@ -439,11 +434,11 @@ function WorkBoard() {
               <p className="text-sm text-muted-foreground">Try a different filter.</p>
               <Button variant="outline" onClick={clearFilters}>Clear filters</Button>
             </>
-          ) : facet === "workflows" ? (
+          ) : facet === "automations" ? (
             <>
-              <p className="text-lg font-medium">No workflows yet</p>
-              <p className="text-sm text-muted-foreground">Create your first recurring workflow</p>
-              <Button onClick={openCreate} className="mt-2 gap-2"><Plus className="h-4 w-4" /> Create Workflow</Button>
+              <p className="text-lg font-medium">No automations yet</p>
+              <p className="text-sm text-muted-foreground">Create your first recurring automation</p>
+              <Button onClick={openCreate} className="mt-2 gap-2"><Plus className="h-4 w-4" /> Create Automation</Button>
             </>
           ) : facet === "missions" ? (
             <>
@@ -454,10 +449,10 @@ function WorkBoard() {
           ) : (
             <>
               <p className="text-lg font-medium">No work yet</p>
-              <p className="text-sm text-muted-foreground">Create a mission or a workflow to get started</p>
+              <p className="text-sm text-muted-foreground">Create a mission or an automation to get started</p>
               <div className="flex justify-center gap-2 pt-2">
                 <Link href="/missions/new"><Button className="gap-2"><Plus className="h-4 w-4" /> New Mission</Button></Link>
-                <Button variant="outline" onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> New Workflow</Button>
+                <Button variant="outline" onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> New Automation</Button>
               </div>
             </>
           )}
@@ -474,7 +469,7 @@ function WorkBoard() {
               it.kind === "mission" ? (
                 <MissionRow key={it.mission.id} m={it.mission} />
               ) : (
-                <WorkflowRow key={it.workflow.id} a={it.workflow} />
+                <AutomationRow key={it.automation.id} a={it.automation} />
               )
             )}
             {unknownM.length > 0 && (
@@ -483,10 +478,10 @@ function WorkBoard() {
                 {unknownM.map((m: any) => <MissionRow key={`u-${m.id}`} m={m} />)}
               </>
             )}
-            {unknownW.length > 0 && (
+            {unknownA.length > 0 && (
               <>
-                <GuardHeader label={new Set(unknownW.map((a: any) => a.status)).size === 1 ? unknownW[0].status : "OTHER"} count={unknownW.length} />
-                {unknownW.map((a: any) => <WorkflowRow key={`u-${a.id}`} a={a} />)}
+                <GuardHeader label={new Set(unknownA.map((a: any) => a.status)).size === 1 ? unknownA[0].status : "OTHER"} count={unknownA.length} />
+                {unknownA.map((a: any) => <AutomationRow key={`u-${a.id}`} a={a} />)}
               </>
             )}
           </div>

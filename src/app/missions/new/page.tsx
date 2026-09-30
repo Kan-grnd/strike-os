@@ -164,7 +164,7 @@ export default function NewMissionPage() {
                     {step.dependencies?.length ? ` • depends on: ${step.dependencies.join(", ")}` : ""}
                   </p>
                 </div>
-                <span className="text-xs text-faint">{formatDuration(step.estimatedDuration)}</span>
+                <span className="text-xs text-muted-foreground">{formatDuration(step.estimatedDuration)}</span>
               </div>
             ))}
           </div>

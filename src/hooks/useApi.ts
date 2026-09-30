@@ -76,12 +76,19 @@ export function useAgents(filters?: Record<string, string>) {
   return useSWR<{ agents: any[] }>(key, fetcher);
 }
 
+/* Single-item execution views. All three poll at the same `live` rate so a
+ * mission, an automation and a task never refresh on different cadences — the
+ * detail pages used to hardcode 2000ms and 3000ms independently. */
+function liveOptions() {
+  return { refreshInterval: REFRESH_RATES.live, revalidateOnFocus: false, dedupingInterval: 2000 };
+}
+
 export function useMission(id?: string) {
-  return useSWR<{ mission: any; events: any[] }>(id ? `/api/missions/${id}` : null, fetcher);
+  return useSWR<{ mission: any; events: any[] }>(id ? `/api/missions/${id}` : null, fetcher, liveOptions());
 }
 
 export function useTask(id?: string) {
-  return useSWR<{ task: any }>(id ? `/api/tasks/${id}` : null, fetcher);
+  return useSWR<{ task: any }>(id ? `/api/tasks/${id}` : null, fetcher, liveOptions());
 }
 
 export function useColonies() {
@@ -163,16 +170,10 @@ export async function cancelAutomation(id: string) {
   return fetch(`/api/automations/${id}/cancel`, { method: "POST" }).then((r) => r.json());
 }
 
-export async function runAutomation(id: string) {
-  return fetch(`/api/automations/${id}/run`, { method: "POST" }).then((r) => r.json());
-}
-
-export function useWorkflows() {
-  return useSWR("/api/automations", fetcher);
-}
-
-export function useWorkflow(id?: string) {
-  return useSWR(id ? `/api/automations/${id}` : null, fetcher);
+/* The single automation reader. There is no `/run` route — an automation is
+ * driven by its trigger — so nothing posts a manual run. */
+export function useAutomation(id?: string) {
+  return useSWR<{ automation: any }>(id ? `/api/automations/${id}` : null, fetcher, liveOptions());
 }
 
 export function useMemory(id?: string) {

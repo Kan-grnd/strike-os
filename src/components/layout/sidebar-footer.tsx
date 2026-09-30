@@ -103,10 +103,12 @@ function joinParts(parts: string[]) {
   return parts.filter(Boolean).join(", ");
 }
 
-/** The worst thing's home, for whichever rail control needs a destination. */
+/** The worst thing's home, for whichever rail control needs a destination.
+ *  Missions live in the merged /work list, so the facet goes in the query —
+ *  /missions only 308s there and would silently drop the filter. */
 function attentionHref(a: SidebarAttention): string {
   if (a.approvalsPending || a.agentsStuck) return "/agents";
-  return a.tasksFailed ? "/tasks" : "/missions";
+  return a.tasksFailed ? "/tasks" : "/work?type=missions";
 }
 
 /** One shared reading of "what needs the user right now", for the aria label and

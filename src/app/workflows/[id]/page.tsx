@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import useSWR from "swr";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { WorkflowFlow } from "@/components/workflow/workflow-flow";
 import { WorkflowEditorDrawer } from "@/components/workflow/workflow-editor-drawer";
 import { ArrowLeft, Play, Pause, Square, RefreshCw, Zap, CheckCircle2 } from "lucide-react";
-import { fetcher } from "@/hooks/useApi";
+import { useAutomation } from "@/hooks/useApi";
 import { safeJson, cn, formatDuration, formatCost } from "@/lib/utils";
 import { AUTOMATION_STATUS_COLOR, RUN_STATUS_COLOR, TRIGGER_LABELS } from "@/lib/execution-meta";
 
@@ -30,13 +29,8 @@ type Automation = {
   runs: Run[];
 };
 
-export default function WorkflowDetailPage({ params }: { params: { id: string } }) {
-  const router = useRouter();
-  const { data, error, isLoading, mutate } = useSWR<{ automation: Automation }>(
-    `/api/automations/${params.id}`,
-    fetcher,
-    { refreshInterval: 3000 }
-  );
+export default function AutomationDetailPage({ params }: { params: { id: string } }) {
+  const { data, error, isLoading, mutate } = useAutomation(params.id);
 
   const [busy, setBusy] = useState<"start" | "pause" | "resume" | "complete" | null>(null);
   const [actionError, setActionError] = useState("");
@@ -44,14 +38,14 @@ export default function WorkflowDetailPage({ params }: { params: { id: string } 
   const [saveError, setSaveError] = useState("");
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
-  const automation = data?.automation;
+  const automation = data?.automation as Automation | undefined;
   const actions = (() => {
     const raw = safeJson<Array<{ type: string; config?: Record<string, unknown> }>>(automation?.actions, []);
     return Array.isArray(raw) ? raw : [];
   })();
 
   if (isLoading && !automation) {
-    return <div className="p-6">Loading workflow...</div>;
+    return <div className="p-6">Loading automation...</div>;
   }
 
   if (error && !automation) {
@@ -59,7 +53,7 @@ export default function WorkflowDetailPage({ params }: { params: { id: string } 
     return (
       <div className="p-6">
         <Card className="p-12 text-center space-y-4 max-w-md mx-auto">
-          <p className="text-lg font-medium">{status === 404 ? "Workflow not found" : "Failed to load workflow"}</p>
+          <p className="text-lg font-medium">{status === 404 ? "Automation not found" : "Failed to load automation"}</p>
           <p className="text-sm text-muted-foreground">
             {status === 404 ? "It may have been deleted." : error.message}
           </p>
@@ -95,7 +89,7 @@ export default function WorkflowDetailPage({ params }: { params: { id: string } 
 
   const writeAction = async (key: "start" | "pause" | "resume" | "complete", fn: (id: string) => Promise<unknown>) => {
     if (busy) return;
-    if (key === "complete" && !window.confirm("Mark this workflow as complete? It will stop running and cannot be restarted.")) {
+    if (key === "complete" && !window.confirm("Mark this automation as complete? It will stop running and cannot be restarted.")) {
       return;
     }
     setBusy(key);
@@ -141,11 +135,11 @@ export default function WorkflowDetailPage({ params }: { params: { id: string } 
   const editingAction = editingIndex !== null ? actions[editingIndex] : undefined;
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => router.push("/work?type=workflows")} className="gap-2">
-          <ArrowLeft className="h-4 w-4" /> Back
-        </Button>
+        <Link href="/work?type=automations">
+          <Button variant="ghost" size="sm" className="gap-2"><ArrowLeft className="h-4 w-4" /> Back</Button>
+        </Link>
       </div>
 
       <div className="flex items-start justify-between gap-4">
@@ -154,7 +148,7 @@ export default function WorkflowDetailPage({ params }: { params: { id: string } 
             <h1 className="text-2xl font-bold">{automation.name}</h1>
             <Badge className={AUTOMATION_STATUS_COLOR[status] || "bg-muted"}>{status}</Badge>
           </div>
-          <p className="text-sm text-muted-foreground">{automation.description || "Workflow"}</p>
+          <p className="text-sm text-muted-foreground">{automation.description || "No description"}</p>
         </div>
         {!terminal && (
           <div className="flex gap-2">
@@ -250,7 +244,7 @@ export default function WorkflowDetailPage({ params }: { params: { id: string } 
                 <Badge variant="outline" className="text-xs uppercase">{run.status}</Badge>
                 <span className="font-mono text-xs">{new Date(run.startedAt).toLocaleString()}</span>
                 <span className="flex-1">{formatDuration(run.duration)}</span>
-                <span className="text-xs text-faint">{formatCost(run.cost)}</span>
+                <span className="text-xs text-muted-foreground">{formatCost(run.cost)}</span>
                 {run.error && <span className="text-xs text-destructive truncate max-w-[180px]">{run.error}</span>}
               </div>
             ))}
@@ -287,6 +281,8 @@ const resumeRoute = async (id: string) => {
   if (!res.ok) throw new Error("Failed to resume");
 };
 const completeRoute = async (id: string) => {
+  /* Named `/cancel` upstream, but the handler transitions the automation to
+   * COMPLETED (automation-state.complete), which is what this button promises. */
   const res = await fetch(`/api/automations/${id}/cancel`, { method: "POST" });
   if (!res.ok) throw new Error("Failed to mark complete");
 };

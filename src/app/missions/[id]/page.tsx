@@ -1,23 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import useSWR from "swr";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Play, Pause, Square, RefreshCw, Sparkles, AlertCircle } from "lucide-react";
-import { fetcher } from "@/hooks/useApi";
+import { useMission } from "@/hooks/useApi";
+import { MissionProgressBar } from "@/components/execution/mission-progress-bar";
 import { safeJson, formatCost, formatDuration } from "@/lib/utils";
 import { MISSION_STATUS_COLOR, missionProgress } from "@/lib/execution-meta";
 
 export default function MissionDetailPage({ params }: { params: { id: string } }) {
-  const { data, error, isLoading, mutate } = useSWR<{ mission: any; events: any[] }>(
-    `/api/missions/${params.id}`,
-    fetcher,
-    { refreshInterval: 2000 }
-  );
+  const { data, error, isLoading, mutate } = useMission(params.id);
 
   const [busy, setBusy] = useState<"start" | "pause" | "resume" | "cancel" | null>(null);
   const [actionError, setActionError] = useState("");
@@ -94,13 +90,11 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
 
   const plan = safeJson<Array<{ step: number; description: string; agentType: string; estimatedDuration?: number }>>(mission.plan, []);
   const prog = missionProgress(mission);
-  const failedPct = prog.total ? Math.round((prog.failed / prog.total) * 100) : 0;
-  const cancelledPct = prog.total ? Math.round((prog.cancelled / prog.total) * 100) : 0;
 
   const isTerminal = ["COMPLETED", "FAILED", "CANCELLED"].includes(mission.status);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center gap-3">
         <Link href="/work?type=missions">
           <Button variant="ghost" size="sm" className="gap-2"><ArrowLeft className="h-4 w-4" /> Back</Button>
@@ -115,7 +109,7 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
           </div>
           <p className="text-sm text-muted-foreground">Mission ID: {mission.id} • Priority: {mission.priority}</p>
           {mission.completedAt && (
-            <p className="text-xs text-faint">Completed: {new Date(mission.completedAt).toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Completed: {new Date(mission.completedAt).toLocaleString()}</p>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -168,12 +162,8 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
           <p className="text-xs text-muted-foreground">Progress</p>
           <p className="font-bold text-2xl">{prog.pct}%</p>
           {prog.failed > 0 && <p className="text-xs text-destructive">{prog.failed} failed</p>}
-          {prog.cancelled > 0 && <p className="text-xs text-faint">{prog.cancelled} cancelled</p>}
-          <div className="mt-2 h-1.5 w-full rounded-full bg-muted overflow-hidden flex" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={prog.pct} aria-label="Mission progress">
-            {prog.pct > 0 && <div className="h-full rounded-l-full bg-primary" style={{ width: `${prog.pct}%` }} />}
-            {failedPct > 0 && <div className="h-full bg-destructive" style={{ width: `${failedPct}%` }} />}
-            {cancelledPct > 0 && <div className="h-full rounded-r-full bg-muted-foreground/40" style={{ width: `${cancelledPct}%` }} />}
-          </div>
+          {prog.cancelled > 0 && <p className="text-xs text-muted-foreground">{prog.cancelled} cancelled</p>}
+          <MissionProgressBar mission={mission} className="mt-2" />
         </Card>
         <Card className="p-4"><p className="text-xs text-muted-foreground">Tasks</p><p className="font-bold text-2xl">{prog.total}</p></Card>
         <Card className="p-4"><p className="text-xs text-muted-foreground">Cost</p><p className="font-bold text-2xl">{formatCost(mission.totalCost)}</p></Card>
@@ -188,8 +178,8 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
               {plan.map((step: any) => (
                 <div key={step.step} className="flex items-center gap-3 rounded-md bg-muted/30 px-3 py-2 border">
                   <Badge variant="outline" className="font-mono">{step.step}</Badge>
-                  <div className="flex-1 min-w-0"><p className="text-sm font-medium">{step.description}</p><p className="text-xs text-faint">{step.agentType}</p></div>
-                  <span className="text-xs text-faint">{formatDuration(step.estimatedDuration)}</span>
+                  <div className="flex-1 min-w-0"><p className="text-sm font-medium">{step.description}</p><p className="text-xs text-muted-foreground">{step.agentType}</p></div>
+                  <span className="text-xs text-muted-foreground">{formatDuration(step.estimatedDuration)}</span>
                 </div>
               ))}
             </div>
@@ -239,7 +229,7 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
               <div key={e.id} className="rounded-md bg-muted/30 px-3 py-2 text-xs">
                 <div className="flex items-center gap-2">
                   <span className="font-mono font-medium">{e.type}</span>
-                  <span className="text-faint">{new Date(e.timestamp).toLocaleString()}</span>
+                  <span className="text-muted-foreground">{new Date(e.timestamp).toLocaleString()}</span>
                   {e.agentId && <Link href={`/agents/${e.agentId}`} className="text-info hover:underline truncate">agent {e.agentId.slice(0, 8)}</Link>}
                   {e.taskId && <Link href={`/tasks/${e.taskId}`} className="text-info hover:underline truncate">task {e.taskId.slice(0, 8)}</Link>}
                 </div>
