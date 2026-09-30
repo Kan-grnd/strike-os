@@ -6,6 +6,7 @@ import { StrikeMark } from "@/components/ui/logo";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { NAV_DOMAINS, type NavigationDomain } from "@/lib/navigation";
+import { SIDEBAR_FOOTER_ZONE } from "@/components/layout/sidebar-footer";
 
 /**
  * One Level-1 domain, as an icon.
@@ -137,9 +138,7 @@ export function SidebarRail({
         ))}
       </div>
 
-      <div className="flex w-full shrink-0 flex-col items-center gap-1 border-t border-border py-2">
-        {footer}
-      </div>
+      <div className={cn(SIDEBAR_FOOTER_ZONE, "w-full justify-center")}>{footer}</div>
     </nav>
   );
 }

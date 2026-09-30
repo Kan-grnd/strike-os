@@ -4,8 +4,8 @@ import * as React from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { ChatHistoryNav } from "@/components/layout/chat-history-nav";
+import { SIDEBAR_FOOTER_ZONE } from "@/components/layout/sidebar-footer";
 import { childIcon, type NavigationChild, type NavigationDomain } from "@/lib/navigation";
 
 /**
@@ -163,8 +163,7 @@ export function SidebarPanel({
           <SecondaryNav domain={domain} activeHref={activeHref} onNavigate={onNavigate} />
         </div>
       </ScrollArea>
-      <Separator />
-      <div className="shrink-0 p-3">{footer}</div>
+      <div className={cn(SIDEBAR_FOOTER_ZONE, "px-3")}>{footer}</div>
     </div>
   );
 }

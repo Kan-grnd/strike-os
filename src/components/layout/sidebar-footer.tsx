@@ -39,6 +39,27 @@ export function useSidebarStatus() {
 
 type SidebarStatus = ReturnType<typeof useSidebarStatus>;
 
+/**
+ * The footer zone, shared by the rail, the Level-2 panel, and the mobile drawer.
+ *
+ * All three hold different things — a single 32px dot, a two-row readout, the
+ * same readout in a drawer — and when each was sized by its own padding they
+ * landed ~11px apart. Side by side that reads as a broken step along the bottom
+ * of the navigation rather than as one deliberate band, and the divider lines
+ * stop instead of running across.
+ *
+ * So the zone owns the height and the divider, and the content is centred inside
+ * it. Sizing by padding instead would need each readout to keep matching the
+ * others' arithmetic, and would break the moment either of them changed.
+ *
+ * The rule is a `border-t` rather than a separate `<Separator />` so the divider
+ * is part of the measured box. As a sibling, the panel's separator sat 1px above
+ * the box it belonged to, which is exactly the kind of 1px jog this is here to
+ * remove.
+ */
+export const SIDEBAR_FOOTER_ZONE =
+  "flex h-16 shrink-0 items-center border-t border-border";
+
 /** Expanded footer: the full readout, shown in the Level-2 panel. */
 export function SidebarFooter({ status, className }: { status: SidebarStatus; className?: string }) {
   return (
