@@ -80,7 +80,10 @@ export function SidebarDrawer({
         )}
       >
         <DrawerTitle
-          className="shrink-0 border-b border-border px-4 py-4 text-sm font-semibold"
+          /* Matches the rail's 56px brand zone (h-14) + its 1px rule, so now
+             that the drawer runs full-height its title stops exactly where the
+             rail's turns into the icon list. */
+          className="flex h-14 shrink-0 items-center border-b border-border px-4 text-sm font-semibold"
           asChild
         >
           <h2 tabIndex={-1}>{domain.label}</h2>

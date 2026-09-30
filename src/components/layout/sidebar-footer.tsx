@@ -63,22 +63,32 @@ export const SIDEBAR_FOOTER_ZONE =
 /** Expanded footer: the full readout, shown in the Level-2 panel. */
 export function SidebarFooter({ status, className }: { status: SidebarStatus; className?: string }) {
   return (
-    <div className={cn("space-y-1 px-1 text-xs text-muted-foreground", className)}>
-      <div className="flex items-center justify-between">
+    /* `w-full`: this lives inside the row-flex footer zone, and a block child of
+       a flex row otherwise shrinks to fit-content (~92px), bunching both rows to
+       the left instead of spreading across the panel. */
+    <div className={cn("w-full space-y-1 text-xs text-muted-foreground", className)}>
+      <div className="flex items-center justify-between gap-2">
         <span>Status</span>
-        <span className="flex items-center gap-1.5">
+        <span className="flex min-w-0 items-center gap-1.5">
           {/* The dot is a colour cue, never the only one: the word beside it is
               what actually reports the state. */}
           <span
             aria-hidden="true"
-            className={cn("h-1.5 w-1.5 rounded-full", status.online ? "bg-success animate-pulse" : "bg-muted-foreground")}
+            className={cn(
+              "h-1.5 w-1.5 shrink-0 rounded-full",
+              status.online
+                ? "bg-success animate-pulse motion-reduce:animate-none"
+                : "bg-muted-foreground"
+            )}
           />
-          {status.online ? "Online" : status.status}
+          <span className="truncate" title={status.online ? "Online" : status.status}>
+            {status.online ? "Online" : status.status}
+          </span>
         </span>
       </div>
       <div className="flex items-center justify-between">
         <span>Agents</span>
-        <span className="font-medium text-foreground">{status.agentCount}</span>
+        <span className="font-medium tabular-nums text-foreground">{status.agentCount}</span>
       </div>
     </div>
   );
@@ -105,7 +115,12 @@ export function SidebarStatusDot({ status, className }: { status: SidebarStatus;
         >
           <span
             aria-hidden="true"
-            className={cn("h-2 w-2 rounded-full", status.online ? "bg-success animate-pulse" : "bg-muted-foreground")}
+            className={cn(
+              "h-2 w-2 rounded-full",
+              status.online
+                ? "bg-success animate-pulse motion-reduce:animate-none"
+                : "bg-muted-foreground"
+            )}
           />
         </span>
       </TooltipTrigger>
