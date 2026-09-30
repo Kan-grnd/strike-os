@@ -1,38 +1,22 @@
 "use client";
 
-import useSWR from "swr";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Brain, Target, ArrowRight } from "lucide-react";
+import { Plus, Brain, Target, ArrowRight, RefreshCw } from "lucide-react";
 import { useState } from "react";
-
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
-const statusColor: Record<string, string> = {
-  PLANNING: "bg-muted text-muted-foreground",
-  READY: "bg-muted text-muted-foreground",
-  RUNNING: "bg-success/10 text-success",
-  PAUSED: "bg-info/10 text-info",
-  BLOCKED: "bg-warning/10 text-warning",
-  COMPLETED: "bg-success/10 text-success",
-  FAILED: "bg-destructive/10 text-destructive",
-  CANCELLED: "bg-muted text-faint",
-};
+import { useMissions } from "@/hooks/useApi";
+import { formatCost, formatDuration } from "@/lib/utils";
+import { MISSION_STATUS_COLOR, missionProgress } from "@/lib/execution-meta";
 
 export default function MissionsPage() {
   const [search, setSearch] = useState("");
-  const { data, isLoading } = useSWR("/api/missions", fetcher);
+  const { data, error, isLoading, mutate } = useMissions();
   const missions = (data?.missions || []).filter(
     (m: any) => !search || m.goal.toLowerCase().includes(search.toLowerCase())
   );
-
-  const progress = (m: any) => {
-    if (!m.tasks) return 0;
-    const completed = m.tasks.filter((t: any) => t.status === "COMPLETED").length;
-    return Math.round((completed / m.tasks.length) * 100);
-  };
 
   return (
     <div className="p-6 space-y-6">
@@ -53,8 +37,21 @@ export default function MissionsPage() {
         </div>
       </div>
 
-      {isLoading && missions.length === 0 && <div className="text-center py-12 text-muted-foreground">Loading missions...</div>}
-      {!isLoading && missions.length === 0 && (
+      {error && (
+        <Card className="p-12 text-center space-y-4">
+          <p className="text-lg font-medium text-destructive">Failed to load missions</p>
+          <p className="text-sm text-muted-foreground">{error.message}</p>
+          <Button variant="outline" onClick={() => mutate()} className="gap-2">
+            <RefreshCw className="h-4 w-4" /> Retry
+          </Button>
+        </Card>
+      )}
+
+      {isLoading && !error && missions.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground">Loading missions...</div>
+      )}
+
+      {!isLoading && !error && missions.length === 0 && (
         <Card className="p-12 text-center">
           <Brain className="h-12 w-12 mx-auto text-faint mb-4" />
           <p className="text-lg font-medium">No missions yet</p>
@@ -64,33 +61,54 @@ export default function MissionsPage() {
       )}
 
       <div className="grid gap-4">
-        {missions.map((m: any) => (
-          <Link key={m.id} href={`/missions/${m.id}`}>
-            <Card className="p-6 hover:border-primary/40 transition-colors cursor-pointer group">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold">{m.goal}</h3>
-                    <Badge className={statusColor[m.status] || "bg-muted text-muted-foreground"}>{m.status}</Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Priority {m.priority} • Created {new Date(m.createdAt).toLocaleDateString()}</p>
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between text-xs mb-1"><span>Progress</span><span>{progress(m)}%</span></div>
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                      <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress(m)}%` }} />
+        {missions.map((m: any) => {
+          const prog = missionProgress(m);
+          const failedPct = prog.total ? Math.round((prog.failed / prog.total) * 100) : 0;
+          const cancelledPct = prog.total ? Math.round((prog.cancelled / prog.total) * 100) : 0;
+          return (
+            <Link key={m.id} href={`/missions/${m.id}`}>
+              <Card className="p-6 hover:border-primary/40 transition-colors cursor-pointer group">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold">{m.goal}</h3>
+                      <Badge className={MISSION_STATUS_COLOR[m.status] || "bg-muted text-muted-foreground"}>{m.status}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Priority {m.priority} • Created {new Date(m.createdAt).toLocaleDateString()}</p>
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span>Progress</span>
+                        <span>
+                          {prog.pct}%
+                          {prog.failed > 0 && <span className="text-destructive">{` · ${prog.failed} failed`}</span>}
+                          {prog.cancelled > 0 && <span className="text-faint">{` · ${prog.cancelled} cancelled`}</span>}
+                        </span>
+                      </div>
+                      <div
+                        className="h-2 w-full rounded-full bg-muted overflow-hidden flex"
+                        role="progressbar"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={prog.pct}
+                        aria-label="Mission progress"
+                      >
+                        {prog.pct > 0 && <div className="h-full rounded-l-full bg-primary" style={{ width: `${prog.pct}%` }} />}
+                        {failedPct > 0 && <div className="h-full bg-destructive" style={{ width: `${failedPct}%` }} />}
+                        {cancelledPct > 0 && <div className="h-full rounded-r-full bg-muted-foreground/40" style={{ width: `${cancelledPct}%` }} />}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 mt-2 text-xs text-faint">
+                      <span>{prog.total} tasks</span>
+                      <span>{formatCost(m.totalCost)}</span>
+                      <span>{formatDuration(m.duration)}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4 mt-2 text-xs text-faint">
-                    <span>{m.tasks?.length || 0} tasks</span>
-                    <span>${m.totalCost?.toFixed(4) || "0"}</span>
-                    <span>{m.duration ? `${Math.round(m.duration / 1000)}s` : "—"}</span>
-                  </div>
+                  <ArrowRight className="h-5 w-5 text-faint group-hover:text-foreground transition-colors shrink-0" />
                 </div>
-                <ArrowRight className="h-5 w-5 text-faint group-hover:text-foreground transition-colors shrink-0" />
-              </div>
-            </Card>
-          </Link>
-        ))}
+              </Card>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
