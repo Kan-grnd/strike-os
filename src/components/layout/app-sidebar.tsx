@@ -10,7 +10,7 @@ import { SidebarDrawer } from "@/components/layout/sidebar-drawer";
 import {
   SidebarFooter,
   SidebarRailAttention,
-  SidebarStatusDot,
+  SidebarRailClosedFooter,
   useSidebarStatus,
 } from "@/components/layout/sidebar-footer";
 import {
@@ -182,12 +182,13 @@ export function AppSidebar({
   /* With Level 2 open, the panel's Status row already says whether the platform
      is online — a second dot for it in the rail is two controls telling the same
      story. The rail instead shows what the panel does not: work sitting on the
-     user. Closed, there is nothing to shoulder the rail, so the dot stays. */
+     user. Closed, the rail has no panel to lean on and carries both readings —
+     the attention bell stacked above the status dot. */
   const railFooter =
     level2Open ? (
       <SidebarRailAttention />
     ) : (
-      <SidebarStatusDot status={status} />
+      <SidebarRailClosedFooter status={status} />
     );
   const panelFooter = <SidebarFooter status={status} />;
 

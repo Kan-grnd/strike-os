@@ -97,8 +97,34 @@ export function useSidebarAttention() {
   return { approvalsPending, agentsStuck, tasksFailed, missionsFailed, missionsPaused, loading };
 }
 
+type SidebarAttention = ReturnType<typeof useSidebarAttention>;
+
 function joinParts(parts: string[]) {
   return parts.filter(Boolean).join(", ");
+}
+
+/** The worst thing's home, for whichever rail control needs a destination. */
+function attentionHref(a: SidebarAttention): string {
+  if (a.approvalsPending || a.agentsStuck) return "/agents";
+  return a.tasksFailed ? "/tasks" : "/missions";
+}
+
+/** One shared reading of "what needs the user right now", for the aria label and
+ *  tooltip of every bell-shaped rail control. */
+function attentionLabel(a: SidebarAttention): string {
+  if (a.loading) return "Loading attention";
+  const { approvalsPending, agentsStuck, tasksFailed, missionsFailed, missionsPaused } = a;
+  if (approvalsPending + agentsStuck + tasksFailed + missionsFailed + missionsPaused === 0)
+    return "All clear";
+  return joinParts([
+    approvalsPending
+      ? `${approvalsPending} approval${approvalsPending === 1 ? "" : "s"} pending`
+      : "",
+    agentsStuck ? `${agentsStuck} agent${agentsStuck === 1 ? "" : "s"} stuck` : "",
+    tasksFailed ? `${tasksFailed} failed task${tasksFailed === 1 ? "" : "s"}` : "",
+    missionsFailed ? `${missionsFailed} failed mission${missionsFailed === 1 ? "" : "s"}` : "",
+    missionsPaused ? `${missionsPaused} paused mission${missionsPaused === 1 ? "" : "s"}` : "",
+  ]);
 }
 
 /**
@@ -115,38 +141,17 @@ function joinParts(parts: string[]) {
  * That is a deliberate stand-in, not a fix; the resolution UI is a follow-up.
  */
 export function SidebarRailAttention() {
+  const attentionState = useSidebarAttention();
   const { approvalsPending, agentsStuck, tasksFailed, missionsFailed, missionsPaused, loading } =
-    useSidebarAttention();
+    attentionState;
   const total =
     approvalsPending + agentsStuck + tasksFailed + missionsFailed + missionsPaused;
   const attention = !loading && total > 0;
 
-  const label = loading
-    ? "Loading attention"
-    : attention
-      ? joinParts([
-          approvalsPending
-            ? `${approvalsPending} approval${approvalsPending === 1 ? "" : "s"} pending`
-            : "",
-          agentsStuck
-            ? `${agentsStuck} agent${agentsStuck === 1 ? "" : "s"} stuck`
-            : "",
-          tasksFailed ? `${tasksFailed} failed task${tasksFailed === 1 ? "" : "s"}` : "",
-          missionsFailed
-            ? `${missionsFailed} failed mission${missionsFailed === 1 ? "" : "s"}`
-            : "",
-          missionsPaused
-            ? `${missionsPaused} paused mission${missionsPaused === 1 ? "" : "s"}`
-            : "",
-        ])
-      : "All clear";
+  const label = attentionLabel(attentionState);
   const tip = label;
 
-  const href = approvalsPending || agentsStuck
-    ? "/agents"
-    : tasksFailed
-      ? "/tasks"
-      : "/missions";
+  const href = attentionHref(attentionState);
   /* Idle, the badge is pure status ("all clear") and has nothing to resolve, so
      it stays a live region rather than a link to nowhere; the moment something
      needs the user it becomes the hop to the worst thing's home. */
@@ -176,6 +181,65 @@ export function SidebarRailAttention() {
       </TooltipTrigger>
       <TooltipContent side="right">{tip}</TooltipContent>
     </Tooltip>
+  );
+}
+
+/**
+ * The rail's footer while Level 2 is closed.
+ *
+ * With the panel gone there is no two-row readout, and the rail has two things
+ * left to say: "is all well" and "did something need me?" — so this stacks both
+ * signals instead of dropping one. The heights were tuned to the shared h-16
+ * zone (32px bell + 24px dot + a 2px gap = 58px) so the band's divider and its
+ * neighbours keep their alignment contract.
+ *
+ * All-clear, the bell goes quiet and aria-hidden and stops being a tab stop —
+ * the dot below is the one live region, and the bell keeps only a native
+ * `title` so a pointer user still gets the "nothing needs you" reading. The
+ * moment something needs the user, the same bell takes the click and becomes
+ * the hop to the worst thing's home.
+ */
+export function SidebarRailClosedFooter({ status }: { status: SidebarStatus }) {
+  const attentionState = useSidebarAttention();
+  const { approvalsPending, agentsStuck, tasksFailed, missionsFailed, missionsPaused, loading } =
+    attentionState;
+  const total =
+    approvalsPending + agentsStuck + tasksFailed + missionsFailed + missionsPaused;
+  const attention = !loading && total > 0;
+  const label = attentionLabel(attentionState);
+
+  return (
+    <div className="flex w-full flex-col items-center justify-center gap-0.5">
+      {attention ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              href={attentionHref(attentionState)}
+              aria-label={label}
+              className={cn(
+                "flex h-8 w-full items-center justify-center gap-1 rounded-md",
+                "transition-colors hover:bg-accent/50 hover:text-foreground",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                "text-foreground"
+              )}
+            >
+              <Bell aria-hidden="true" className="h-3.5 w-3.5 text-warning" />
+              <span className="text-xs tabular-nums font-medium">{total}</span>
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right">{label}</TooltipContent>
+        </Tooltip>
+      ) : (
+        <span
+          aria-hidden="true"
+          title={label}
+          className="flex h-8 w-full items-center justify-center rounded-md text-muted-foreground"
+        >
+          <Bell className="h-3.5 w-3.5" />
+        </span>
+      )}
+      <SidebarStatusDot status={status} className="h-6" />
+    </div>
   );
 }
 
