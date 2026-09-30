@@ -24,7 +24,7 @@ export const AGENT_STATUS_COLOR: Record<string, string> = {
   WAITING: "bg-warning/10 text-warning",
   PAUSED: "bg-info/10 text-info",
   ERROR: "bg-destructive/10 text-destructive",
-  OFFLINE: "bg-muted text-faint",
+  OFFLINE: "bg-muted text-muted-foreground",
 };
 
 export const AGENT_STATUS_OPTIONS = ["IDLE", "RUNNING", "WAITING", "ERROR"] as const;

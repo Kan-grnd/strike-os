@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTasks } from "@/hooks/useApi";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
@@ -10,22 +11,89 @@ import { ListChecks, RefreshCw, X } from "lucide-react";
 import { TASK_STATUS_COLOR, TASK_STATUS_OPTIONS } from "@/lib/execution-meta";
 import { cn, formatRelativeTime, pluralize } from "@/lib/utils";
 
-export default function TasksPage() {
-  const [status, setStatus] = useState("");
+const KNOWN = new Set<string>(TASK_STATUS_OPTIONS);
+const parseStatus = (v: string | null) => (v && KNOWN.has(v) ? v : "");
+
+function TaskCard({ t }: { t: any }) {
+  return (
+    <Card className="p-3 text-xs space-y-1.5">
+      <Link
+        href={`/tasks/${t.id}`}
+        className="block font-medium truncate hover:text-foreground/80 hover:underline underline-offset-2"
+      >
+        {t.description}
+      </Link>
+      <div className="flex flex-col gap-0.5 text-muted-foreground">
+        {t.missionId ? (
+          <Link
+            href={`/missions/${t.missionId}`}
+            className="truncate text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+          >
+            Mission: {t.mission?.goal || `${t.missionId.slice(0, 8)}`}
+          </Link>
+        ) : (
+          <span className="text-muted-foreground">No mission</span>
+        )}
+        {t.agentName ? (
+          <Link
+            href={`/agents/${t.ownerAgentId}`}
+            className="truncate text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+          >
+            Agent: {t.agentName}
+          </Link>
+        ) : null}
+      </div>
+      <div className="text-[10px] text-muted-foreground flex flex-wrap items-center gap-2 pt-0.5">
+        {t.createdAt ? <span>{formatRelativeTime(t.createdAt)}</span> : null}
+        {t.status === "FAILED" && <span>Retry {t.retryCount ?? 0}/{t.maxRetries ?? 3}</span>}
+        {t.priority > 0 && <span>Priority {t.priority}</span>}
+      </div>
+    </Card>
+  );
+}
+
+function TaskLane({ g, tasks }: { g: string; tasks: any[] }) {
+  return (
+    <div>
+      <h2 className="text-xs font-semibold mb-2 flex items-center gap-2">
+        <span className={cn("px-1.5 py-0.5 rounded", TASK_STATUS_COLOR[g])}>{g}</span>
+        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">{tasks.length}</span>
+      </h2>
+      <div className="space-y-2">
+        {tasks.map((t: any) => <TaskCard key={t.id} t={t} />)}
+      </div>
+    </div>
+  );
+}
+
+function TasksBoard() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [status, setStatus] = useState(() => parseStatus(searchParams.get("status")));
   const [search, setSearch] = useState("");
   const { data, error, isLoading, mutate } = useTasks(status ? { status } : undefined);
   const tasks = (data?.tasks || []).filter((t: any) =>
     !search || (t.description || "").toLowerCase().includes(search.toLowerCase())
   );
 
+  useEffect(() => {
+    setStatus(parseStatus(searchParams.get("status")));
+  }, [searchParams]);
+
+  const setStatusFilter = (v: string) => {
+    setStatus(v);
+    router.replace(v ? `/tasks?status=${encodeURIComponent(v)}` : "/tasks");
+  };
+
   const filtered = Boolean(status || search);
   const serverCount = data?.tasks?.length ?? 0;
   const groupTasks = (g: string) => tasks.filter((t: any) => t.status === g);
   const columns = TASK_STATUS_OPTIONS.filter((g) => !filtered || groupTasks(g).length > 0);
+  const unknownTasks = !status ? tasks.filter((t: any) => !KNOWN.has(t.status)) : [];
 
   const clearFilters = () => {
     setSearch("");
-    setStatus("");
+    setStatusFilter("");
   };
 
   return (
@@ -50,7 +118,7 @@ export default function TasksPage() {
         )}
         <select
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
+          onChange={(e) => setStatusFilter(e.target.value)}
           aria-label="Filter tasks by status"
           className="rounded-md border bg-background px-3 py-2 text-sm h-10"
         >
@@ -75,7 +143,7 @@ export default function TasksPage() {
 
       {!isLoading && !error && tasks.length === 0 && (
         <Card className="p-12 text-center space-y-4">
-          <ListChecks className="h-12 w-12 mx-auto text-faint" />
+          <ListChecks className="h-12 w-12 mx-auto text-muted-foreground" />
           <p className="text-lg font-medium">{filtered ? "No tasks match" : "No tasks yet"}</p>
           <p className="text-sm text-muted-foreground">
             {filtered ? "Try a different filter." : "Tasks appear when missions are launched."}
@@ -95,58 +163,36 @@ export default function TasksPage() {
           </p>
           <div className="overflow-x-auto pb-2">
             <div className={cn("grid gap-3 divide-x divide-border/30", filtered ? "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-7 min-w-[1100px]")}>
-              {columns.map((g, idx) => {
-                const group = groupTasks(g);
-                return (
-                  <div key={g} className={idx > 0 ? "pl-4" : undefined}>
-                    <h3 className="text-xs font-semibold mb-2 flex items-center gap-2">
-                      <span className={cn("px-1.5 py-0.5 rounded", TASK_STATUS_COLOR[g])}>{g}</span>
-                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">{group.length}</span>
-                    </h3>
-                    <div className="space-y-2">
-                      {group.map((t: any) => (
-                        <Card key={t.id} className="p-3 text-xs space-y-1.5">
-                          <Link
-                            href={`/tasks/${t.id}`}
-                            className="block font-medium truncate hover:text-foreground/80 hover:underline underline-offset-2"
-                          >
-                            {t.description}
-                          </Link>
-                          <div className="flex flex-col gap-0.5 text-faint">
-                            {t.missionId ? (
-                              <Link
-                                href={`/missions/${t.missionId}`}
-                                className="truncate text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
-                              >
-                                Mission: {t.mission?.goal || `${t.missionId.slice(0, 8)}`}
-                              </Link>
-                            ) : (
-                              <span className="text-muted-foreground">No mission</span>
-                            )}
-                            {t.agentName ? (
-                              <Link
-                                href={`/agents/${t.ownerAgentId}`}
-                                className="truncate text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
-                              >
-                                Agent: {t.agentName}
-                              </Link>
-                            ) : null}
-                          </div>
-                          <div className="text-[10px] text-faint flex flex-wrap items-center gap-2 pt-0.5">
-                            {t.createdAt ? <span>{formatRelativeTime(t.createdAt)}</span> : null}
-                            {t.status === "FAILED" && <span>Retry {t.retryCount ?? 0}/{t.maxRetries ?? 3}</span>}
-                            {t.priority > 0 && <span>Priority {t.priority}</span>}
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
+              {columns.map((g, idx) => (
+                <div key={g} className={idx > 0 ? "pl-4" : undefined}>
+                  <TaskLane g={g} tasks={groupTasks(g)} />
+                </div>
+              ))}
+              {unknownTasks.length > 0 && (
+                <div key="__unknown" className="pl-4">
+                  <h2 className="text-xs font-semibold mb-2 flex items-center gap-2">
+                    <span className={cn("px-1.5 py-0.5 rounded", "bg-muted text-muted-foreground")}>
+                      {new Set(unknownTasks.map((t: any) => t.status)).size === 1 ? unknownTasks[0].status : "OTHER"}
+                    </span>
+                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">{unknownTasks.length}</span>
+                  </h2>
+                  <div className="space-y-2">
+                    {unknownTasks.map((t: any) => <TaskCard key={t.id} t={t} />)}
                   </div>
-                );
-              })}
+                </div>
+              )}
             </div>
           </div>
         </>
       )}
     </div>
+  );
+}
+
+export default function TasksPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[50vh]" />}>
+      <TasksBoard />
+    </Suspense>
   );
 }

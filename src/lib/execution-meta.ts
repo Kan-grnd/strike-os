@@ -6,7 +6,7 @@ export const MISSION_STATUS_COLOR: Record<string, string> = {
   BLOCKED: "bg-warning/10 text-warning",
   COMPLETED: "bg-success/10 text-success",
   FAILED: "bg-destructive/10 text-destructive",
-  CANCELLED: "bg-muted text-faint",
+  CANCELLED: "bg-muted text-muted-foreground",
 };
 
 export const MISSION_STATUS_OPTIONS = [
@@ -27,7 +27,7 @@ export const TASK_STATUS_COLOR: Record<string, string> = {
   WAITING: "bg-warning/10 text-warning",
   COMPLETED: "bg-success/10 text-success",
   FAILED: "bg-destructive/10 text-destructive",
-  CANCELLED: "bg-muted text-faint",
+  CANCELLED: "bg-muted text-muted-foreground",
 };
 
 export const TASK_STATUS_OPTIONS = [
@@ -63,7 +63,7 @@ export const RUN_STATUS_COLOR: Record<string, string> = {
   running: "bg-info/10 text-info",
   completed: "bg-success/10 text-success",
   failed: "bg-destructive/10 text-destructive",
-  cancelled: "bg-muted text-faint",
+  cancelled: "bg-muted text-muted-foreground",
 };
 
 export function missionProgress(m: { tasks?: Array<{ status: string }> } | null | undefined) {
