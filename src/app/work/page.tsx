@@ -361,14 +361,27 @@ function WorkBoard() {
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-sm min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          />
           <Input
             placeholder="Search work..."
             aria-label="Search work"
-            className="pl-9"
+            className="pl-9 pr-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          {search && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
         <div role="group" aria-label="Filter by type" className="flex rounded-md border bg-background p-1 gap-1">
           {FACETS.map((t) => (
@@ -410,11 +423,6 @@ function WorkBoard() {
             </optgroup>
           ))}
         </select>
-        {search && (
-          <Button variant="ghost" size="sm" onClick={() => setSearch("")} className="gap-1 text-muted-foreground hover:text-foreground" aria-label="Clear search">
-            <X className="h-3.5 w-3.5" /> Clear
-          </Button>
-        )}
       </div>
 
       {showCreate && (
