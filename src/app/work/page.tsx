@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, RefreshCw, Sparkles, X, AlertCircle, Zap, Briefcase } from "lucide-react";
+import { Plus, RefreshCw, Sparkles, X, AlertCircle, Zap, Briefcase } from "lucide-react";
 import { useMissions, useAutomations, createAutomation } from "@/hooks/useApi";
 import { MissionProgressBar } from "@/components/execution/mission-progress-bar";
 import { DataTable, type DataTableColumn } from "@/components/execution/data-table";
@@ -361,14 +361,10 @@ function WorkBoard() {
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-sm min-w-[200px]">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-          />
           <Input
             placeholder="Search work..."
             aria-label="Search work"
-            className="pl-9 pr-9"
+            className="pr-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
