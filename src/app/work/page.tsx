@@ -262,15 +262,20 @@ function WorkBoard() {
   const baseCount = bucketM.length + bucketA.length;
 
   const searchTerm = search.trim().toLowerCase();
-  const matchesSearch = (text?: string) => !searchTerm || (text || "").toLowerCase().includes(searchTerm);
+  /* Any of the given fields may hold the query, and all of them are checked:
+     `a || b` would silently drop `b` whenever `a` happened to be non-empty. */
+  const matchesAny = (...fields: (string | undefined)[]) =>
+    !searchTerm || fields.some((f) => (f || "").toLowerCase().includes(searchTerm));
 
-  const shownM = bucketM.filter((m: any) => matchesSearch(m.goal) && (status ? m.status === status : KNOWN_MISSION.has(m.status)));
-  const shownA = bucketA.filter((a: any) => matchesSearch(a.name || a.description) && (status ? a.status === status : KNOWN_AUTOMATION.has(a.status)));
+  const shownM = bucketM.filter((m: any) => matchesAny(m.goal) && (status ? m.status === status : KNOWN_MISSION.has(m.status)));
+  const shownA = bucketA.filter((a: any) => matchesAny(a.name, a.description) && (status ? a.status === status : KNOWN_AUTOMATION.has(a.status)));
 
-  const unknownM = !status ? bucketM.filter((m: any) => matchesSearch(m.goal) && !KNOWN_MISSION.has(m.status)) : [];
-  const unknownA = !status ? bucketA.filter((a: any) => matchesSearch(a.name || a.description) && !KNOWN_AUTOMATION.has(a.status)) : [];
+  const unknownM = !status ? bucketM.filter((m: any) => matchesAny(m.goal) && !KNOWN_MISSION.has(m.status)) : [];
+  const unknownA = !status ? bucketA.filter((a: any) => matchesAny(a.name, a.description) && !KNOWN_AUTOMATION.has(a.status)) : [];
 
-  const filtered = Boolean(search || status || facet !== "all");
+  /* Keyed off the trimmed term, not the raw input, so a stray space does not
+     mark the list as filtered while matching everything. */
+  const filtered = Boolean(searchTerm || status || facet !== "all");
 
   const items: WorkRow[] = [
     ...shownM.map((m: any) => ({ kind: "mission" as const, record: m })),
