@@ -27,6 +27,8 @@ import {
   NO_INSETS,
   buildTopologyLayout,
   clampSpacing,
+  fitTopAlignedTransformFor,
+  fitTopHeadroom,
   fitTransformFor,
   fitZoomFor,
   graphFitsIn,
@@ -160,14 +162,14 @@ check("territory beta errors=1", beta.errors === 1, String(beta.errors));
 // the tallest measured variant of each card, so a check that passes here holds
 // for whatever disclosure state a card happens to be in.
 const CARD_W: Record<string, number> = {
-  brain: 256,
+  brain: 180,
   specialist: 240,
   agent: 240,
   subagent: 224,
   operation: 176,
 };
 const CARD_H: Record<string, number> = {
-  brain: 123,
+  brain: 180,
   specialist: 104,
   agent: 104, // tallest: 11px operation line + single-line 3-button action row
   subagent: 104, // 81 without an operation line
@@ -436,8 +438,7 @@ check(
 );
 check(
   "compact: hierarchy still readable (levels narrow as they descend)",
-  CARD_W.brain > CARD_W.specialist &&
-    CARD_W.specialist === CARD_W.agent &&
+  CARD_W.specialist === CARD_W.agent &&
     CARD_W.agent > CARD_W.subagent &&
     CARD_W.subagent > CARD_W.operation,
   JSON.stringify(CARD_W)
@@ -904,6 +905,35 @@ const ownershipStrokes = edgesDeep
   .map((e) => (e.style as { stroke?: string } | undefined)?.stroke ?? "");
 const neutralPrefix = "hsl(var(--muted-foreground)";
 check("edges: ownership neutral (no level tint)", ownershipStrokes.every((s) => s.startsWith(neutralPrefix)), ownershipStrokes.join("|"));
+const ownershipEdges = edgesDeep.filter((e) => e.id.startsWith("owns:"));
+check(
+  "edges: ownership edges use the flow edge type",
+  ownershipEdges.length > 0 && ownershipEdges.every((e) => e.type === "topology-flow"),
+  Array.from(new Set(ownershipEdges.map((e) => e.type))).join(",")
+);
+const ownershipWidths = ownershipEdges.map(
+  (e) => (e.style as { strokeWidth?: number } | undefined)?.strokeWidth
+);
+check(
+  "edges: ownership strokes are 1.75px",
+  ownershipWidths.every((w) => w === 1.75),
+  ownershipWidths.join(",")
+);
+check(
+  "edges: ownership edges carry a dimmed flag for the flow overlay",
+  ownershipEdges.every((e) => typeof (e.data as { dimmed?: boolean } | undefined)?.dimmed === "boolean"),
+  ownershipEdges.map((e) => String((e.data as { dimmed?: boolean } | undefined)?.dimmed)).join(",")
+);
+const focusedOwnership = getTopologyEdges(runtime, agentsExpanded, "ag-1").filter((e) =>
+  e.id.startsWith("owns:")
+);
+check(
+  "edges: focus dims unrelated ownership links in data, never in style",
+  focusedOwnership.some((e) => (e.data as { dimmed?: boolean }).dimmed === true) &&
+    focusedOwnership.some((e) => (e.data as { dimmed?: boolean }).dimmed === false) &&
+    focusedOwnership.every((e) => (e.style as { opacity?: number } | undefined)?.opacity === undefined),
+  `dimmed=${focusedOwnership.filter((e) => (e.data as { dimmed?: boolean }).dimmed).length} of ${focusedOwnership.length}`
+);
 const edgesOverview = getTopologyEdges(runtime, collapsed, undefined, {
   tempEdges: [{ id: "temp:delegation:e1", kind: "delegation", source: "ag-1", target: "ag-4", eventId: "e1", occurredAt: Date.now() }],
 });
@@ -1762,6 +1792,74 @@ check(
   "camera: an empty graph is framed nowhere rather than at a bogus zoom",
   fitTransformFor([], paneAt(N_WIDE, N_TALL)).zoom === FIT_MAX_ZOOM &&
     graphFitsIn([], { x: 0, y: 0, zoom: 1 }, paneAt(N_WIDE, N_TALL), NO_INSETS) === false,
+  "no cards, no claim of being framed"
+);
+
+/** Frame `cards` with the top-aligned camera and report where the graph lands. */
+const topAligned = (cards: PlacedCard[], pane: { w: number; h: number }) => {
+  const usable = { w: pane.w, h: pane.h };
+  const t = fitTopAlignedTransformFor(cards, usable);
+  const box = boxOf(cards)!;
+  return {
+    usable,
+    headroom: fitTopHeadroom(usable),
+    zoom: t.zoom,
+    top: box.minY * t.zoom + t.y,
+    bottom: box.maxY * t.zoom + t.y,
+    left: box.minX * t.zoom + t.x,
+    right: box.maxX * t.zoom + t.x,
+  };
+};
+
+const topAlignedPanes = [paneAt(1280, 700), paneAt(1440, 900), paneAt(1920, 900)];
+
+check(
+  "camera: top-aligned framing uses the same fit zoom as the centred fit",
+  topAlignedPanes.every(
+    (pane) => fitTopAlignedTransformFor(midCards, pane).zoom === fitZoomFor(midCards, pane)
+  ),
+  "only the vertical placement changes, not how far out the camera sits"
+);
+
+check(
+  "camera: top-aligned framing pins the graph top one headroom below the free-area top",
+  topAlignedPanes.every((pane) => {
+    const r = topAligned(midCards, pane);
+    return Math.abs(r.top - r.headroom) < 1e-6;
+  }),
+  "brain, as the graph's topmost card, lands high on screen"
+);
+
+check(
+  "camera: top-aligned framing keeps the whole graph on screen",
+  topAlignedPanes.every((pane) => {
+    const r = topAligned(midCards, pane);
+    return r.top >= -1 && r.bottom <= r.usable.h + 1 && r.left >= -1 && r.right <= r.usable.w + 1;
+  }),
+  "the pin does not push the bottom edge off the pane"
+);
+
+check(
+  "camera: top-aligned framing is horizontally centred like the centred fit",
+  topAlignedPanes.every((pane) => {
+    const r = topAligned(midCards, pane);
+    return Math.abs((r.left + r.right) / 2 - r.usable.w / 2) < 1.5;
+  }),
+  "same x centring"
+);
+
+check(
+  "camera: headroom is clamped and stays under the fit padding reserve",
+  topAlignedPanes.every((pane) => {
+    const h = fitTopHeadroom(pane);
+    return h >= 24 - 1e-6 && h <= pane.h * 0.15 + 1e-6;
+  }),
+  "a graph that fitted before cannot be pushed off the bottom"
+);
+
+check(
+  "camera: an empty graph is top-aligned nowhere rather than at a bogus zoom",
+  fitTopAlignedTransformFor([], paneAt(N_WIDE, N_TALL)).zoom === FIT_MAX_ZOOM,
   "no cards, no claim of being framed"
 );
 

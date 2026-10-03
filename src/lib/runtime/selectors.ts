@@ -467,12 +467,11 @@ export function getTopologyEdges(
       source,
       target,
       ...handlesFor(source, target),
-      type: "default",
-      style: {
-        stroke,
-        strokeWidth: 1,
-        ...(focus && !edgeInFocus(source, target) ? dimTrue() : undefined),
-      },
+      type: "topology-flow",
+      style: { stroke, strokeWidth: 1.75 },
+      /* Dimming rides in `data`, not `style.opacity`: a custom edge applies its
+       * own paint, so the flag is what pauses the flow and fades the stroke. */
+      data: { dimmed: Boolean(focus && !edgeInFocus(source, target)) },
     });
   };
 

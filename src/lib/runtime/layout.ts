@@ -62,17 +62,26 @@ const OP_CARD_H = 104;
 
 const REMOVED_STATES = new Set(["cancelled", "stopped"]);
 
+/** The brain is a circular orb, not a card: one square size drives its width
+ *  reservation, its band anchor and its edge-anchor centre. */
+const BRAIN_ORB = 180;
+
 /** Rendered card widths (Tailwind w-64 / w-60 / w-56 / w-44), in px. */
 const CARD_W = {
-  brain: 256,
+  brain: BRAIN_ORB,
   specialist: 240,
   agent: 240,
   sub: 224,
   operation: 176,
 } as const;
 
-/** Brain card height (measured), used only to place the territory band. */
-const BRAIN_CARD_H = 123;
+/** Brain height used to place the territory band (the orb's diameter). */
+const BRAIN_CARD_H = BRAIN_ORB;
+
+/** Extra air between the brain orb and the first colony row, on top of the
+ *  per-tier row gap, so the ownership spokes have room to read as separate
+ *  from the orb instead of crowding its bottom edge. */
+const BRAIN_COLONY_GAP = 16;
 
 /** Every card's rendered size, in one place.
  *
@@ -553,7 +562,7 @@ export function buildTopologyLayout(
      * single property the whole layout exists to guarantee. */
     const brainBottom = brain.y + BRAIN_CARD_H;
     let lowest = brainBottom;
-    let rowTop = brainBottom + GAP;
+    let rowTop = brainBottom + GAP + BRAIN_COLONY_GAP;
     for (const row of rows) {
       const rowWidth = row.reduce((sum, b) => sum + b.box.w, 0) + blockGap * (row.length - 1);
       let left = -rowWidth / 2;
@@ -697,7 +706,7 @@ export function boxOf(cards: Placed[]): Box | null {
 
 /** Every card's on-screen box, from a layout plus the measured card sizes. */
 export function layoutBounds(layout: TopologyLayout): Placed[] {
-  const out: Placed[] = [{ ...layout.brain, w: CARD_W.brain, h: BRAIN_CARD_H }];
+  const out: Placed[] = [{ ...layout.brain, w: CARD_SIZE.brain.w, h: CARD_SIZE.brain.h }];
   for (const p of Array.from(layout.territories.values())) out.push({ ...p, w: CARD_W.specialist, h: WORKER_CARD_H });
   for (const p of Array.from(layout.agents.values())) out.push({ ...p, w: CARD_W.agent, h: WORKER_CARD_H });
   for (const p of Array.from(layout.subAgents.values())) out.push({ ...p, w: CARD_W.sub, h: WORKER_CARD_H });
@@ -776,6 +785,50 @@ export function fitTransformFor(
     zoom,
     x: usable.w / 2 - centreX * zoom,
     y: usable.h / 2 - centreY * zoom,
+  };
+}
+
+/* ── Top-aligned framing ─────────────────────────────────────────────────────
+ * The brain is the graph's origin and its topmost card, so "where the brain
+ * lands on screen" is really "where the camera puts the top of the graph". A
+ * centred fit floats it near the middle, which reads as a graph that starts
+ * arbitrarily low; pulling the top down by one headroom makes the brain the
+ * first thing the eye meets on load, with air above it. This is a camera
+ * decision only — the layout still keeps the brain at graph-space y=0. */
+
+/** Headroom above the graph, as a share of the usable pane height, clamped. It
+ *  is deliberately kept below the fit-padding headroom (`1 + FIT_PADDING`
+ *  already reserves ~15% around the graph): a larger value could push a graph
+ *  that fitted before past the bottom edge. */
+export const FIT_TOP_HEADROOM_RATIO = 0.06;
+export const FIT_TOP_HEADROOM_MIN = 24;
+export const FIT_TOP_HEADROOM_MAX = 64;
+
+/** The top margin the camera leaves above the graph, given the free area. */
+export function fitTopHeadroom(usable: ViewportSize): number {
+  return clamp(usable.h * FIT_TOP_HEADROOM_RATIO, FIT_TOP_HEADROOM_MIN, FIT_TOP_HEADROOM_MAX);
+}
+
+/** Like fitTransformFor, but pins the top of the graph a fixed headroom below
+ *  the top of the free area instead of centring it vertically. Zoom and
+ *  horizontal centring are identical to fitTransformFor, so the whole-graph
+ *  guarantee is unchanged; only the vertical placement moves. This is what puts
+ *  the brain near the top on load, on Reset view, and on double-click-brain. */
+export function fitTopAlignedTransformFor(
+  cards: Placed[],
+  usable: ViewportSize,
+  headroom: number = fitTopHeadroom(usable)
+): { x: number; y: number; zoom: number } {
+  const box = boxOf(cards);
+  if (!box || usable.w <= 0 || usable.h <= 0) {
+    return { x: 0, y: 0, zoom: FIT_MAX_ZOOM };
+  }
+  const centreX = (box.minX + box.maxX) / 2;
+  const zoom = fitZoomFor(cards, usable);
+  return {
+    zoom,
+    x: usable.w / 2 - centreX * zoom,
+    y: headroom - box.minY * zoom,
   };
 }
 

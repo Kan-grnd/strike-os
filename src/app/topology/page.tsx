@@ -16,6 +16,7 @@ import { AgentNode } from "@/components/topology/nodes/agent-node";
 import { SubAgentNode } from "@/components/topology/nodes/subagent-node";
 import { OperationNode } from "@/components/topology/nodes/operation-node";
 import { FlashNode } from "@/components/topology/nodes/flash-node";
+import { TopologyEdge } from "@/components/topology/topology-edge";
 import { InspectorPanel, type InspectorSelection } from "@/components/topology/inspector-panel";
 import { useSubscribeRuntime, useTopologyGraph, useRuntime, useConnection, useResync, useTempEdges, useFlashes } from "@/lib/runtime/useRuntime";
 import { getLiveAgents } from "@/lib/runtime/selectors";
@@ -23,7 +24,7 @@ import {
   FIT_MIN_ZOOM,
   NO_INSETS,
   VIEWPORT_DEADBAND,
-  fitTransformFor,
+  fitTopAlignedTransformFor,
   graphFitsIn,
   narrowFor,
   type Insets,
@@ -41,6 +42,10 @@ const nodeTypes = {
   operation: OperationNode,
   flash: FlashNode,
 };
+
+/* Ownership links carry the ambient flow; transient event edges keep React
+ * Flow's own animated default. Stable module-level map, like nodeTypes. */
+const edgeTypes = { "topology-flow": TopologyEdge };
 
 /** Marks a floating element the camera has to keep clear of. It lives on the
  *  inspector, the one panel big enough to sit on top of a branch. Corner chips
@@ -348,7 +353,7 @@ function TopologyCanvas() {
       if (!opts.force && graphFitsIn(cards, current, usable, insetsRef.current)) {
         return true;
       }
-      const target = fitTransformFor(cards, usable);
+      const target = fitTopAlignedTransformFor(cards, usable);
       void setViewport(
         {
           x: target.x + insetsRef.current.left,
@@ -537,6 +542,7 @@ function TopologyCanvas() {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         minZoom={FIT_MIN_ZOOM}
         maxZoom={3}
         nodeOrigin={[0.5, 0]}
