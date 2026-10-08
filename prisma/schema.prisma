@@ -283,6 +283,10 @@ model Memory {
   importance  Float    @default(0.5)
   source      String
   scope       String   @default("GLOBAL")
+  /// JSON array of normalized category slugs, e.g. ["runbook","onboarding"].
+  /// SQLite has no native string array, so it is stored as JSON text and
+  /// parsed defensively everywhere it is read.
+  categories  String   @default("[]")
   subjectId   String?
   subjectType String?
   confidence  Float    @default(1.0)

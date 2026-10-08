@@ -1,8 +1,13 @@
 /* Derivation + store checks for the Live Topology spec.
  * Run: npx tsx scripts/check-selectors.ts
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   BRAIN_NODE_ID,
+  STRUCTURAL_EDGE_STROKE,
+  VERIFICATION_EDGE_STROKE,
+  edgePathD,
   getActiveOperations,
   getAttentionRequired,
   getTerritoryStats,
@@ -17,32 +22,32 @@ import { useRuntimeStore } from "../src/lib/runtime/store";
 import { computeBrainRuntime, computeSystemRuntime } from "../src/lib/runtime/mappers";
 import {
   boxOf,
-  buildAdaptiveTopologyLayout,
+  buildTidyTopologyLayout,
   FIT_MAX_ZOOM,
   FIT_MIN_ZOOM,
-  MIN_FILL_COVERAGE,
-  MIN_FIT_ZOOM,
   NARROW_BREAKPOINT,
   NARROW_HYSTERESIS,
   NO_INSETS,
-  buildTopologyLayout,
-  clampSpacing,
+  TIDY_LEVEL_GAP,
+  TIDY_MAX_ROW_WIDTH,
+  TIDY_SIBLING_GAP,
+  fitReadableTransformFor,
   fitTopAlignedTransformFor,
+  fitTopAnchoredTransformFor,
+  fitAllTransformFor,
   fitTopHeadroom,
   fitTransformFor,
   fitZoomFor,
+  formatZoomPct,
   graphFitsIn,
   layoutBounds,
   narrowFor,
-  SPACING_LIMITS,
-  spacingFor,
-  spacingTierFor,
   type Insets,
   type Placed as PlacedCard,
+  type TidyNodeSize,
   type TopologyLayout,
-  type TopologySpacing,
 } from "../src/lib/runtime/layout";
-import type { Node } from "@xyflow/react";
+import { getBezierPath, Position, type Edge, type Node } from "@xyflow/react";
 import type { WorkforceRuntime } from "../src/lib/runtime/types";
 
 const now = new Date();
@@ -110,6 +115,22 @@ const agentsExpanded = new Set([
   "ag-4:ops",
 ]);
 
+/* The tidy-tree layout is expansion-aware, so tests that used to build one
+ * layout for every visibility state now expand everything: every colony open
+ * and every worker toggle set. Narrow/viewport arguments are gone — the same
+ * inputs always build the same graph. */
+const expandEverything = (rt: WorkforceRuntime): Set<string> => {
+  const s = new Set<string>();
+  for (const c of rt.colonies) if (c.status !== "ARCHIVED") s.add(c.id);
+  for (const a of rt.agents) {
+    s.add(`${a.id}:sub`);
+    s.add(`${a.id}:ops`);
+  }
+  return s;
+};
+const tidyFull = (rt: WorkforceRuntime): TopologyLayout =>
+  buildTidyTopologyLayout(rt, expandEverything(rt));
+
 // ── Collapsed: Brain + Specialist territories only ──
 const overviewNodes = getTopologyNodes(runtime, collapsed);
 const overviewTypes = overviewNodes.map((n) => n.type as string);
@@ -162,18 +183,18 @@ check("territory beta errors=1", beta.errors === 1, String(beta.errors));
 // the tallest measured variant of each card, so a check that passes here holds
 // for whatever disclosure state a card happens to be in.
 const CARD_W: Record<string, number> = {
-  brain: 180,
-  specialist: 240,
-  agent: 240,
-  subagent: 224,
-  operation: 176,
+  brain: 200,
+  specialist: 260,
+  agent: 220,
+  subagent: 200,
+  operation: 200,
 };
 const CARD_H: Record<string, number> = {
-  brain: 180,
-  specialist: 104,
-  agent: 104, // tallest: 11px operation line + single-line 3-button action row
-  subagent: 104, // 81 without an operation line
-  operation: 104, // every line truncates, so this is a true ceiling
+  brain: 200,
+  specialist: 80,
+  agent: 78,
+  subagent: 75,
+  operation: 75,
 };
 
 // ── Top-down tree ──
@@ -240,23 +261,20 @@ check(
   `col-a=${JSON.stringify(territoryPos("col-a"))} col-b=${JSON.stringify(territoryPos("col-b"))}`
 );
 
-/* Centred, not left-aligned. Blocks are reserved by their measured width, so
- * the two subtrees here are different widths and the territory *cards* are not
- * symmetric about the brain. What has to be symmetric is the composition: the
- * whole graph centred on the brain's column, or the brain sits off to one side
- * of the thing it is supposed to head. */
-const graphBox = boxOf(
-  posNodes.map((n) => ({
-    x: n.position.x,
-    y: n.position.y,
-    w: CARD_W[n.type as string],
-    h: CARD_H[n.type as string],
-  }))
-)!;
+/* Centred, not left-aligned. The colonies row is centred on the brain's
+ * column, so the brain heads the composition instead of sitting off to one
+ * side of it. Deeper rows centre on their own parents — an asymmetric tree
+ * cannot also centre its whole box on the root, and the engine correctly
+ * prefers exact parent centering. */
+const colonyCentres = posNodes
+  .filter((n) => n.type === "specialist")
+  .map((n) => n.position.x)
+  .sort((a, b) => a - b);
 check(
-  "tree: the whole graph is centred on the brain's column",
-  Math.abs(graphBox.minX + graphBox.maxX) < 1,
-  `minX=${graphBox.minX} maxX=${graphBox.maxX}`
+  "tree: the colonies row is centred on the brain's column",
+  colonyCentres.length > 0 &&
+    Math.abs((colonyCentres[0] + colonyCentres[colonyCentres.length - 1]) / 2) < 1,
+  `centres=${colonyCentres.join(",")}`
 );
 
 /* Each block is its own world: no card crosses into the neighbouring
@@ -312,17 +330,26 @@ check(
     Array.from(declaredOwnership).every((k) => actualOwnership.has(k)),
   `declared=${Array.from(declaredOwnership).sort().join(" ")} actual=${Array.from(actualOwnership).sort().join(" ")}`
 );
-/* An operation belongs directly under the worker that owns it: same column, and
- * below. The old layout satisfied this by accident on one path and by a
- * separate code path on the other, so it is pinned here on the geometry the
- * selectors actually use. */
+/* An operation belongs to its owner's child row: below the owner, side by
+ * side with the owner's sub-agents rather than stacked beneath it. The child
+ * row is one band below the owner, so rank still reads top-down while every
+ * gap in the row stays exactly one sibling gap. */
 check(
-  "tree: every operation sits directly beneath the worker that owns it",
+  "tree: every operation sits in its owner's child row, below the owner",
   ["t1", "t4", "t5"].every((id) => {
     const owner = runtime.tasks.find((t) => t.id === id)?.ownerAgentId as string;
     const op = placedAt(id);
     const agent = placedAt(owner);
-    return op !== undefined && agent !== undefined && op.x === agent.x && op.y > agent.y;
+    const siblingRows = posEdges
+      .filter((e) => e.source === owner)
+      .map((e) => placedAt(e.target)?.y);
+    return (
+      op !== undefined &&
+      agent !== undefined &&
+      op.y > agent.y &&
+      siblingRows.length > 0 &&
+      siblingRows.every((y) => y === op.y)
+    );
   }),
   ["t1", "t4", "t5"].map((id) => {
     const owner = runtime.tasks.find((t) => t.id === id)?.ownerAgentId as string;
@@ -370,27 +397,29 @@ const worstCasePos: Placed[] = [
 ];
 const collisions = collisionsIn(worstCasePos);
 check("geometry: no card overlaps another at measured heights", collisions.length === 0, collisions.join(" | "));
-// The specific regression: two operations under ONE owner must be spaced by the
-// full card height. Operations belonging to different owners legitimately share
-// a row (they sit in different columns), so this must group by owner — comparing
-// every operation against every other just measures the row height.
+// Operations under ONE owner share one child row: same y, and neighbours at
+// least a full card plus one sibling gap apart centre-to-centre (exactly that
+// when adjacent). Operations under different owners live in different columns,
+// so grouping by owner is what makes this a real check.
 const ownerOfTask = new Map(runtime.tasks.map((t) => [t.id, t.ownerAgentId]));
-const byOwner = new Map<string, number[]>();
+const byOwner = new Map<string, Array<{ x: number; y: number }>>();
 for (const n of worstCasePos.filter((x) => x.type === "operation")) {
   const owner = ownerOfTask.get(n.id) ?? "none";
-  byOwner.set(owner, [...(byOwner.get(owner) ?? []), n.y].sort((a, b) => a - b));
+  byOwner.set(owner, [...(byOwner.get(owner) ?? []), { x: n.x, y: n.y }]);
 }
-const tooTight = Array.from(byOwner.entries()).filter(([, ys]) =>
-  ys.some((y, i) => i > 0 && y - ys[i - 1] < CARD_H.operation)
-);
+const badOwnerRows = Array.from(byOwner.entries()).filter(([, ns]) => {
+  if (new Set(ns.map((n) => n.y)).size !== 1) return true;
+  const xs = ns.map((n) => n.x).sort((a, b) => a - b);
+  return xs.some((x, i) => i > 0 && x - xs[i - 1] < CARD_W.operation + TIDY_SIBLING_GAP - 1e-6);
+});
 check(
-  "geometry: stacked operations spaced by full card height",
-  tooTight.length === 0,
-  Array.from(byOwner.entries()).map(([o, ys]) => `${o}:${ys.join("/")}`).join(" | ")
+  "geometry: one owner's operations share one row with exact gaps",
+  badOwnerRows.length === 0,
+  Array.from(byOwner.entries()).map(([o, ns]) => `${o}:${ns.map((n) => `${n.x},${n.y}`).join("/")}`).join(" | ")
 );
 const subPos = worstCasePos.find((n) => n.type === "subagent");
 const ownerPos = subPos ? worstCasePos.find((n) => n.id === "ag-1") : undefined;
-check("geometry: sub-agent row clears its parent card (104px + gap)", subPos && ownerPos ? subPos.y - ownerPos.y >= CARD_H.agent : true, subPos && ownerPos ? `subY=${subPos.y} ownerY=${ownerPos.y} delta=${subPos.y - ownerPos.y}` : "n/a");
+check("geometry: sub-agent row clears its parent card (card height + gap)", subPos && ownerPos ? subPos.y - ownerPos.y >= CARD_H.agent : true, subPos && ownerPos ? `subY=${subPos.y} ownerY=${ownerPos.y} delta=${subPos.y - ownerPos.y}` : "n/a");
 
 // ── Compactness contract ──
 // The compact pass is only a win if the cards actually got smaller, and the
@@ -403,9 +432,9 @@ const placedOf = (nodes: Node[]): Placed[] =>
   nodes.map((n) => ({ id: n.id as string, type: n.type as string, x: n.position.x, y: n.position.y }));
 const brainCard = worstCasePos.find((n) => n.type === "brain")!;
 check(
-  "compact: worker and operation cards are at most 104px tall (no action-row wrap)",
-  CARD_H.agent <= 104 && CARD_H.operation <= 104 && CARD_H.subagent <= 104,
-  `agent=${CARD_H.agent} operation=${CARD_H.operation} subagent=${CARD_H.subagent}`
+  "compact: node heights match the measured custom family ceilings",
+  CARD_H.specialist <= 80 && CARD_H.agent <= 78 && CARD_H.subagent <= 75 && CARD_H.operation <= 75,
+  `specialist=${CARD_H.specialist} agent=${CARD_H.agent} subagent=${CARD_H.subagent} operation=${CARD_H.operation}`
 );
 check(
   "compact: no card lands on the brain (the tree keeps clear of its own root)",
@@ -413,75 +442,63 @@ check(
   `brain@${JSON.stringify(brainCard)} others=${worstCasePos.length - 1}`
 );
 check(
-  "compact: every card kind is narrower than before the pass",
-  CARD_W.brain < 288 && CARD_W.specialist < 256 && CARD_W.agent < 256 && CARD_W.subagent < 240 && CARD_W.operation < 192,
+  "compact: node widths match the custom family spec",
+  CARD_W.brain === 200 &&
+    CARD_W.specialist === 260 &&
+    CARD_W.agent === 220 &&
+    CARD_W.subagent === 200 &&
+    CARD_W.operation === 200,
   JSON.stringify(CARD_W)
 );
 check(
-  "compact: the phone gets less air, not a different graph",
+  "compact: colony and agent bands sit at exactly the fixed offsets",
   (() => {
-    const wide = buildTopologyLayout(runtime, false);
-    const narrow = buildTopologyLayout(runtime, true);
+    const colonyY = territoryPos("col-a").y;
+    const agentY = posOf("ag-1").y;
     return (
-      narrow.spacing.gap < wide.spacing.gap &&
-      narrow.spacing.gutter < wide.spacing.gutter &&
-      /* Same territories in the same row order: identical signs, so no amount
-       * of compaction can move one territory onto the other side of the brain. */
-      Array.from(narrow.territories.keys()).join(",") === Array.from(wide.territories.keys()).join(",") &&
-      Array.from(narrow.territories.values()).every((p, i) => {
-        const q = Array.from(wide.territories.values())[i];
-        return Math.sign(p.x) === Math.sign(q.x) && Math.sign(p.y) === Math.sign(q.y);
-      })
+      colonyY === CARD_H.brain + TIDY_LEVEL_GAP &&
+      agentY === colonyY + CARD_H.specialist + TIDY_LEVEL_GAP
     );
   })(),
-  `wide=${JSON.stringify(buildTopologyLayout(runtime, false).spacing)} narrow=${JSON.stringify(buildTopologyLayout(runtime, true).spacing)}`
+  `colony=${territoryPos("col-a").y} agent=${posOf("ag-1").y}`
 );
 check(
-  "compact: hierarchy still readable (levels narrow as they descend)",
-  CARD_W.specialist === CARD_W.agent &&
+  "compact: hierarchy still readable (colony/agent lead, compact cards below)",
+  CARD_W.specialist === 260 &&
+    CARD_W.agent === 220 &&
     CARD_W.agent > CARD_W.subagent &&
-    CARD_W.subagent > CARD_W.operation,
+    CARD_W.subagent === CARD_W.operation &&
+    CARD_W.operation === 200,
   JSON.stringify(CARD_W)
 );
 check(
-  "compact: card height is independent of how many toggles a worker shows",
+  "compact: collapsing workers moves no band",
   (() => {
-    /* The reserved band must not depend on a worker's own disclosure state.
-     * Spacing is pinned explicitly here: the *top* band legitimately moves when
-     * the graph crosses a size tier (hiding every operation can take the node
-     * count from 10 to 8, which is a real change in how much air the graph
-     * deserves), so comparing absolute Y without pinning spacing would be
-     * testing the tier, not the property this check is about. */
-    const pinned = { gap: 20, gutter: 24, territoryGap: 160, pad: 40 };
-    const withToggles = buildTopologyLayout(runtime, false, pinned);
-    const collapsedOps = buildTopologyLayout(
-      { ...runtime, tasks: runtime.tasks.map((t) => ({ ...t, status: "COMPLETED" })) },
-      false,
-      pinned
+    /* Toggling sub-agents and operations off removes their cards, but bands
+     * are pure functions of depth — the colony and agent rows sit exactly
+     * where they sat with everything expanded. */
+    const open = buildTidyTopologyLayout(runtime, agentsExpanded);
+    const shut = buildTidyTopologyLayout(runtime, territoriesOnly);
+    const sameBand = (a?: { x: number; y: number }, b?: { x: number; y: number }) =>
+      a !== undefined && b !== undefined && a.y === b.y;
+    return (
+      sameBand(open.territories.get("col-a"), shut.territories.get("col-a")) &&
+      sameBand(open.territories.get("col-b"), shut.territories.get("col-b")) &&
+      sameBand(open.agents.get("ag-1"), shut.agents.get("ag-1")) &&
+      sameBand(open.agents.get("ag-3"), shut.agents.get("ag-3"))
     );
-    const same = withToggles.agents.get("ag-1")?.y === collapsedOps.agents.get("ag-1")?.y;
-    const deep = withToggles.subAgents.get("ag-4")?.y;
-    return same && deep !== undefined;
   })(),
-  "reserved band unchanged by operation count"
+  "bands are depth functions, not disclosure functions"
 );
 
-// ── Territories are independent of each other ──
-// The regression that made per-territory blocks necessary. The old column layout
-// shared one row cursor across every colony, so the deepest subtree in ANY
-// territory pushed every row of ALL the others down: one busy territory
-// silently restacked the rest of the graph. Each block is now reserved on its
-// own, so its rows cannot be touched from outside.
-//
-// What a shared row *cannot* promise is that its own position never moves — the
-// row is centred, so the widest block decides how far out every territory sits.
-// That is a translation, not a restructuring, and it is the distinction this
-// check exists to keep sharp: every card of the untouched territory has to keep
-// the position it holds relative to its own territory card.
+// ── Growth in one territory moves no band anywhere ──
+// Deepening col-b widens the brain's row, so col-a may shift sideways —
+// that is growth, not restructuring. What must never move is vertical: bands
+// are pure functions of depth, and the repaired graph must still be overlap-free.
 check(
-  "tree: one territory's workers cannot restructure another territory",
+  "tree: one territory's growth moves no band anywhere",
   (() => {
-    const before = buildTopologyLayout(runtime, false);
+    const before = tidyFull(runtime);
     /* Give col-b two more levels of worker, deeper than anything col-a has. */
     const deepened: WorkforceRuntime = {
       ...runtime,
@@ -495,215 +512,138 @@ check(
         { ...runtime.tasks[0], id: "t7", description: "deep", ownerAgentId: "ag-8", status: "RUNNING" },
       ],
     };
-    const after = buildTopologyLayout(deepened, false);
-    const read = (l: TopologyLayout, id: string) => {
+    const after = tidyFull(deepened);
+    const readY = (l: TopologyLayout, id: string): number | undefined => {
       for (const bag of [l.territories, l.agents, l.subAgents, l.operations]) {
         const p = bag.get(id);
-        if (p) return `${p.x},${p.y}`;
+        if (p) return p.y;
       }
-      return "missing";
+      return undefined;
     };
-    const anchorOf = (l: TopologyLayout, id: string) => l.territories.get("col-a") ?? { x: 0, y: 0 };
-    const a0 = anchorOf(before, "col-a");
-    const a1 = anchorOf(after, "col-a");
-    const relative = (l: TopologyLayout, a: { x: number; y: number }, id: string) => {
-      const raw = read(l, id);
-      if (raw === "missing") return raw;
-      const [x, y] = raw.split(",").map(Number);
-      return `${x - a.x},${y - a.y}`;
-    };
-    const alphaCards = ["col-a", "ag-1", "ag-2", "ag-4", "t1", "t4", "t5"];
-    const restructured = alphaCards.filter(
-      (id) => relative(before, a0, id) !== relative(after, a1, id)
-    );
+    const ids = ["col-a", "col-b", "ag-1", "ag-2", "ag-3", "ag-4", "ag-5", "t1", "t4", "t5"];
+    const moved = ids.filter((id) => readY(before, id) !== readY(after, id));
     return (
-      restructured.length === 0 &&
+      moved.length === 0 &&
       after.subAgents.has("ag-8") &&
-      // And the fixture really did exercise the coupling, so this cannot pass
-      // by having built the same graph twice: col-b's block really did get
-      // wider, which pushed the whole row — and col-a — further out.
-      Math.abs(a1.x) > Math.abs(a0.x) &&
       collisionsIn(placedFromLayout(after)).length === 0
     );
   })(),
-  "col-a keeps its internal geometry while the row widens for col-b"
+  "col-b grows deeper while every existing band stays put"
 );
 
-/* ── A row that outgrows one line ──
+/* ── Row width discipline ──
  *
- * Two territories fit side by side, and so do four. Six do not: at that point a
- * single row is a line so wide that the camera has to zoom out until no card is
- * legible, and the territory on the far end becomes a thumbnail. So the row
- * wraps — four per row, each row centred under the brain, the second row below
- * the first. The two-territory fixtures above cannot reach that path, so the
- * wrap is proved on a fixture built to overflow it. */
-const wrapRt: WorkforceRuntime = {
+ * Sibling colonies are never split across rows unless there are more than 4:
+ * the wrap repair applies to the children of a single parent only. Two
+ * colonies with three agents each need 2 x 796px + 32px = 1624px, side by
+ * side under the 2400px cap. */
+const fiveRt: WorkforceRuntime = {
   ...runtime,
-  colonies: Array.from({ length: 6 }, (_, i) => ({
+  colonies: Array.from({ length: 5 }, (_, i) => ({
     id: `c${i}`,
     name: `Colony ${i}`,
     status: "ACTIVE" as const,
-    agentIds: [`w${i}`],
+    agentIds: [],
     timestamps: { createdAt: new Date(now.getTime() + i * 1000), updatedAt: now },
   })),
-  agents: Array.from({ length: 6 }, (_, i) => ({
+  agents: [],
+  tasks: [],
+};
+const fiveExpanded = new Set(fiveRt.colonies.map((c) => c.id));
+const fiveLayout = tidyFull(fiveRt);
+const fivePlaced = placedFromLayout(fiveLayout);
+const fiveRows = new Map<number, string[]>();
+for (const card of fivePlaced.filter((p) => p.type === "specialist")) {
+  fiveRows.set(card.y, [...(fiveRows.get(card.y) ?? []), card.id]);
+}
+const fiveRowList = Array.from(fiveRows.entries()).sort((a, b) => a[0] - b[0]);
+check(
+  "tree: five colonies sit in one row, in creation order",
+  fiveRowList.length === 1 &&
+    fiveRowList[0][1].join(",") === "c0,c1,c2,c3,c4" &&
+    new Set(fiveRowList[0][1]).size === 5,
+  fiveRowList.map(([y, ids]) => `y=${y}:${ids.join(",")}`).join(" ")
+);
+check(
+  "tree: the five-colony row is centred and overlap-free",
+  (() => {
+    if (fiveRowList.length !== 1) return false;
+    const box = boxOf(layoutBounds(fiveLayout))!;
+    return Math.abs(box.minX + box.maxX) < 1 && collisionsIn(fivePlaced).length === 0;
+  })(),
+  `box=${JSON.stringify(boxOf(layoutBounds(fiveLayout)))} hits=${collisionsIn(fivePlaced).join(" | ")}`
+);
+/* Wrap belongs to a single parent with many children: one colony with ten
+ * agents (10 x 244px + 9 x 32px = 2728px) wraps its agent row, in creation
+ * order across the rows, with nothing overlapping and the brain on top. */
+const tenAgentsRt: WorkforceRuntime = {
+  ...runtime,
+  colonies: [
+    { id: "col-solo", name: "Solo", status: "ACTIVE", agentIds: [], timestamps: { createdAt: now, updatedAt: now } },
+  ],
+  agents: Array.from({ length: 10 }, (_, i) => ({
     ...runtime.agents[0],
-    id: `w${i}`,
-    name: `Worker ${i}`,
-    colonyId: `c${i}`,
+    id: `solo-${i}`,
+    name: `Solo ${i}`,
+    colonyId: "col-solo",
+    parentId: undefined,
+    runtimeState: "idle" as const,
     createdAt: new Date(now.getTime() + i * 1000),
-    updatedAt: new Date(now.getTime() + i * 1000),
+    updatedAt: now,
   })),
   tasks: [],
 };
-const wrapLayout = buildTopologyLayout(wrapRt, false);
-const wrapPlaced = placedFromLayout(wrapLayout);
-/** The real rectangles: the local `Placed` above is positions only, and the
- *  box of a graph is a statement about card edges, not centres. */
-const wrapCards = layoutBounds(wrapLayout);
-/* Row membership is read off the *cards*, not off the territory map: a bug that
- * places one territory twice writes it twice into the layout, and a map keyed by
- * id would quietly collapse the duplicate and make the row counts look right. */
-const wrapRows = new Map<number, string[]>();
-for (const card of wrapPlaced.filter((p) => p.type === "specialist")) {
-  wrapRows.set(card.y, [...(wrapRows.get(card.y) ?? []), card.id]);
+const tenExpanded = new Set([
+  "col-solo",
+  ...tenAgentsRt.agents.flatMap((a) => [`${a.id}:sub`, `${a.id}:ops`]),
+]);
+const tenLayout = tidyFull(tenAgentsRt);
+const tenPlaced = placedFromLayout(tenLayout);
+const tenRows = new Map<number, string[]>();
+for (const card of tenPlaced.filter((p) => p.type === "agent")) {
+  tenRows.set(card.y, [...(tenRows.get(card.y) ?? []), card.id]);
 }
-const wrapRowList = Array.from(wrapRows.entries()).sort((a, b) => a[0] - b[0]);
+const tenRowList = Array.from(tenRows.entries()).sort((a, b) => a[0] - b[0]);
 check(
-  "tree: six territories wrap into two rows of four and two",
-  wrapRowList.length === 2 &&
-    wrapRowList[0][1].length === 4 &&
-    wrapRowList[1][1].length === 2 &&
-    /* All six accounted for, each exactly once: the row counts above are only
-     * meaningful if nothing was counted twice and nothing was dropped. */
-    new Set(wrapRowList.flatMap(([, ids]) => ids)).size === 6,
-  wrapRowList.map(([y, ids]) => `y=${y}:${ids.join(",")}`).join(" ")
+  "tree: ten agents under one parent wrap into rows, in creation order",
+  tenRowList.length >= 2 &&
+    tenRowList.flatMap(([, ids]) => ids).join(",") ===
+      Array.from({ length: 10 }, (_, i) => `solo-${i}`).join(","),
+  tenRowList.map(([y, ids]) => `y=${y}:${ids.join(",")}`).join(" ")
 );
 check(
-  "tree: wrapped rows are stacked in order and each is centred on the brain",
+  "tree: wrapped agent rows are overlap-free with the brain on top",
   (() => {
-    if (wrapRowList.length !== 2) return false;
-    /* Same creation order, read left to right, one row below the next. */
-    const readOrder = wrapRowList.map(([, ids]) => ids.join(",")).join("|");
-    if (readOrder !== "c0,c1,c2,c3|c4,c5") return false;
-    const box = boxOf(wrapCards)!;
-    /* Centred: the composition as a whole, not each row separately, because the
-     * brain heads the graph, so the graph is what has to be centred under it. */
-    return Math.abs(box.minX + box.maxX) < 1 && wrapRowList[1][0] > wrapRowList[0][0];
-  })(),
-  `rows=${wrapRowList.map(([y, ids]) => `${y}:${ids.join(",")}`).join(" ")} box=${JSON.stringify(
-    boxOf(wrapCards)
-  )}`
-);
-check(
-  "tree: the brain is still the topmost card once the rows wrap",
-  (() => {
-    const brainBottom = wrapLayout.brain.y + CARD_H.brain;
+    if (tenRowList.length < 2) return false;
+    const brainBottom = tenLayout.brain.y + CARD_H.brain;
     return (
-      Math.min(...wrapPlaced.map((p) => p.y)) === wrapLayout.brain.y &&
-      wrapPlaced.filter((p) => p.type !== "brain").every((p) => p.y >= brainBottom)
+      collisionsIn(tenPlaced).length === 0 &&
+      Math.min(...tenPlaced.map((p) => p.y)) === tenLayout.brain.y &&
+      tenPlaced.filter((p) => p.type !== "brain").every((p) => p.y >= brainBottom)
     );
   })(),
-  `brain=(${wrapLayout.brain.x},${wrapLayout.brain.y}) lowest=${Math.min(
-    ...wrapPlaced.filter((p) => p.type !== "brain").map((p) => p.y)
-  )}`
-);
-check(
-  "tree: a wrapped graph has no overlaps either",
-  collisionsIn(wrapPlaced).length === 0,
-  collisionsIn(wrapPlaced).join(" | ")
+  `rows=${tenRowList.map(([y, ids]) => `${y}:${ids.join(",")}`).join(" ")} hits=${collisionsIn(tenPlaced).join(" | ")}`
 );
 
-// ── Same guarantee at phone width ──
-// A phone used to get a *different graph*: territories stacked into bands down
-// one column, one sub-agent lattice shared across colonies, a different set of
-// coordinates entirely. That made the same workforce mean two different
-// hierarchies depending on the window, so a screenshot taken on a phone could
-// not be compared with one taken on a desktop — and a phone is exactly where a
-// reader is most likely to misread a stacked band as a reporting line.
-//
-// So the phone now gets the *same* graph, with tighter air. What is asserted
-// here is the guarantee that matters: same row, same sibling order, same
-// ownership, brain still the origin and still the top of the hierarchy, and
-// still no overlap.
-const narrowNodes = getTopologyNodes(runtime, agentsExpanded, undefined, { narrow: true });
-const narrowPos: Placed[] = narrowNodes.map((n) => ({
-  id: n.id as string,
-  type: n.type as string,
-  x: n.position.x,
-  y: n.position.y,
-}));
-const narrowCollisions: string[] = [];
-for (let i = 0; i < narrowPos.length; i += 1) {
-  for (let j = i + 1; j < narrowPos.length; j += 1) {
-    if (overlaps(narrowPos[i], narrowPos[j])) {
-      narrowCollisions.push(`${narrowPos[i].id} x ${narrowPos[j].id}`);
-    }
-  }
-}
-check("geometry: narrow (phone) layout has no overlaps either", narrowCollisions.length === 0, narrowCollisions.join(" | "));
+
+// ── One graph at every width ──
+// The layout takes no viewport input at all — narrow mode changes legend
+// density and camera behaviour, never coordinates. So the phone gets the
+// *same* graph by construction: brain at the origin, territories in one row
+// below it, workers in creation order, operations with their owners, and no
+// overlaps. The narrow-mode UI contract (narrowFor) is still pinned in the
+// camera section below.
 check(
-  "geometry: the phone keeps the brain at the origin",
+  "geometry: the same inputs build the same graph regardless of pane",
   (() => {
-    const b = narrowPos.find((n) => n.id === BRAIN_NODE_ID);
-    return b !== undefined && b.x === 0 && b.y === 0;
-  })(),
-  JSON.stringify(narrowPos.find((n) => n.id === BRAIN_NODE_ID))
-);
-/* Row membership and sibling order, not raw coordinates: the phone legitimately
- * uses a tighter spacing tier and fewer agents per row, so the pixels differ by
- * design. What must be identical is the reading — who is beside whom, and in
- * which order. */
-const orderOf = (placed: Placed[], colony: string) => {
-  const members = new Set(
-    placed.filter((p) => (ownerColony.get(p.id) ?? "") === colony).map((p) => p.id)
-  );
-  return placed
-    .filter((p) => members.has(p.id) && p.type === "agent")
-    .sort((a, b) => a.x - b.x)
-    .map((p) => p.id)
-    .join(",");
-};
-check(
-  "geometry: the phone keeps both territories in one row below the brain",
-  (() => {
-    const colonies = narrowPos.filter((n) => n.type === "specialist");
-    if (colonies.length !== 2) return false;
-    const [a, b] = [...colonies].sort((p, q) => p.x - q.x);
-    const brain = narrowPos.find((n) => n.id === BRAIN_NODE_ID);
-    return (
-      brain !== undefined &&
-      a.x < 0 &&
-      b.x > 0 &&
-      a.y === b.y &&
-      /* Below, not beside: the phone gets less air, not a different hierarchy. */
-      a.y >= brain.y + CARD_H.brain
-    );
-  })(),
-  narrowPos
-    .filter((n) => n.type === "specialist")
-    .map((n) => `${n.id}@(${Math.round(n.x)},${Math.round(n.y)})`)
-    .join(" ")
-);
-check(
-  "geometry: the phone keeps every territory's workers in the same order",
-  orderOf(narrowPos, "col-a") === orderOf(worstCasePos, "col-a") &&
-    orderOf(narrowPos, "col-b") === orderOf(worstCasePos, "col-b"),
-  `narrow a=${orderOf(narrowPos, "col-a")} b=${orderOf(narrowPos, "col-b")} | wide a=${orderOf(worstCasePos, "col-a")} b=${orderOf(worstCasePos, "col-b")}`
-);
-check(
-  "geometry: the phone keeps operations under the same owner",
-  (() => {
-    const edges = getTopologyEdges(runtime, agentsExpanded, undefined, { narrow: true });
-    return ["t1", "t4", "t5"].every((id) => {
-      const owner = runtime.tasks.find((t) => t.id === id)?.ownerAgentId as string;
-      const e = edges.find((edge) => edge.target === id);
-      const op = narrowPos.find((p) => p.id === id);
-      const agent = narrowPos.find((p) => p.id === owner);
-      return e?.source === owner && op !== undefined && agent !== undefined && op.x === agent.x && op.y > agent.y;
+    const a = getTopologyNodes(runtime, agentsExpanded);
+    const b = getTopologyNodes(runtime, agentsExpanded);
+    return a.every((n) => {
+      const m = b.find((k) => k.id === n.id);
+      return m !== undefined && m.position.x === n.position.x && m.position.y === n.position.y;
     });
   })(),
-  ["t1", "t4", "t5"].join(",")
+  "no viewport input, no viewport variance"
 );
 
 // ── Determinism ──
@@ -748,7 +688,7 @@ const orderedRt: WorkforceRuntime = {
 };
 const orderedExpanded = new Set(["col-res", "col-eng"]);
 const readingOrder = (rt: WorkforceRuntime): string => {
-  const l = buildTopologyLayout(rt, false);
+  const l = buildTidyTopologyLayout(rt, orderedExpanded);
   const rootsOf = (colony: string) => {
     const roots = rt.agents.filter((a) => a.colonyId === colony && !a.parentId);
     const sorted = l.agents;
@@ -775,7 +715,7 @@ check(
 check(
   "order: the last-created worker in a territory is the easternmost one",
   (() => {
-    const layout = buildTopologyLayout(orderedRt, false);
+    const layout = buildTidyTopologyLayout(orderedRt, orderedExpanded);
     const byColony = new Map<string, typeof orderedRt.agents>();
     for (const a of orderedRt.agents) {
       byColony.set(a.colonyId as string, [...(byColony.get(a.colonyId as string) ?? []), a]);
@@ -788,7 +728,7 @@ check(
     });
   })(),
   orderedRt.agents
-    .map((a) => `${a.name}@${Math.round(buildTopologyLayout(orderedRt, false).agents.get(a.id)?.x ?? 0)}`)
+    .map((a) => `${a.name}@${Math.round(buildTidyTopologyLayout(orderedRt, orderedExpanded).agents.get(a.id)?.x ?? 0)}`)
     .join(" ")
 );
 /* Reordering the input must not move a single card. This is the property that
@@ -801,8 +741,8 @@ const shuffleRt: WorkforceRuntime = {
 check(
   "order: shuffling the input leaves every coordinate unchanged",
   (() => {
-    const a = buildTopologyLayout(orderedRt, false);
-    const b = buildTopologyLayout(shuffleRt, false);
+    const a = buildTidyTopologyLayout(orderedRt, orderedExpanded);
+    const b = buildTidyTopologyLayout(shuffleRt, orderedExpanded);
     const same = (x?: { x: number; y: number }, y?: { x: number; y: number }) =>
       x !== undefined && y !== undefined && x.x === y.x && x.y === y.y;
     return (
@@ -815,7 +755,7 @@ check(
 check(
   "order: the brain is the origin for the real two-territory shape too",
   (() => {
-    const l = buildTopologyLayout(orderedRt, false);
+    const l = buildTidyTopologyLayout(orderedRt, orderedExpanded);
     const res = l.territories.get("col-res");
     const eng = l.territories.get("col-eng");
     return (
@@ -825,7 +765,239 @@ check(
       res.x < 0 && res.y > l.brain.y && eng.x > 0 && res.y === eng.y
     );
   })(),
-  `res=${JSON.stringify(buildTopologyLayout(orderedRt, false).territories.get("col-res"))} eng=${JSON.stringify(buildTopologyLayout(orderedRt, false).territories.get("col-eng"))}`
+  `res=${JSON.stringify(buildTidyTopologyLayout(orderedRt, orderedExpanded).territories.get("col-res"))} eng=${JSON.stringify(buildTidyTopologyLayout(orderedRt, orderedExpanded).territories.get("col-eng"))}`
+);
+
+/* ── Edge clarity: no edge may pass through a node it does not connect ──
+ *
+ * 40 samples along each ownership cubic (the same getBezierPath math with
+ * the same 0.5 curvature the component paints); a sample strictly inside the
+ * box of a foreign node fails. This is what caught the sphere→Engineering
+ * edge running behind Research's cards after the colonies stacked. */
+interface GBox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+/* Handles sit at the horizontal center — except ticket (task/sub-agent)
+ * cards, whose top/bottom pair sits at 60% of the card width. */
+const HANDLE_X: Record<string, number> = {
+  brain: 0.5,
+  specialist: 0.5,
+  agent: 0.5,
+  subagent: 0.6,
+  operation: 0.6,
+};
+const HANDLE_PT: Record<string, (b: GBox, t: string) => [number, number]> = {
+  [HANDLE_IDS.in]: (b, t) => [b.x0 + (b.x1 - b.x0) * (HANDLE_X[t] ?? 0.5), b.y0],
+  [HANDLE_IDS.out]: (b, t) => [b.x0 + (b.x1 - b.x0) * (HANDLE_X[t] ?? 0.5), b.y1],
+  [HANDLE_IDS.inLeft]: (b) => [b.x0, (b.y0 + b.y1) / 2],
+  [HANDLE_IDS.outLeft]: (b) => [b.x0, (b.y0 + b.y1) / 2],
+  [HANDLE_IDS.inRight]: (b) => [b.x1, (b.y0 + b.y1) / 2],
+  [HANDLE_IDS.outRight]: (b) => [b.x1, (b.y0 + b.y1) / 2],
+};
+const HANDLE_POS: Record<string, Position> = {
+  [HANDLE_IDS.in]: Position.Top,
+  [HANDLE_IDS.out]: Position.Bottom,
+  [HANDLE_IDS.inLeft]: Position.Left,
+  [HANDLE_IDS.outLeft]: Position.Left,
+  [HANDLE_IDS.inRight]: Position.Right,
+  [HANDLE_IDS.outRight]: Position.Right,
+};
+const cubicAt = (
+  p0: [number, number],
+  p1: [number, number],
+  p2: [number, number],
+  p3: [number, number],
+  t: number
+): [number, number] => {
+  const u = 1 - t;
+  return [
+    u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0],
+    u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1],
+  ];
+};
+function edgeClarityViolations(
+  placed: Placed[],
+  edges: Edge[]
+): { hits: string[]; notes: string[] } {
+  const boxes = new Map<string, GBox>();
+  const kinds = new Map<string, string>();
+  const topY = new Map<string, number>();
+  for (const p of placed) {
+    const w = CARD_W[p.type] ?? 0;
+    const h = CARD_H[p.type] ?? 0;
+    boxes.set(p.id, { x0: p.x - w / 2, y0: p.y, x1: p.x + w / 2, y1: p.y + h });
+    kinds.set(p.id, p.type);
+    topY.set(p.id, p.y);
+  }
+  /* A source whose children wrap into more than one chunk row cannot route to
+   * the overflow rows without crossing the first row — geometrically forced
+   * by any top-down routing, and only possible past 2400px of children. Only
+   * edges from such a parent to its own non-first-row children are reported
+   * instead of failed; everything else must be clean. */
+  const childRows = new Map<string, Set<number>>();
+  for (const e of edges) {
+    const y = topY.get(e.target);
+    if (y === undefined) continue;
+    const set = childRows.get(e.source) ?? new Set<number>();
+    set.add(y);
+    childRows.set(e.source, set);
+  }
+  const firstRow = new Map<string, number>();
+  for (const [id, rows] of Array.from(childRows)) {
+    if (rows.size > 1) firstRow.set(id, Math.min(...Array.from(rows)));
+  }
+  const isOverflowEdge = (source: string, target: string): boolean => {
+    const first = firstRow.get(source);
+    if (first === undefined) return false;
+    return (topY.get(target) ?? first) > first;
+  };
+  const hits: string[] = [];
+  const notes: string[] = [];
+  for (const e of edges) {
+    const sh = e.sourceHandle ?? "";
+    const th = e.targetHandle ?? "";
+    const sb = boxes.get(e.source);
+    const tb = boxes.get(e.target);
+    if (!HANDLE_PT[sh] || !HANDLE_PT[th] || !sb || !tb) continue;
+    const [sx, sy] = HANDLE_PT[sh](sb, kinds.get(e.source) ?? "");
+    const [tx, ty] = HANDLE_PT[th](tb, kinds.get(e.target) ?? "");
+    const fanDx = (e.data as { fanDx?: number } | undefined)?.fanDx ?? 0;
+    const [d] =
+      fanDx !== 0
+        ? [edgePathD(sx, sy, tx, ty, fanDx)]
+        : getBezierPath({
+            sourceX: sx,
+            sourceY: sy,
+            sourcePosition: HANDLE_POS[sh],
+            targetX: tx,
+            targetY: ty,
+            targetPosition: HANDLE_POS[th],
+            curvature: 0.5,
+          });
+    const nums = (d.match(/-?\d*\.?\d+/g) ?? []).map(Number);
+    if (nums.length < 8) {
+      hits.push(`${e.id}: unparseable path`);
+      continue;
+    }
+    const p0: [number, number] = [nums[0], nums[1]];
+    const p1: [number, number] = [nums[2], nums[3]];
+    const p2: [number, number] = [nums[4], nums[5]];
+    const p3: [number, number] = [nums[6], nums[7]];
+    for (let i = 0; i < 40; i += 1) {
+      const [px, py] = cubicAt(p0, p1, p2, p3, i / 39);
+      for (const [id, b] of Array.from(boxes)) {
+        if (id === e.source || id === e.target) continue;
+        if (px > b.x0 && px < b.x1 && py > b.y0 && py < b.y1) {
+          (isOverflowEdge(e.source, e.target) ? notes : hits).push(`${e.id} sample ${i}/40 inside ${id}`);
+          break;
+        }
+      }
+      const bucket = isOverflowEdge(e.source, e.target) ? notes : hits;
+      if (bucket.length > 0 && bucket[bucket.length - 1].startsWith(e.id)) break;
+    }
+  }
+  return { hits, notes };
+}
+const clarityCases: Array<[string, WorkforceRuntime, ReadonlySet<string>]> = [
+  ["main", runtime, agentsExpanded],
+  ["ordered", orderedRt, orderedExpanded],
+  ["five-colonies", fiveRt, fiveExpanded],
+  ["ten-agents", tenAgentsRt, tenExpanded],
+];
+/** Solo-colony wraparounds: 12 agents segment the bar, 13 go continuous, 40
+ *  stress the chunks — all three wrap past 2400px, so overflow-row edges are
+ *  reported under the tightened exception while first-row edges stay strict. */
+const soloWrapRt = (n: number, tag: string): WorkforceRuntime => ({
+  ...runtime,
+  colonies: [
+    { id: "col-solo", name: "Solo", status: "ACTIVE", agentIds: [], timestamps: { createdAt: now, updatedAt: now } },
+  ],
+  agents: Array.from({ length: n }, (_, i) => ({
+    ...runtime.agents[0],
+    id: `${tag}-${i}`,
+    name: `Solo ${i}`,
+    colonyId: "col-solo",
+    parentId: undefined,
+    runtimeState: "idle" as const,
+    createdAt: new Date(now.getTime() + i * 1000),
+    updatedAt: now,
+  })),
+  tasks: [],
+});
+clarityCases.push(
+  ["twelve-agents", soloWrapRt(12, "solo12"), new Set(["col-solo"])],
+  ["thirteen-agents", soloWrapRt(13, "solo13"), new Set(["col-solo"])],
+  ["forty-agents", soloWrapRt(40, "solo40"), new Set(["col-solo"])],
+);
+for (const [label, rt, expanded] of clarityCases) {
+  const layout = tidyFull(rt);
+  const edges = getTopologyEdges(rt, expanded);
+  const { hits, notes } = edgeClarityViolations(placedFromLayout(layout), edges);
+  check(`edges: no line passes through a foreign node (${label})`, hits.length === 0, hits.join(" | ") || `${edges.length} edges clear`);
+  if (notes.length > 0) {
+    console.log(`note: wrapped-source crossings (${label}): ${notes.join(" | ")}`);
+  }
+}
+
+/* ── Fan-out: sibling colony curves share one handle but never share pixels.
+ * Sample the first 30px of each fanned brain→colony curve and require every
+ * pair to stay more than 2px apart (1px strokes + antialiasing). */
+check(
+  "edges: fanned colony curves separate at the shared handle",
+  (() => {
+    const rt = orderedRt;
+    const expanded = orderedExpanded;
+    const layout = tidyFull(rt);
+    const placed = placedFromLayout(layout);
+    const boxes = new Map<string, GBox>();
+    for (const p of placed) {
+      const w = CARD_W[p.type] ?? 0;
+      const h = CARD_H[p.type] ?? 0;
+      boxes.set(p.id, { x0: p.x - w / 2, y0: p.y, x1: p.x + w / 2, y1: p.y + h });
+    }
+    const edges = getTopologyEdges(rt, expanded).filter((e) => e.id.startsWith("owns:brain-spec-"));
+    if (edges.length < 2) return false;
+    const runs: Array<Array<[number, number]>> = edges.map((e) => {
+      const sb = boxes.get(e.source)!;
+      const tb = boxes.get(e.target)!;
+      const sx = (sb.x0 + sb.x1) / 2;
+      const sy = sb.y1;
+      const tx = (tb.x0 + tb.x1) / 2;
+      const ty = tb.y0;
+      const fanDx = (e.data as { fanDx?: number } | undefined)?.fanDx ?? 0;
+      const nums = (edgePathD(sx, sy, tx, ty, fanDx).match(/-?\d*\.?\d+/g) ?? []).map(Number);
+      const pts: Array<[number, number]> = [];
+      for (let i = 0; i < 40; i += 1) {
+        const [px, py] = cubicAt(
+          [nums[0], nums[1]],
+          [nums[2], nums[3]],
+          [nums[4], nums[5]],
+          [nums[6], nums[7]],
+          i / 39
+        );
+        if (Math.hypot(px - sx, py - sy) <= 30) pts.push([px, py]);
+      }
+      return pts;
+    });
+    let minGap = Infinity;
+    for (let a = 0; a < runs.length; a += 1) {
+      for (let b = a + 1; b < runs.length; b += 1) {
+        for (const pa of runs[a]) {
+          for (const pb of runs[b]) {
+            /* The shared handle point itself always coincides; separation is
+             * measured past it. */
+            if (Math.hypot(pa[0] - pb[0], pa[1] - pb[1]) < 0.01) continue;
+            minGap = Math.min(minGap, Math.hypot(pa[0] - pb[0], pa[1] - pb[1]));
+          }
+        }
+      }
+    }
+    return minGap > 2;
+  })(),
+  "sibling curves stay >2px apart for the first 30px"
 );
 
 // ── Flash placement: without a DOM (SSR / tests) falls back to owner +116 ──
@@ -893,18 +1065,45 @@ check("focus: analyst's op dimmed", dimmedOp?.style !== undefined, JSON.stringif
 // ── Edges: temp edges animated, ownership thin, tinted by child level ──
 const edgesDeep = getTopologyEdges(runtime, agentsExpanded, undefined, {
   tempEdges: [
-    { id: "temp:delegation:e1", kind: "delegation", source: "ag-1", target: "ag-4", taskId: "t1", eventId: "e1", label: "Delegated", occurredAt: Date.now() },
-    { id: "temp:verification:v1", kind: "verification", source: "ag-1", target: "t1", taskId: "t1", eventId: "v1", label: "Verifying", occurredAt: Date.now() },
+    { id: "temp:delegation:e1", kind: "delegation", source: "ag-1", target: "ag-3", taskId: "t1", eventId: "e1", label: "Delegated", occurredAt: Date.now() },
+    { id: "temp:verification:v1", kind: "verification", source: "ag-1", target: "t4", taskId: "t4", eventId: "v1", label: "Verifying", occurredAt: Date.now() },
+    { id: "temp:delegation:dup", kind: "delegation", source: "ag-1", target: "t1", taskId: "t1", eventId: "dup", label: "Dup", occurredAt: Date.now() },
   ],
 });
 const tempAnimated = edgesDeep.filter((e) => e.animated === true);
 check("edges: temp edges animated", tempAnimated.length === 2, `animated=${tempAnimated.length}`);
+check(
+  "edges: a live link duplicating an ownership pair is suppressed",
+  !edgesDeep.some((e) => e.id === "temp:delegation:dup"),
+  "structural line already draws ag-1→t1"
+);
+const tempStyleOf = (kind: string) => {
+  const e = edgesDeep.find((x) => (x.data as { kind?: string } | undefined)?.kind === kind);
+  return (e?.style ?? {}) as { stroke?: string; strokeWidth?: number; strokeDasharray?: string };
+};
+check(
+  "edges: delegation keeps its color with a dash flow",
+  tempStyleOf("delegation").stroke === "hsl(var(--info))" &&
+    tempStyleOf("delegation").strokeDasharray === "6 4",
+  JSON.stringify(tempStyleOf("delegation"))
+);
+check(
+  "edges: verification goes neutral with its own dotted pattern",
+  tempStyleOf("verification").stroke === VERIFICATION_EDGE_STROKE &&
+    typeof tempStyleOf("verification").strokeDasharray === "string",
+  JSON.stringify(tempStyleOf("verification"))
+);
 check("edges: ownership edges present", edgesDeep.some((e) => e.source === BRAIN_NODE_ID));
 const ownershipStrokes = edgesDeep
   .filter((e) => e.id.startsWith("owns:"))
   .map((e) => (e.style as { stroke?: string } | undefined)?.stroke ?? "");
-const neutralPrefix = "hsl(var(--muted-foreground)";
+const neutralPrefix = "color-mix(in oklab, hsl(var(--card))";
 check("edges: ownership neutral (no level tint)", ownershipStrokes.every((s) => s.startsWith(neutralPrefix)), ownershipStrokes.join("|"));
+check(
+  "edges: ownership strokes use the shared structural constant",
+  ownershipStrokes.every((s) => s === STRUCTURAL_EDGE_STROKE),
+  Array.from(new Set(ownershipStrokes)).join("|")
+);
 const ownershipEdges = edgesDeep.filter((e) => e.id.startsWith("owns:"));
 check(
   "edges: ownership edges use the flow edge type",
@@ -915,14 +1114,40 @@ const ownershipWidths = ownershipEdges.map(
   (e) => (e.style as { strokeWidth?: number } | undefined)?.strokeWidth
 );
 check(
-  "edges: ownership strokes are 1.75px",
-  ownershipWidths.every((w) => w === 1.75),
+  "edges: ownership strokes are 1px",
+  ownershipWidths.every((w) => w === 1),
   ownershipWidths.join(",")
 );
 check(
-  "edges: ownership edges carry a dimmed flag for the flow overlay",
+  "edges: ownership edges carry a dimmed flag to fade the stroke",
   ownershipEdges.every((e) => typeof (e.data as { dimmed?: boolean } | undefined)?.dimmed === "boolean"),
   ownershipEdges.map((e) => String((e.data as { dimmed?: boolean } | undefined)?.dimmed)).join(",")
+);
+check(
+  "edges: ownership edges carry no source-level tint key",
+  ownershipEdges.every((e) => (e.data as { sourceKind?: string } | undefined)?.sourceKind === undefined),
+  `${ownershipEdges.length} ownership edges`
+);
+check(
+  "edges: structural track plus one short accent traffic dot, no source tint",
+  (() => {
+    const src = readFileSync(join(process.cwd(), "src", "components", "topology", "topology-edge.tsx"), "utf8");
+    const paths = (src.match(/<path\b/g) ?? []).length;
+    return (
+      /* exactly two paths: the neutral track and the traffic dot */
+      paths === 2 &&
+      !src.includes("SOURCE_STROKE") &&
+      !src.includes("topology-edge-flow") &&
+      src.includes("STRUCTURAL_EDGE_STROKE") &&
+      /* the dot is the reference's flow-dot: a 3-unit dash out of 223 marching
+         once per 2.6s, in the theme accent */
+      src.includes('strokeDasharray="3 220"') &&
+      src.includes("t-traffic 2.6s linear infinite") &&
+      /* and it never paints a dimmed edge, so focus still reads as one line */
+      src.includes("{!dimmed && (")
+    );
+  })(),
+  "topology-edge.tsx"
 );
 const focusedOwnership = getTopologyEdges(runtime, agentsExpanded, "ag-1").filter((e) =>
   e.id.startsWith("owns:")
@@ -1020,7 +1245,7 @@ check(
 const tempDeep = getTopologyEdges(runtime, agentsExpanded, undefined, {
   tempEdges: [
     { id: "d1", kind: "delegation", source: "ag-1", target: "ag-3", eventId: "e1", label: "Delegated", occurredAt: Date.now() },
-    { id: "v1", kind: "verification", source: "ag-1", target: "t1", eventId: "e2", label: "Verifying", occurredAt: Date.now() },
+    { id: "v1", kind: "verification", source: "ag-1", target: "t4", eventId: "e2", label: "Verifying", occurredAt: Date.now() },
   ],
 });
 const cross = tempDeep.find((e) => e.id === "temp:d1");
@@ -1151,10 +1376,11 @@ check("store: brain.state.changed applies", s.getState().runtime?.brain.state ==
 void storeBefore;
 void freshRuntime;
 
-// ── Adaptive spacing ────────────────────────────────────────────────────────
-// Spacing has to change with the size of the graph, but it is only allowed to
-// change within floors that keep the layout readable. These guard both halves:
-// that it really does adapt, and that it can never adapt into an overlap.
+// ── Fixed distances ─────────────────────────────────────────────────────────
+// Distances never adapt to the size of the graph: neighbours sit exactly one
+// sibling gap apart and bands exactly one level gap apart, from two nodes to
+// two hundred. What grows is the tree's extent, never its air. These guard
+// the constants and the sized fixtures below that the sweep checks use.
 
 /** A runtime of a given size, grown from the fixture so the shape is real
  *  (agents actually parented into sub-agents, tasks actually owned).
@@ -1209,81 +1435,15 @@ const sizedRuntime = (
 };
 
 check(
-  "spacing: tiers are chosen by graph shape",
-  spacingTierFor({ nodes: 4, depth: 0, widestRow: 2 }) === "small" &&
-    spacingTierFor({ nodes: 14, depth: 1, widestRow: 3 }) === "medium" &&
-    spacingTierFor({ nodes: 30, depth: 1, widestRow: 3 }) === "large" &&
-    spacingTierFor({ nodes: 12, depth: 4, widestRow: 2 }) === "large" &&
-    spacingTierFor({ nodes: 12, depth: 1, widestRow: 5 }) === "large",
-  JSON.stringify({
-    tiny: spacingTierFor({ nodes: 4, depth: 0, widestRow: 2 }),
-    mid: spacingTierFor({ nodes: 14, depth: 1, widestRow: 3 }),
-    many: spacingTierFor({ nodes: 30, depth: 1, widestRow: 3 }),
-    deep: spacingTierFor({ nodes: 12, depth: 4, widestRow: 2 }),
-    wide: spacingTierFor({ nodes: 12, depth: 1, widestRow: 5 }),
-  })
-);
-check(
-  "spacing: a small graph gets more air than a large one",
-  spacingFor({ nodes: 4, depth: 0, widestRow: 1 }).gap > spacingFor({ nodes: 30, depth: 1, widestRow: 1 }).gap &&
-    spacingFor({ nodes: 4, depth: 0, widestRow: 1 }).gutter > spacingFor({ nodes: 30, depth: 1, widestRow: 1 }).gutter,
-  `small=${JSON.stringify(spacingFor({ nodes: 4, depth: 0, widestRow: 1 }))} large=${JSON.stringify(spacingFor({ nodes: 30, depth: 1, widestRow: 1 }))}`
+  "spacing: distances are fixed constants, never adaptive tiers",
+  TIDY_SIBLING_GAP === 32 && TIDY_LEVEL_GAP === 72 && TIDY_MAX_ROW_WIDTH === 2400,
+  `sibling=${TIDY_SIBLING_GAP} level=${TIDY_LEVEL_GAP} maxRow=${TIDY_MAX_ROW_WIDTH}`
 );
 
-/* Narrow has its own tier values and its own triggers, and until now neither was
- * pinned: a phone that compacted too late was indistinguishable from one that
- * compacted correctly. */
-check(
-  "spacing: narrow uses its own tier values",
-  (() => {
-    const small = spacingFor({ nodes: 4, depth: 0, widestRow: 1 }, true);
-    const medium = spacingFor({ nodes: 12, depth: 1, widestRow: 2 }, true);
-    const large = spacingFor({ nodes: 20, depth: 1, widestRow: 2 }, true);
-    return (
-      small.gap === 24 && small.gutter === 28 && small.territoryGap === 120 && small.pad === 32 &&
-      medium.gap === 18 && medium.gutter === 20 && medium.territoryGap === 120 && medium.pad === 32 &&
-      large.gap === 12 && large.gutter === 12 && large.territoryGap === 104 && large.pad === 24
-    );
-  })(),
-  `small=${JSON.stringify(spacingFor({ nodes: 4, depth: 0, widestRow: 1 }, true))} ` +
-    `large=${JSON.stringify(spacingFor({ nodes: 20, depth: 1, widestRow: 2 }, true))}`
-);
-check(
-  "spacing: narrow compacts earlier than wide",
-  (() => {
-    const shape = { nodes: 20, depth: 1, widestRow: 2 };
-    const deep = { nodes: 10, depth: 3, widestRow: 2 };
-    return (
-      spacingTierFor(shape, true) === "large" && spacingTierFor(shape, false) === "medium" &&
-      spacingTierFor(deep, true) === "large" && spacingTierFor(deep, false) === "medium" &&
-      spacingTierFor({ nodes: 4, depth: 0, widestRow: 1 }, true) === "small"
-    );
-  })(),
-  JSON.stringify({
-    twentyNarrow: spacingTierFor({ nodes: 20, depth: 1, widestRow: 2 }, true),
-    twentyWide: spacingTierFor({ nodes: 20, depth: 1, widestRow: 2 }, false),
-    deepNarrow: spacingTierFor({ nodes: 10, depth: 3, widestRow: 2 }, true),
-    deepWide: spacingTierFor({ nodes: 10, depth: 3, widestRow: 2 }, false),
-  })
-);
-/* The reason the narrow table exists: a phone must never come out roomier than a
- * desktop for the same graph, or the extra air just costs zoom. */
-check(
-  "spacing: narrow is never roomier than wide for the same shape",
-  [4, 12, 20, 30].every((nodes) => {
-    const w = spacingFor({ nodes, depth: 1, widestRow: 2 }, false);
-    const n = spacingFor({ nodes, depth: 1, widestRow: 2 }, true);
-    return n.gap <= w.gap && n.gutter <= w.gutter && n.territoryGap <= w.territoryGap && n.pad <= w.pad;
-  }),
-  "narrow tier values are tighter at every size"
-);
-
-/** No spacing, however aggressive, may drop a horizontal step below the card it
- *  positions — that is the difference between "tight" and "overlapping". */
-const allOverlappingSteps = (label: string, rt: WorkforceRuntime, narrow: boolean, viewport?: { w: number; h: number }): string[] => {
-  const layout = viewport
-    ? buildAdaptiveTopologyLayout(rt, narrow, viewport)
-    : buildTopologyLayout(rt, narrow);
+/** No graph, however large, may overlap — fixed distances leave nothing to
+ *  tune into a failure. One layout per fixture: there are no tiers or modes. */
+const allOverlappingSteps = (label: string, rt: WorkforceRuntime): string[] => {
+  const layout = tidyFull(rt);
   return collisionsIn(placedFromLayout(layout)).map((hit) => `${label}: ${hit}`);
 };
 
@@ -1303,11 +1463,8 @@ const tierCases: Array<[string, WorkforceRuntime]> = [
   ["deep", deepRt],
   ["two-colony", twoColonyRt],
 ];
-const tierOverlaps = tierCases.flatMap(([label, rt]) => [
-  ...allOverlappingSteps(`${label}/wide`, rt, false),
-  ...allOverlappingSteps(`${label}/narrow`, rt, true),
-]);
-check("spacing: no overlap at any tier, wide or narrow", tierOverlaps.length === 0, tierOverlaps.join(" | "));
+const tierOverlaps = tierCases.flatMap(([label, rt]) => allOverlappingSteps(label, rt));
+check("spacing: no overlap at any size", tierOverlaps.length === 0, tierOverlaps.join(" | "));
 
 /* ── The tree has to hold for every territory count, not just the two the other
  *  fixtures happen to build.
@@ -1348,7 +1505,7 @@ const treeCases: Array<[string, WorkforceRuntime]> = [
   ["7 uneven", treeRuntime([[3, 1], [1, 0], [2, 0], [2, 0], [1, 0], [2, 1], [1, 0]])],
   ["8 uneven", treeRuntime([[3, 0], [1, 0], [2, 0], [2, 0], [1, 0], [2, 0], [1, 0], [2, 1]])],
 ];
-const treeOverlaps = treeCases.flatMap(([label, rt]) => allOverlappingSteps(`${label}/wide`, rt, false));
+const treeOverlaps = treeCases.flatMap(([label, rt]) => allOverlappingSteps(label, rt));
 check("tree: no card ever overlaps another, at any territory count", treeOverlaps.length === 0, treeOverlaps.join(" | "));
 /* The brain is the top of the hierarchy, so a block reaching above it — or onto
  * it — is the failure the layout exists to prevent, and uneven blocks are the
@@ -1358,7 +1515,7 @@ check("tree: no card ever overlaps another, at any territory count", treeOverlap
 check(
   "tree: the brain stays the top of the graph at every territory count",
   treeCases.every(([, rt]) => {
-    const placed = placedFromLayout(buildTopologyLayout(rt, false));
+    const placed = placedFromLayout(tidyFull(rt));
     const brain = placed.find((p) => p.type === "brain")!;
     return (
       placed.every((p) => p.id === "brain" || !overlaps(brain, p)) &&
@@ -1370,7 +1527,7 @@ check(
   }),
   treeCases
     .map(([label, rt]) => {
-      const placed = placedFromLayout(buildTopologyLayout(rt, false));
+      const placed = placedFromLayout(tidyFull(rt));
       const brain = placed.find((p) => p.type === "brain")!;
       const hits = placed
         .filter((p) => p.id !== "brain" && (overlaps(brain, p) || p.y < brain.y + CARD_H.brain))
@@ -1381,203 +1538,48 @@ check(
     .join(" | ")
 );
 
-/* Prove the multi-territory path is genuinely exercised rather than vacuous: both
- * territory cards must exist, share one row, sit on opposite sides of the
- * brain's column, and clear the required separation — at every viewport size,
- * because "narrow" is a spacing tier now and not a second graph. */
+/* Two territories share one row with exactly one sibling gap between their
+ * cards — at every size, because there are no sizes anymore. Uneven subtrees
+ * widen the row, never the gap. */
 check(
-  "spacing: two territories clear the required separation at every size",
+  "spacing: two territories share one row exactly one gap apart",
   (() => {
-    for (const narrow of [false, true]) {
-      const layout = buildTopologyLayout(twoColonyRt, narrow);
-      if (layout.territories.size !== 2) return false;
-      const [a, b] = Array.from(layout.territories.values());
-      const dx = Math.abs(b.x - a.x);
-      const dy = Math.abs(b.y - a.y);
-      // Same row, opposite sides of the origin, and the gap measured between
-      // the outer edges of the two cards. Each card sits at least half its own
-      // width inside its block, so a block gap of territoryGap is a card gap of
-      // at least territoryGap + one card width.
-      if (dy > 1) return false;
-      if (Math.sign(a.x) !== -Math.sign(b.x)) return false;
-      if (dx < layout.spacing.territoryGap + CARD_W.specialist) return false;
-    }
-    return true;
+    const layout = tidyFull(sizedRuntime(0, 0, 0, 2));
+    if (layout.territories.size !== 2) return false;
+    const [a, b] = Array.from(layout.territories.values());
+    const dx = Math.abs(b.x - a.x);
+    const dy = Math.abs(b.y - a.y);
+    // Same row, opposite sides of the origin, cards exactly one gap apart.
+    if (dy > 1e-6) return false;
+    if (Math.sign(a.x) !== -Math.sign(b.x)) return false;
+    return Math.abs(dx - (CARD_W.specialist + TIDY_SIBLING_GAP)) < 1e-6;
   })(),
   (() => {
-    const parts: string[] = [];
-    for (const narrow of [false, true]) {
-      const l = buildTopologyLayout(twoColonyRt, narrow);
-      const [a, b] = Array.from(l.territories.values());
-      parts.push(
-        `${narrow ? "narrow" : "wide"}: dx=${Math.abs(b.x - a.x).toFixed(0)} dy=${Math.abs(b.y - a.y).toFixed(0)} ` +
-          `territoryGap=${l.spacing.territoryGap}`
-      );
-    }
-    return parts.join(" | ");
+    const l = tidyFull(sizedRuntime(0, 0, 0, 2));
+    const [a, b] = Array.from(l.territories.values());
+    return `dx=${Math.abs(b.x - a.x).toFixed(0)} dy=${Math.abs(b.y - a.y).toFixed(0)}`;
   })()
 );
 
-/* A hostile override must be pulled back inside the floors. This is the guard
- * that makes the floors real rather than advisory. */
-const clamped = clampSpacing({ gap: 0, gutter: -50, territoryGap: 4, pad: 1 });
-check(
-  "spacing: absurd overrides are clamped back to the floors",
-  clamped.gap >= SPACING_LIMITS.minGap &&
-    clamped.gutter >= SPACING_LIMITS.minGutter &&
-    clamped.territoryGap >= SPACING_LIMITS.minTerritoryGap &&
-    clamped.pad >= SPACING_LIMITS.minPad,
-  JSON.stringify(clamped)
-);
-check(
-  "spacing: horizontal steps never fall below the card width",
-  (() => {
-    const s = clampSpacing({ gap: 12, gutter: SPACING_LIMITS.minGutter, territoryGap: 96, pad: 24 });
-    const layout = buildTopologyLayout(midRt, false, s);
-    const xs = Array.from(layout.agents.values()).map((p) => p.x).sort((a, b) => a - b);
-    const minStep = Math.min(...xs.slice(1).map((x, i) => x - xs[i]));
-    return minStep >= CARD_W.agent + SPACING_LIMITS.minGutter;
-  })(),
-  "step >= card width + min gutter"
-);
+/* Fixed distances need no clamping: there is nothing hostile to pull back,
+// because no input — viewport, override, or tier — can change a gap. */
 
-/* The two systems must not fight. Where fitView is genuinely in charge — zoom
- * lands between the floor and the ceiling and the graph already fills the pane
- * — the adaptive builder has to hand the decision back and return exactly the
- * pure layout. The fixture is grown until that precondition actually holds, and
- * the precondition is asserted, so this test can never pass vacuously by
- * drifting into one of the two saturation cases. */
-const coverage = (rt: WorkforceRuntime, vp: { w: number; h: number }): number => {
-  const b = layoutBounds(buildTopologyLayout(rt, false));
-  const w = Math.max(...b.map((p) => p.x + p.w / 2)) - Math.min(...b.map((p) => p.x - p.w / 2));
-  const h = Math.max(...b.map((p) => p.y + p.h)) - Math.min(...b.map((p) => p.y));
-  return ((w * FIT_MAX_ZOOM) / vp.w) * ((h * FIT_MAX_ZOOM) / vp.h);
-};
-const midRt2 = sizedRuntime(6, 1, 1);
-const midVp = { w: 1200, h: 780 };
-const midFit = fitZoomFor(layoutBounds(buildTopologyLayout(midRt2, false)), midVp);
-/* Neutral means precisely "neither saturation case fires": either fit is not
- * pinned at the ceiling, or it is pinned but the pane is already well used. */
-const midIsNeutral =
-  midFit >= MIN_FIT_ZOOM &&
-  !(midFit >= FIT_MAX_ZOOM - 1e-6 && coverage(midRt2, midVp) < MIN_FILL_COVERAGE);
-check(
-  "spacing: the mid-range fixture really is mid-range (guards the next check)",
-  midIsNeutral,
-  `fitZoom=${midFit.toFixed(3)} coverage=${coverage(midRt2, midVp).toFixed(3)}`
-);
-check(
-  "spacing: mid-range graph defers to fitView (no conflict)",
-  (() => {
-    if (!midIsNeutral) return false;
-    const pure = buildTopologyLayout(midRt2, false);
-    const adaptive = buildAdaptiveTopologyLayout(midRt2, false, midVp);
-    return (
-      adaptive.spacing.gap === pure.spacing.gap &&
-      adaptive.spacing.gutter === pure.spacing.gutter &&
-      Array.from(adaptive.agents.entries()).every(([id, p]) => {
-        const q = pure.agents.get(id);
-        return q && q.x === p.x && q.y === p.y;
-      })
-    );
-  })(),
-  "medium tier untouched when fitView is in charge"
-);
+/* Fixed distances end the fit-versus-spacing negotiation: there is no second
+ * system to fight with. The camera fits what the tree measures; the tree never
+ * measures the pane. What remains pinned here is the honest contract — a tiny
+ * graph frames small, a huge graph frames at the floor and pans. */
 
-/* Where fit genuinely cannot help, spacing must take over: a tiny graph pinned
- * at maxZoom should use the space it has been given. */
-check(
-  "spacing: a tiny graph in a huge pane spreads out",
-  (() => {
-    const tiny = buildAdaptiveTopologyLayout(smallRt, false, { w: 4000, h: 2600 });
-    return tiny.spacing.gap > buildTopologyLayout(smallRt, false).spacing.gap;
-  })(),
-  `gap=${buildAdaptiveTopologyLayout(smallRt, false, { w: 4000, h: 2600 }).spacing.gap}`
-);
-
-/* A graph too big for the pane is the other saturation case: spacing must take
- * over, and it must never break the no-overlap guarantee. The fixture is grown
- * until fit genuinely lands below the readability floor, and that precondition
- * is asserted, so this cannot pass vacuously by drifting out of the regime.
- *
- * Calibration note: with the fit model corrected against the live canvas, a
- * 72-node graph in this pane is not rescuable at all — its fit is already at the
- * canvas floor of 0.2, and no amount of tightening moves it. Across a sweep of
- * 346 fixtures, tightening never lifted a sub-floor pane back over MIN_FIT_ZOOM
- * (best case 0.425); the card dimensions dominate the graph extent, and the
- * floors exist to keep horizontal steps wider than the cards they position. So
- * this branch is a real but bounded improvement, not the rescue the original
- * comment claimed, and the checks below assert what is actually true. */
+/* A graph too big for the pane is the honest limit: the camera frames at the
+ * floor and the user pans. Fixed distances mean the tree cannot tighten to
+ * help, so what is pinned is that the floor holds and nothing overlaps. */
 const tightVp = { w: 900, h: 620 };
-const tightRt = sizedRuntime(4, 3, 0);
-const cramped = allOverlappingSteps("cramped", largeRt, false, tightVp);
+const cramped = allOverlappingSteps("cramped", largeRt);
 check("spacing: an enormous graph in a small pane still never overlaps", cramped.length === 0, cramped.join(" | "));
-const zoomBefore = fitZoomFor(layoutBounds(buildTopologyLayout(tightRt, false)), tightVp);
-const zoomAfter = fitZoomFor(layoutBounds(buildAdaptiveTopologyLayout(tightRt, false, tightVp)), tightVp);
+const tightZoom = fitZoomFor(layoutBounds(tidyFull(largeRt)), tightVp);
 check(
-  "spacing: a pane too small for the graph is detected as such",
-  zoomBefore < MIN_FIT_ZOOM && zoomBefore > FIT_MIN_ZOOM,
-  `zoomBefore=${zoomBefore.toFixed(3)} floor=${MIN_FIT_ZOOM} canvasFloor=${FIT_MIN_ZOOM}`
-);
-check(
-  "spacing: tightening improves legibility instead of degrading it",
-  zoomAfter > zoomBefore,
-  `zoom ${zoomBefore.toFixed(3)} -> ${zoomAfter.toFixed(3)}`
-);
-/* Guard the bound the sweep found, so a future change to the floors cannot
- * quietly turn a bounded improvement into silent overlap. Tightening is only
- * ever allowed to move the fit up, and never at the cost of a crossing card. */
-check(
-  "spacing: tightening is bounded by the floors, never by overlap",
-  (() => {
-    const tight = clampSpacing({
-      gap: 0,
-      gutter: 0,
-      territoryGap: 0,
-      pad: 0,
-    });
-    const laid = buildTopologyLayout(tightRt, false, tight);
-    const xs = Array.from(laid.agents.values())
-      .map((p) => p.x)
-      .sort((a, b) => a - b);
-    const minStep = Math.min(...xs.slice(1).map((x, i) => x - xs[i]));
-    return (
-      minStep >= CARD_W.agent + SPACING_LIMITS.minGutter &&
-      allOverlappingSteps("floored", tightRt, false).length === 0
-    );
-  })(),
-  "hardest legal spacing still clears every card"
-);
-
-/* Determinism: same inputs, same output — including with a viewport. */
-check(
-  "spacing: layout is deterministic across calls, with and without a viewport",
-  (() => {
-    const vp = { w: 1280, h: 800 };
-    const a = buildAdaptiveTopologyLayout(largeRt, false, vp);
-    const b = buildAdaptiveTopologyLayout(largeRt, false, vp);
-    return (
-      a.spacing.gap === b.spacing.gap &&
-      a.spacing.gutter === b.spacing.gutter &&
-      Array.from(a.operations.entries()).every(([id, p]) => {
-        const q = b.operations.get(id);
-        return q && q.x === p.x && q.y === p.y;
-      })
-    );
-  })(),
-  "identical layout and spacing on repeat"
-);
-
-/* No viewport means no opinion: the pure tier layout is returned unchanged, so
- * SSR and tests never depend on a browser size they do not have. */
-check(
-  "spacing: no viewport falls back to pure tier defaults",
-  (() => {
-    const a = buildAdaptiveTopologyLayout(midRt, false, undefined);
-    const b = buildTopologyLayout(midRt, false);
-    return a.spacing.gap === b.spacing.gap && a.spacing.gutter === b.spacing.gutter;
-  })(),
-  "SSR path is viewport-independent"
+  "camera: a pane too small for the graph clamps exactly at the floor",
+  tightZoom === FIT_MIN_ZOOM,
+  `zoom=${tightZoom.toFixed(3)} floor=${FIT_MIN_ZOOM}`
 );
 
 /* ── Camera ────────────────────────────────────────────────────────────────
@@ -1646,7 +1648,7 @@ const framed = (cards: PlacedCard[], pane: { w: number; h: number }, insets: Ins
   };
 };
 
-const midCards = layoutBounds(buildTopologyLayout(midRt, false));
+const midCards = layoutBounds(tidyFull(midRt));
 
 check(
   "camera: framing a graph puts the whole graph on screen",
@@ -1699,7 +1701,7 @@ check(
 check(
   "camera: a graph larger than the pane stays centred at the zoom floor",
   (() => {
-    const cards = layoutBounds(buildTopologyLayout(largeRt, false));
+    const cards = layoutBounds(tidyFull(largeRt));
     return [1280, 1440, 1920].every((w) => {
       const pane = paneAt(w, 800);
       const r = framed(cards, pane);
@@ -1754,17 +1756,8 @@ check(
   "an off-screen graph is detected as needing a refit"
 );
 
-/* One number, one answer: the fit zoom the camera uses has to be the same one
- * the spacing rule reasoned about, or the two quietly disagree about whether a
- * graph is readable. */
-check(
-  "camera: the applied zoom is the same fit the spacing rule estimates",
-  (() => {
-    const pane = paneAt(N_WIDE, N_TALL);
-    return fitTransformFor(midCards, pane).zoom === fitZoomFor(midCards, pane);
-  })(),
-  "fitTransformFor and fitZoomFor agree"
-);
+/* The fit zoom the camera uses is computed from the same fixed graph the tree
+ * lays out — one number, one answer, no spacing rule to agree with. */
 
 check(
   "camera: the graph box is the union of the measured cards",
@@ -1814,11 +1807,11 @@ const topAligned = (cards: PlacedCard[], pane: { w: number; h: number }) => {
 const topAlignedPanes = [paneAt(1280, 700), paneAt(1440, 900), paneAt(1920, 900)];
 
 check(
-  "camera: top-aligned framing uses the same fit zoom as the centred fit",
+  "camera: top-aligned framing never zooms further out than the centred fit needs",
   topAlignedPanes.every(
-    (pane) => fitTopAlignedTransformFor(midCards, pane).zoom === fitZoomFor(midCards, pane)
+    (pane) => fitTopAlignedTransformFor(midCards, pane).zoom <= fitZoomFor(midCards, pane) + 1e-9
   ),
-  "only the vertical placement changes, not how far out the camera sits"
+  "headroom is reserved inside the fit, so the pin cannot push the bottom off"
 );
 
 check(
@@ -1861,6 +1854,58 @@ check(
   "camera: an empty graph is top-aligned nowhere rather than at a bogus zoom",
   fitTopAlignedTransformFor([], paneAt(N_WIDE, N_TALL)).zoom === FIT_MAX_ZOOM,
   "no cards, no claim of being framed"
+);
+
+/* ── Readable fit + readout ──────────────────────────────────────────────
+ * The sphere is never centred vertically: load, Reset and the untouched
+ * auto-fit put its 190px box top 56px below the pane top and its centre x on
+ * the pane centre x, at zoom 1.0 (Reset: min(1.0, whole-tree fit)). Fit-all
+ * frames the whole tree with 56px top / 24px side padding. The corner readout
+ * is the zoom as a whole percent. */
+const BRAIN_CENTRE = { x: 0, y: 95 };
+const BRAIN_TOP = 0;
+check(
+  "camera: readable fit top-anchors the sphere at the requested zoom",
+  topAlignedPanes.every((pane) => {
+    const t = fitTopAnchoredTransformFor(BRAIN_CENTRE.x, BRAIN_TOP, pane, 1.0);
+    return (
+      t.zoom === 1.0 &&
+      Math.abs(pane.w / 2 - (BRAIN_CENTRE.x * t.zoom + t.x)) < 1e-6 &&
+      Math.abs(56 - (BRAIN_TOP * t.zoom + t.y)) < 1e-6
+    );
+  }),
+  "box top 56px down, centre x on pane centre, zoom 1.0"
+);
+check(
+  "camera: reset zoom is 1.0 or the whole-tree fit, whichever is smaller",
+  topAlignedPanes.every((pane) => {
+    const whole = fitZoomFor(midCards, pane);
+    const reset = Math.min(1.0, whole);
+    const t = fitTopAnchoredTransformFor(BRAIN_CENTRE.x, BRAIN_TOP, pane, reset);
+    return t.zoom === reset && t.zoom <= 1.0 + 1e-9;
+  }),
+  "readable, never zoomed in past 1.0"
+);
+check(
+  "camera: fit-all frames the whole tree with 56/24 padding",
+  topAlignedPanes.every((pane) => {
+    const t = fitAllTransformFor(midCards, pane);
+    const box = boxOf(midCards)!;
+    return (
+      t.zoom >= FIT_MIN_ZOOM - 1e-9 &&
+      t.zoom <= 1.0 + 1e-9 &&
+      Math.abs(56 - (box.minY * t.zoom + t.y)) < 1e-6 &&
+      Math.abs(box.minX * t.zoom + t.x - 24) < 2 &&
+      Math.abs(pane.w - (box.maxX * t.zoom + t.x) - 24) < 2 &&
+      Math.abs((box.minX + box.maxX) / 2 * t.zoom + t.x - pane.w / 2) < 1.5
+    );
+  }),
+  "56 top, 24 sides, centred, 0.4 floor"
+);
+check(
+  "camera: zoom readout is the whole percent",
+  formatZoomPct(1) === "100%" && formatZoomPct(0.4) === "40%" && formatZoomPct(0.713) === "71%",
+  "100% / 40% / 71%"
 );
 
 const failed: string[] = results.filter((r) => r.startsWith("FAIL"));
