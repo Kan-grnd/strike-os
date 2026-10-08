@@ -1,18 +1,28 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { motion } from "motion/react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, RefreshCw, Sparkles, X, AlertCircle, Zap, Briefcase } from "lucide-react";
+import { Plus, RefreshCw, Sparkles, X, AlertCircle, Zap, Briefcase, ListChecks, Play, Workflow, TriangleAlert } from "lucide-react";
 import { useMissions, useAutomations, createAutomation } from "@/hooks/useApi";
 import { MissionProgressBar } from "@/components/execution/mission-progress-bar";
 import { DataTable, type DataTableColumn } from "@/components/execution/data-table";
 import { formatCost, pluralize, safeJson, cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { KpiCard } from "@/components/dashboard/kpi-card";
+import { PageHeader, SectionLabel, EASE } from "@/components/shared/page-header";
 import {
   MISSION_STATUS_COLOR,
   MISSION_STATUS_OPTIONS,
@@ -257,6 +267,9 @@ function WorkBoard() {
 
   const M = missionsData?.missions || [];
   const A = automationsData?.automations || [];
+  const runningMissions = M.filter((m: any) => m.status === "RUNNING").length;
+  const activeAutomations = A.filter((a: any) => a.status === "ACTIVE").length;
+  const automationErrors = A.reduce((s: number, a: any) => s + (a.errorCount || 0), 0);
   const bucketM = facet === "automations" ? [] : M;
   const bucketA = facet === "missions" ? [] : A;
   const baseCount = bucketM.length + bucketA.length;
@@ -343,26 +356,37 @@ function WorkBoard() {
   const anyLoading = (missionsRelevant && missionsLoading) || (automationsRelevant && automationsLoading);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Work</h1>
-          <p className="text-sm text-muted-foreground">Goals and recurring automations across the workforce</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/missions/new">
-            <Button className="gap-2"><Plus className="h-4 w-4" /> New Mission</Button>
-          </Link>
-          <Button variant="outline" onClick={openCreate} className="gap-2">
-            <Plus className="h-4 w-4" /> New Automation
-          </Button>
-        </div>
+    <div className="mx-auto max-w-[1400px] space-y-6">
+      <PageHeader
+        icon={Briefcase}
+        eyebrow="Execution"
+        title="Work"
+        description="Goals and recurring automations across the workforce"
+        actions={
+          <>
+            <Link href="/missions/new">
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" /> New Mission
+              </Button>
+            </Link>
+            <Button variant="outline" onClick={openCreate} className="gap-2">
+              <Plus className="h-4 w-4" /> New Automation
+            </Button>
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <KpiCard icon={ListChecks} label="Missions" value={M.length} caption="Goals in flight or planned" />
+        <KpiCard icon={Play} label="Running" value={runningMissions} caption="Missions executing now" />
+        <KpiCard icon={Workflow} label="Automations" value={A.length} caption="Recurring workflows" />
+        <KpiCard icon={TriangleAlert} label="Automation errors" value={automationErrors} caption="Across all automations" />
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 max-w-sm min-w-[200px]">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
           <Input
-            placeholder="Search work..."
+            placeholder="Search work…"
             aria-label="Search work"
             className="pr-9"
             value={search}
@@ -379,7 +403,7 @@ function WorkBoard() {
             </button>
           )}
         </div>
-        <div role="group" aria-label="Filter by type" className="flex rounded-md border bg-background p-1 gap-1">
+        <div role="group" aria-label="Filter by type" className="relative flex gap-1 rounded-lg border bg-background p-1">
           {FACETS.map((t) => (
             <button
               key={t}
@@ -387,38 +411,39 @@ function WorkBoard() {
               aria-pressed={facet === t}
               onClick={() => setFacetFilter(t)}
               className={cn(
-                "px-3 py-1 text-sm rounded transition-colors",
-                facet === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                "relative rounded-md px-3 py-1 text-sm transition-colors",
+                facet === t ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {FACET_LABEL[t]}
+              {facet === t && (
+                <motion.span
+                  layoutId="work-facet-pill"
+                  className="absolute inset-0 rounded-md bg-primary"
+                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                />
+              )}
+              <span className="relative z-10">{FACET_LABEL[t]}</span>
             </button>
           ))}
         </div>
-        <label className="sr-only" htmlFor="work-status-filter">Filter by status</label>
-        <select
-          id="work-status-filter"
-          value={status}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          aria-label="Filter work by status"
-          className="rounded-md border bg-background px-3 py-2 text-sm h-10"
-        >
-          <option value="">All statuses</option>
-          {missionsRelevant && (facet === "missions" ? (
-            MISSION_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)
-          ) : (
-            <optgroup label="Mission status">
-              {MISSION_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-            </optgroup>
-          ))}
-          {automationsRelevant && (facet === "automations" ? (
-            AUTOMATION_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)
-          ) : (
-            <optgroup label="Automation status">
-              {AUTOMATION_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-            </optgroup>
-          ))}
-        </select>
+        <Select value={status || "all"} onValueChange={(v) => setStatusFilter(v === "all" ? "" : v)}>
+          <SelectTrigger className="w-[190px]" aria-label="Filter work by status">
+            <SelectValue placeholder="All statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            {(facet === "automations"
+              ? AUTOMATION_STATUS_OPTIONS
+              : facet === "missions"
+                ? MISSION_STATUS_OPTIONS
+                : Array.from(new Set<string>([...MISSION_STATUS_OPTIONS, ...AUTOMATION_STATUS_OPTIONS]))
+            ).map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {showCreate && (

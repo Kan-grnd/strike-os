@@ -12,7 +12,9 @@ import { cn } from "@/lib/utils";
 
 export default function GlobalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const fullBleed = pathname === "/chat" || pathname === "/topology";
+  const fullBleed =
+    pathname === "/chat" || pathname === "/topology" || pathname === "/knowledge";
+
   const { data: settings } = useSettings();
   /* `panelOpen` rather than `collapsed`: the rail is always present, so what
    * this controls is whether Level 2 has a column of its own. Open by default,

@@ -1,13 +1,30 @@
-import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Building2 } from "lucide-react";
+"use client";
+
+import { ChevronDown, ChevronUp, Code, Database, FlaskConical, Headset, Layers, ShieldCheck } from "lucide-react";
+import { type NodeProps } from "@xyflow/react";
 import type { ColonyRuntime } from "@/lib/runtime/types";
-import { HANDLE_IDS, type TopologyNodeData } from "@/lib/runtime/selectors";
+import { type TopologyNodeData } from "@/lib/runtime/selectors";
 import { specialistLabel } from "@/lib/runtime/layout";
 import { CardButton } from "./card-button";
-import { ActionRow } from "./action-row";
-import { SideHandles } from "./side-handles";
+import { DetailsButton, NodeHandles, NodeShell } from "./node-bits";
+import {
+  colonyIconKey,
+  rgbString,
+  rgba,
+  useNodePalette,
+} from "./node-palette";
+
+const TAB_ICONS = { FlaskConical, Code, Headset, Database, ShieldCheck, Layers } as const;
+
+/* Folder tab geometry — one source of truth for both the tab box and the
+ * brain→colony anchor, so the two can never drift apart. The tab is 62x28 at
+ * left -1 / top -27: it overhangs the body's square top-left corner, and its
+ * own bottom edge lands 1px below the body's top border, which is why it
+ * carries no bottom border — the two read as one folder. */
+const TAB_LEFT = -1;
+const TAB_WIDTH = 62;
+const TAB_HEIGHT = 28;
+const TAB_TOP = -27;
 
 interface SpecialistNodeData extends TopologyNodeData<ColonyRuntime> {
   stats?: { total: number; active: number; waiting: number; errors: number };
@@ -15,65 +32,172 @@ interface SpecialistNodeData extends TopologyNodeData<ColonyRuntime> {
   toggle?: (id: string) => void;
 }
 
-const COLONY_STATUS_VARIANT: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
-  ACTIVE: "success",
-  PAUSED: "warning",
-  STOPPED: "secondary",
-  FAILED: "destructive",
-  ARCHIVED: "secondary",
-};
-
-export function SpecialistNode({ id, data }: NodeProps) {
+/* Colony folder: 260px body (square top-left) with a 62x28 tab sitting 27px
+ * above the body's top edge, so the tab overflows the box instead of inflating
+ * it. The tab's own bottom edge lands 1px below the body's top border, which is
+ * why the tab carries no bottom border: the two read as one folder. */
+export function SpecialistNode({ id, data, selected }: NodeProps) {
   const d = data as unknown as SpecialistNodeData;
   const entity = d.entity as ColonyRuntime;
   const stats = d.stats ?? { total: 0, active: 0, waiting: 0, errors: 0 };
   const expanded = d.expanded ?? false;
+  const pal = useNodePalette();
+
+  const active = entity.status === "ACTIVE";
+  const treat = pal.treatments[active ? "success" : "muted"];
+  const statusWord = active ? "Active" : "Idle";
+  const surfaceCss = rgbString(pal.surface);
+  const textCss = rgbString(pal.surfaceText);
+  const secondaryCss = rgbString(pal.secondaryText);
+  const borderCss = rgbString(pal.border);
+  const accentCss = rgbString(pal.tokens.accent);
+  const name = specialistLabel(entity);
+  const iconOverride = (entity as unknown as { icon?: string }).icon;
+  const Icon = TAB_ICONS[colonyIconKey(name, iconOverride) as keyof typeof TAB_ICONS] ?? Layers;
+  const tabIconCss = rgbString(pal.treatments.accent.graphic);
+
+  const total = Math.max(0, stats.total);
+  const on = Math.min(Math.max(0, stats.active), total);
+  /* One segment per agent, always: the reference draws a real segment for every
+   * agent rather than collapsing past twelve into a single filled bar, so a
+   * large colony stays a countable read. */
+  const segments = total > 0 ? Array.from({ length: total }, (_, i) => i < on) : [];
 
   return (
-    /* Shell only — the expand toggle and Details below are real buttons. */
-    <div
-      title={entity.name}
-      className="node-list-in group relative w-60 cursor-pointer rounded-lg border glass-node px-3 py-2 transition-colors hover:border-primary/50 hover:bg-accent/40"
+    <NodeShell
+      label={`Colony ${name}, ${statusWord.toLowerCase()}, ${on} of ${total} agents`}
+      width={260}
+      radius="0 14px 14px 14px"
+      padding="14px 14px 13px"
+      background={surfaceCss}
+      border={borderCss}
+      selected={selected}
+      selectedBorder={accentCss}
+      selectedFilter={selected ? `drop-shadow(0 0 4px ${rgba(pal.tokens.accent, 0.28)})` : undefined}
+      focusRing={accentCss}
     >
-      <Handle type="target" position={Position.Top} id={HANDLE_IDS.in} />
-      <Handle type="source" position={Position.Bottom} id={HANDLE_IDS.out} />
-      <SideHandles target source />
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-          <span className="truncate text-sm font-semibold">{specialistLabel(entity)}</span>
-        </span>
-        <Badge variant={COLONY_STATUS_VARIANT[entity.status] ?? "secondary"} className="shrink-0 capitalize">
-          {entity.status.toLowerCase()}
-        </Badge>
-      </div>
-      <Separator className="my-1.5" />
-      <p className="font-mono text-[11px] text-muted-foreground">
-        {stats.total} agents, {stats.active} active
-      </p>
-      <ActionRow className="mt-1.5 flex flex-nowrap items-center justify-end gap-1.5 overflow-hidden">
-        {stats.total > 0 && (
-          <CardButton
-            variant="outline"
-            size="sm"
-            className="h-7 shrink-0 gap-1 whitespace-nowrap px-1.5 text-xs"
-            onClick={() => d.toggle?.(id)}
-            aria-expanded={expanded}
-            aria-label={expanded ? "Hide agents" : `Show ${stats.total} agents`}
-            title={expanded ? "Hide agents" : `Show ${stats.total} agents`}
+      {/* The brain→colony link lands on the body's top border at the horizontal
+          centre, so the spoke drops straight into the card rather than
+          angling off to the tab in the corner. */}
+      <NodeHandles dot={surfaceCss} ring={secondaryCss} />
+      <DetailsButton onActivate={() => d.activate?.(id, "specialist")} dot={secondaryCss} fill={rgbString(pal.tokens.canvas)} />
+      <span
+        aria-hidden
+        style={{
+          position: "absolute",
+          top: TAB_TOP,
+          left: TAB_LEFT,
+          width: TAB_WIDTH,
+          height: TAB_HEIGHT,
+          boxSizing: "border-box",
+          borderRadius: "12px 12px 0 0",
+          background: surfaceCss,
+          borderStyle: "solid",
+          borderWidth: "1px 1px 0",
+          borderColor: selected ? accentCss : borderCss,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Icon style={{ width: 16, height: 16, color: tabIconCss }} strokeWidth={1.75} />
+      </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ minWidth: 0, flex: 1 }}>
+          <span
+            style={{
+              display: "block",
+              fontSize: 15,
+              fontWeight: 600,
+              letterSpacing: "0.1px",
+              lineHeight: 1.15,
+              color: textCss,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+            title={name}
           >
-            {expanded ? "Hide" : `Agents ${stats.total}`}
-          </CardButton>
-        )}
+            {name}
+          </span>
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12,
+              lineHeight: 1.15,
+              color: secondaryCss,
+              marginTop: 3,
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                width: 7,
+                height: 7,
+                minWidth: 7,
+                borderRadius: "50%",
+                background: rgbString(treat.graphic),
+              }}
+            />
+            <span style={{ fontWeight: 600, color: rgbString(treat.text) }}>{statusWord}</span>
+            <span>
+              · {on}/{total} agents
+            </span>
+          </span>
+        </span>
         <CardButton
-          variant="ghost"
-          size="sm"
-          className="h-7 shrink-0 whitespace-nowrap px-2 text-xs"
-          onClick={() => d.activate?.(id, "specialist")}
+          aria-label={expanded ? "Collapse agents" : `Expand ${total} agents`}
+          aria-expanded={expanded}
+          title={expanded ? "Collapse agents" : `Expand ${total} agents`}
+          onClick={() => d.toggle?.(id)}
+          style={{
+            width: 24,
+            height: 24,
+            minWidth: 24,
+            padding: 0,
+            borderRadius: "50%",
+            borderWidth: 0.5,
+            borderStyle: "solid",
+            borderColor: secondaryCss,
+            background: "transparent",
+            color: secondaryCss,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            flexShrink: 0,
+          }}
         >
-          Details
+          {expanded ? (
+            <ChevronUp style={{ width: 12, height: 12 }} aria-hidden />
+          ) : (
+            <ChevronDown style={{ width: 12, height: 12 }} aria-hidden />
+          )}
         </CardButton>
-      </ActionRow>
-    </div>
+      </div>
+      {total > 0 ? (
+        <div
+          role="img"
+          aria-label={`${on} of ${total} agents active`}
+          title={`${on} of ${total} agents active`}
+          style={{ display: "flex", gap: 3, marginTop: 13 }}
+        >
+          {segments.map((lit, i) => (
+            <span
+              key={i}
+              aria-hidden
+              style={{
+                flex: 1,
+                height: 5,
+                borderRadius: 2,
+                background: lit ? rgbString(treat.graphic) : rgbString(pal.track),
+              }}
+            />
+          ))}
+        </div>
+      ) : null}
+    </NodeShell>
   );
 }

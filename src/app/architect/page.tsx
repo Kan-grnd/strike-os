@@ -3,22 +3,30 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
+import { motion } from "motion/react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Loader2, CheckCircle2, X, XCircle, Play, RotateCcw, ShieldCheck } from "lucide-react";
+import {
+  Sparkles,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Play,
+  RotateCcw,
+  ShieldCheck,
+  Target,
+  Wrench,
+  Rocket,
+} from "lucide-react";
 import { cn, safeJson, safeJsonArray } from "@/lib/utils";
 import { CAPABILITY_CATALOG } from "@/lib/capabilities";
+import { PageHeader, SectionLabel } from "@/components/shared/page-header";
+
+const EASE = [0.16, 1, 0.3, 1] as const;
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
-
-const TOOL_CATALOG: Record<string, string[]> = {
-  "Web": ["search"],
-  "Intel": ["browser", "search", "github", "terminal", "database"],
-  "Code": ["shell_execution", "code_lint", "git_operations"],
-  "Notify": ["notify_user", "send_email", "post_webhook"],
-};
 
 export default function AgentArchitectPage() {
   const router = useRouter();
@@ -157,7 +165,6 @@ export default function AgentArchitectPage() {
     setSubmitting(true);
     setResult(null);
     try {
-      // Find existing agent that can do any of these capabilities
       const existingAgent = existingAgents.find((a: any) => {
         const caps = safeJsonArray(a.capabilities);
         return caps.some((c) => selectedCapabilities.includes(c));
@@ -207,329 +214,390 @@ export default function AgentArchitectPage() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
-      <div>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="rounded-lg p-2 bg-primary/10">
-            <Sparkles className="h-5 w-5 text-primary" />
-          </div>
-          <h1 className="text-2xl font-bold">Agent Architect</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">Design and deploy new agents based on capability needs</p>
-      </div>
+    <div className="mx-auto max-w-[1400px] space-y-6">
+      <PageHeader
+        eyebrow="Workforce"
+        icon={Sparkles}
+        title="Agent Architect"
+        description="Compose an agent from capabilities and tools — or deploy a ready-made template."
+      />
 
-      {result?.ok && (
-        <Card className="p-6 border-success/40 bg-success/5">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-success" />
-            <div>
-              <p className="font-semibold">Agent created successfully</p>
-              <p className="text-sm text-muted-foreground">Redirecting to {result.agent?.name}...</p>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {result && !result.ok && (
-        <Card className="p-6 border-destructive/40 bg-destructive/5">
-          <div className="flex items-center gap-3">
-            <X className="h-5 w-5 text-destructive" />
-            <div>
-              <p className="font-semibold">Cannot create</p>
-              <p className="text-sm text-muted-foreground">{result.error}</p>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {forgeMsg && (
-        <Card className={cn("p-4", forgeMsg.ok ? "border-success/40 bg-success/5" : "border-destructive/40 bg-destructive/5")}>
-          <div className="flex items-center gap-3">
-            {forgeMsg.ok ? (
-              <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
-            ) : (
-              <XCircle className="h-5 w-5 text-destructive shrink-0" />
-            )}
-            <p className="text-sm text-muted-foreground">{forgeMsg.text}</p>
-          </div>
-        </Card>
-      )}
-
-      <Card className="p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg p-2 bg-primary/10">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold">Specialist Forge</h2>
-            <p className="text-xs text-muted-foreground">
-              One-click specialist bundles — apply a template to the form, or deploy straight to the workforce and validate with a live trial.
-            </p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          {specialistBundles.map((bundle: any) => {
-            const install = specialistInstalls[bundle.id];
-            const state: "none" | "installed" | "active" | "paused" = !install
-              ? "none"
-              : install.status === "ACTIVE"
-              ? "active"
-              : install.status === "PAUSED"
-              ? "paused"
-              : "installed";
-            const lastTrial = install?.trialHistory
-              ? safeJson<any[]>(install.trialHistory, []).slice(-1)[0]
-              : null;
-            return (
-              <div
-                key={bundle.id}
-                data-testid={`forge-${bundle.id}`}
-                className={cn(
-                  "rounded-lg border p-4 space-y-3",
-                  state === "active" && "border-success/40",
-                  state === "paused" && "border-warning/40",
-                  state === "none" && "border-dashed"
-                )}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold truncate">{bundle.label}</h3>
-                    <p className="text-xs text-muted-foreground truncate">{bundle.tagline}</p>
-                  </div>
-                  <Badge
-                    variant={
-                      state === "active"
-                        ? "success"
-                        : state === "paused"
-                        ? "warning"
-                        : state === "none"
-                        ? "secondary"
-                        : "outline"
-                    }
-                    className="shrink-0 text-[10px]"
-                  >
-                    {state === "none"
-                      ? "Not installed"
-                      : state === "active"
-                      ? "Active"
-                      : state === "paused"
-                      ? "Paused"
-                      : "Trial pending"}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">{bundle.description}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {bundle.toolNames.map((t: string) => (
-                    <Badge key={t} variant="secondary" className="text-[10px]">
-                      {t}
-                    </Badge>
-                  ))}
-                  {bundle.capabilities.slice(0, 3).map((c: string) => (
-                    <Badge key={c} variant="outline" className="text-[10px]">
-                      {c}
-                    </Badge>
-                  ))}
-                </div>
-                {lastTrial && (
-                  <p
-                    className={cn(
-                      "text-[11px] font-medium flex items-center gap-1",
-                      lastTrial.verdict === "PASS" ? "text-success" : "text-destructive"
-                    )}
-                  >
-                    {lastTrial.verdict === "PASS" ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                    ) : (
-                      <XCircle className="h-3.5 w-3.5 shrink-0" />
-                    )}
-                    <span>
-                      {lastTrial.verdict} ·{(lastTrial.durationMs / 1000).toFixed(1)}s · $
-                      {(lastTrial.cost ?? 0).toFixed(4)} · {lastTrial.trace?.length ?? 0} trace steps
-                      {lastTrial.verdict === "FAIL" && lastTrial.reason
-                        ? ` — ${lastTrial.reason}`
-                        : ""}
-                    </span>
-                  </p>
-                )}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    data-testid={`template-${bundle.id}`}
-                    disabled={!!deployingId || !!trialingId}
-                    onClick={() => applyBundle(bundle)}
-                  >
-                    Use template
-                  </Button>
-                  {!install ? (
-                    <Button
-                      size="sm"
-                      data-testid={`deploy-${bundle.id}`}
-                      disabled={!!deployingId || !!trialingId}
-                      onClick={() => deployBundle(bundle)}
-                      className="gap-1.5"
-                    >
-                      {deployingId === bundle.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-3.5 w-3.5" />
-                      )}
-                      Deploy
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant={state === "paused" ? "outline" : "default"}
-                      data-testid={`trial-${bundle.id}`}
-                      disabled={!!deployingId || !!trialingId}
-                      onClick={() => trialBundle(bundle)}
-                      className="gap-1.5"
-                    >
-                      {trialingId === bundle.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : state === "paused" ? (
-                        <RotateCcw className="h-3.5 w-3.5" />
-                      ) : (
-                        <Play className="h-3.5 w-3.5" />
-                      )}
-                      {state === "paused" ? "Retry trial" : "Run trial"}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
-      <Card className="p-6 space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold mb-1">Goal</h2>
-          <p className="text-xs text-muted-foreground mb-3">Describe what this agent should do</p>
-          <Input
-            placeholder="e.g. An agent that researches competitors, evaluates source authority, and flags signal changes for my intel workforce"
-            aria-label="Goal"
-            value={goal}
-            onChange={(e) => setGoal(e.target.value)}
-            className="h-12"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-medium" htmlFor="agent-name">Agent Name</label>
-            <Input
-              id="agent-name"
-              placeholder="Competitive Intel Analyst"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-2"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium" htmlFor="agent-type">Type</label>
-            <select
-              id="agent-type"
-              className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm h-10"
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-            >
-              <option value="WORKER">Worker</option>
-              <option value="SPECIALIST">Specialist</option>
-              <option value="OBSERVER">Observer</option>
-              <option value="EVALUATOR">Evaluator</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className="text-sm font-medium" htmlFor="agent-colony">Colony</label>
-          <select
-            id="agent-colony"
-            className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm h-10"
-            value={colonyId}
-            onChange={(e) => setColonyId(e.target.value)}
-          >
-            <option value="">— No colony —</option>
-            {colonies.map((c: any) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-      </Card>
-
-      <Card className="p-6 space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold mb-1">Capabilities</h2>
-          <p className="text-xs text-muted-foreground">Select what this agent can do</p>
-        </div>
-        <div className="space-y-4">
-          {Object.entries(CAPABILITY_CATALOG).map(([category, caps]) => (
-            <div key={category}>
-              <p className="text-sm font-medium mb-2">{category}</p>
-              <div className="flex flex-wrap gap-2">
-                {caps.map((cap) => (
-                  <button
-                    key={cap}
-                    type="button"
-                    onClick={() => toggleCapability(cap)}
-                    aria-pressed={selectedCapabilities.includes(cap)}
-                    className={cn(
-                      "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                      selectedCapabilities.includes(cap)
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border hover:border-primary/50"
-                    )}
-                  >
-                    {cap}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card className="p-6 space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold mb-1">Tools</h2>
-          <p className="text-xs text-muted-foreground">Available tools this agent can use</p>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {tools.map((tool: any) => (
-            <button
-              key={tool.id}
-              type="button"
-              onClick={() => toggleTool(tool.name)}
-              aria-pressed={selectedTools.includes(tool.name)}
+      {(result || forgeMsg) && (
+        <div className="space-y-3">
+          {result && (
+            <Card
               className={cn(
-                "rounded-md border px-3 py-2 text-left text-sm transition-colors",
-                selectedTools.includes(tool.name)
-                  ? "border-primary bg-primary/10"
-                  : "border-border hover:border-primary/50"
+                "flex items-center gap-3 p-4",
+                result.ok
+                  ? "border-success/40 bg-success/5"
+                  : "border-destructive/40 bg-destructive/5"
               )}
             >
-              <div className="font-medium">{tool.name}</div>
-              <div className="text-xs text-faint">{tool.source}</div>
-            </button>
-          ))}
+              {result.ok ? (
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
+              ) : (
+                <XCircle className="h-5 w-5 shrink-0 text-destructive" />
+              )}
+              <p className="text-sm">
+                {result.ok
+                  ? `Agent "${result.agent?.name ?? name}" created — opening it now.`
+                  : result.error}
+              </p>
+            </Card>
+          )}
+          {forgeMsg && (
+            <Card
+              className={cn(
+                "flex items-center gap-2 p-4 text-sm",
+                forgeMsg.ok
+                  ? "border-success/40 bg-success/5"
+                  : "border-destructive/40 bg-destructive/5"
+              )}
+            >
+              {forgeMsg.ok ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+              ) : (
+                <XCircle className="h-4 w-4 shrink-0 text-destructive" />
+              )}
+              {forgeMsg.text}
+            </Card>
+          )}
         </div>
-      </Card>
+      )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">
-          {selectedModels.length === 0
-            ? "No models selected — the default model set will be used."
-            : `${selectedModels.length} model${selectedModels.length > 1 ? "s" : ""} selected.`}
-        </p>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={() => router.push("/agents")}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={submitting} className="gap-2">
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            Create Agent
-          </Button>
+      {/* ── Specialists / templates ──────────────────────────────────── */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+          <SectionLabel>Specialist templates</SectionLabel>
+          <Badge variant="secondary" className="font-mono text-[10px]">
+            {specialistBundles.length}
+          </Badge>
         </div>
-      </div>
+        {specialistBundles.length === 0 ? (
+          <Card className="p-8 text-center text-sm text-muted-foreground">
+            No templates installed.
+          </Card>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {specialistBundles.map((bundle: any, i: number) => {
+              const install = specialistInstalls[bundle.id];
+              const state = !install
+                ? "none"
+                : install.status === "ACTIVE"
+                  ? "active"
+                  : install.status === "PAUSED"
+                    ? "paused"
+                    : "installed";
+              const lastTrial = install?.trialHistory
+                ? safeJson<any[]>(install.trialHistory, []).slice(-1)[0]
+                : null;
+              return (
+                <motion.div
+                  key={bundle.id}
+                  data-testid={`forge-${bundle.id}`}
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.45, delay: Math.min(i * 0.05, 0.35), ease: EASE }}
+                >
+                  <Card className="flex h-full flex-col gap-3 p-5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="truncate font-semibold">{bundle.label}</h3>
+                        <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                          {bundle.agentType}
+                        </p>
+                      </div>
+                      <Badge
+                        variant={
+                          state === "active"
+                            ? "success"
+                            : state === "paused"
+                              ? "warning"
+                              : state === "none"
+                                ? "secondary"
+                                : "outline"
+                        }
+                        className="shrink-0 font-mono text-[10px]"
+                      >
+                        {state === "none"
+                          ? "Not installed"
+                          : state === "active"
+                            ? "Active"
+                            : state === "paused"
+                              ? "Paused"
+                              : "Trial pending"}
+                      </Badge>
+                    </div>
+                    <p className="line-clamp-2 text-sm text-muted-foreground">
+                      {bundle.description}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {bundle.capabilities.slice(0, 3).map((c: string) => (
+                        <Badge key={c} variant="secondary" className="font-mono text-[10px]">
+                          {c}
+                        </Badge>
+                      ))}
+                      {bundle.toolNames.slice(0, 2).map((t: string) => (
+                        <Badge key={t} variant="outline" className="font-mono text-[10px]">
+                          {t}
+                        </Badge>
+                      ))}
+                    </div>
+                    {lastTrial && (
+                      <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                        {lastTrial.verdict === "PASS" ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                        ) : (
+                          <XCircle className="h-3.5 w-3.5 text-destructive" />
+                        )}
+                        <span className="font-mono">
+                          {lastTrial.verdict} · {((lastTrial.durationMs ?? 0) / 1000).toFixed(1)}s
+                          {lastTrial.cost != null ? ` · $${Number(lastTrial.cost).toFixed(4)}` : ""}
+                        </span>
+                      </p>
+                    )}
+                    <div className="mt-auto flex flex-wrap gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        data-testid={`template-${bundle.id}`}
+                        onClick={() => applyBundle(bundle)}
+                        disabled={!!deployingId || !!trialingId}
+                      >
+                        Use template
+                      </Button>
+                      {!install ? (
+                        <Button
+                          size="sm"
+                          className="gap-1.5"
+                          data-testid={`deploy-${bundle.id}`}
+                          onClick={() => deployBundle(bundle)}
+                          disabled={!!deployingId || !!trialingId}
+                        >
+                          {deployingId === bundle.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Rocket className="h-3.5 w-3.5" />
+                          )}
+                          Deploy
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant={state === "paused" ? "outline" : "default"}
+                          className="gap-1.5"
+                          data-testid={`trial-${bundle.id}`}
+                          onClick={() => trialBundle(bundle)}
+                          disabled={!!deployingId || !!trialingId}
+                        >
+                          {trialingId === bundle.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : state === "paused" ? (
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          ) : (
+                            <Play className="h-3.5 w-3.5" />
+                          )}
+                          {state === "paused" ? "Retry trial" : "Run trial"}
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ── Builder ──────────────────────────────────────────────────── */}
+      <section className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="space-y-6">
+          <Card className="space-y-4 p-6">
+            <div>
+              <label className="text-sm font-medium" htmlFor="agent-name">
+                Agent name
+              </label>
+              <Input
+                id="agent-name"
+                placeholder="e.g. Competitive Intel Analyst"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium" htmlFor="agent-type">
+                  Type
+                </label>
+                <select
+                  id="agent-type"
+                  className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm h-10"
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                >
+                  <option value="WORKER">Worker</option>
+                  <option value="SPECIALIST">Specialist</option>
+                  <option value="OBSERVER">Observer</option>
+                  <option value="EVALUATOR">Evaluator</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium" htmlFor="agent-colony">
+                  Colony
+                </label>
+                <select
+                  id="agent-colony"
+                  className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm h-10"
+                  value={colonyId}
+                  onChange={(e) => setColonyId(e.target.value)}
+                >
+                  <option value="">— None —</option>
+                  {colonies.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="space-y-4 p-6">
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold">Capabilities</h2>
+              <Badge variant="secondary" className="font-mono text-[10px]">
+                {selectedCapabilities.length} selected
+              </Badge>
+            </div>
+            <div className="space-y-4">
+              {Object.entries(CAPABILITY_CATALOG).map(([category, caps]) => (
+                <div key={category}>
+                  <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                    {category}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {caps.map((cap) => {
+                      const on = selectedCapabilities.includes(cap);
+                      return (
+                        <button
+                          key={cap}
+                          type="button"
+                          onClick={() => toggleCapability(cap)}
+                          aria-pressed={on}
+                          className={cn(
+                            "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                            on
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border hover:border-primary/50"
+                          )}
+                        >
+                          {cap}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card className="space-y-4 p-6">
+            <div className="flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold">Tools</h2>
+              <Badge variant="secondary" className="font-mono text-[10px]">
+                {selectedTools.length} selected
+              </Badge>
+            </div>
+            {tools.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No tools registered.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                {tools.map((tool: any) => {
+                  const on = selectedTools.includes(tool.name);
+                  return (
+                    <button
+                      key={tool.id}
+                      type="button"
+                      onClick={() => toggleTool(tool.name)}
+                      aria-pressed={on}
+                      className={cn(
+                        "rounded-md border px-3 py-2 text-left text-sm transition-colors",
+                        on
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/50"
+                      )}
+                    >
+                      <div className="font-medium">{tool.name}</div>
+                      <div className="text-xs text-muted-foreground">{tool.source}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* ── Summary rail ───────────────────────────────────────────── */}
+        <div className="lg:sticky lg:top-6 lg:self-start">
+          <Card className="space-y-5 p-6">
+            <div>
+              <SectionLabel>Blueprint</SectionLabel>
+              <p className="mt-2 text-lg font-semibold">
+                {name || "Untitled agent"}
+              </p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                {type}
+                {colonyId
+                  ? ` · ${colonies.find((c: any) => c.id === colonyId)?.name ?? ""}`
+                  : " · no colony"}
+              </p>
+            </div>
+            <div className="space-y-2 border-t pt-4 text-sm">
+              <SummaryRow label="Capabilities" value={selectedCapabilities.length} />
+              <SummaryRow label="Tools" value={selectedTools.length} />
+              <SummaryRow
+                label="Models"
+                value={selectedModels.length === 0 ? "default" : selectedModels.length}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {selectedCapabilities.length === 0
+                ? "Add at least one capability to create the agent."
+                : "Ready to create."}
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting || !name || selectedCapabilities.length === 0}
+                className="gap-2"
+              >
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Create Agent
+              </Button>
+              <Button variant="ghost" onClick={() => router.push("/agents")}>
+                Cancel
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-mono tabular-nums">{value}</span>
     </div>
   );
 }

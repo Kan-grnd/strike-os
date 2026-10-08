@@ -1,17 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WorkflowFlow } from "@/components/workflow/workflow-flow";
 import { WorkflowEditorDrawer } from "@/components/workflow/workflow-editor-drawer";
-import { ArrowLeft, Play, Pause, Square, RefreshCw, Zap, CheckCircle2 } from "lucide-react";
+import { Play, Pause, Square, RefreshCw, Zap, CheckCircle2 } from "lucide-react";
 import { useAutomation } from "@/hooks/useApi";
 import { DataTable, type DataTableColumn } from "@/components/execution/data-table";
 import { safeJson, cn, formatDuration, formatCost } from "@/lib/utils";
 import { AUTOMATION_STATUS_COLOR, RUN_STATUS_COLOR, TRIGGER_LABELS } from "@/lib/execution-meta";
+import { PageHeader, SectionLabel } from "@/components/shared/page-header";
 
 type Run = { status: string; startedAt: string; duration?: number | null; cost?: number | null; error?: string | null };
 type Automation = {
@@ -34,15 +34,15 @@ type StepRow = { index: number; action: { type: string; config?: Record<string, 
 const stepSummary = (a: StepRow["action"]) =>
   String(a.config?.goal || a.config?.message || a.config?.description || "");
 
-/** A factory, called from the component, so each row's Edit button can reach
- *  the drawer state. The accessible name is deliberately unchanged from when
- *  these steps were a stack of buttons, so the same name still describes the
- *  same action. */
 const stepColumns = (onEdit: (index: number) => void): DataTableColumn<StepRow>[] => [
   {
     header: "Step",
     width: "70px",
-    render: (r) => <Badge variant="outline" className="font-mono">{r.index + 1}</Badge>,
+    render: (r) => (
+      <Badge variant="outline" className="font-mono">
+        {r.index + 1}
+      </Badge>
+    ),
   },
   {
     header: "Action",
@@ -51,9 +51,7 @@ const stepColumns = (onEdit: (index: number) => void): DataTableColumn<StepRow>[
   },
   {
     header: "Summary",
-    render: (r) => (
-      <span className="truncate block max-w-[320px]">{stepSummary(r.action)}</span>
-    ),
+    render: (r) => <span className="block max-w-[320px] truncate">{stepSummary(r.action)}</span>,
   },
   {
     header: "",
@@ -79,8 +77,10 @@ const RUN_COLUMNS: DataTableColumn<Run>[] = [
     width: "130px",
     render: (run) => (
       <span className="flex items-center gap-2">
-        <span className={cn("h-2 w-2 rounded-full shrink-0", RUN_STATUS_COLOR[run.status]?.split(" ")[0] || "bg-muted")} />
-        <Badge variant="outline" className="text-xs uppercase">{run.status}</Badge>
+        <span className={cn("h-2 w-2 shrink-0 rounded-full", RUN_STATUS_COLOR[run.status]?.split(" ")[0] || "bg-muted")} />
+        <Badge variant="outline" className="text-xs uppercase">
+          {run.status}
+        </Badge>
       </span>
     ),
   },
@@ -88,7 +88,7 @@ const RUN_COLUMNS: DataTableColumn<Run>[] = [
     header: "Started",
     width: "180px",
     render: (run) => (
-      <span className="font-mono text-xs whitespace-nowrap">{new Date(run.startedAt).toLocaleString()}</span>
+      <span className="whitespace-nowrap font-mono text-xs">{new Date(run.startedAt).toLocaleString()}</span>
     ),
   },
   {
@@ -107,7 +107,9 @@ const RUN_COLUMNS: DataTableColumn<Run>[] = [
     header: "Error",
     render: (run) =>
       run.error ? (
-        <span className="text-xs text-destructive block truncate max-w-[280px]" title={run.error}>{run.error}</span>
+        <span className="block max-w-[280px] truncate text-xs text-destructive" title={run.error}>
+          {run.error}
+        </span>
       ) : (
         <span className="text-xs text-muted-foreground">—</span>
       ),
@@ -130,15 +132,22 @@ export default function AutomationDetailPage({ params }: { params: { id: string 
   })();
 
   if (isLoading && !automation) {
-    return <div className="p-6">Loading automation...</div>;
+    return (
+      <div className="mx-auto max-w-6xl space-y-4">
+        <div className="h-8 w-64 animate-pulse rounded bg-muted" />
+        <div className="h-24 animate-pulse rounded-xl bg-muted/60" />
+      </div>
+    );
   }
 
   if (error && !automation) {
     const status = (error as Error & { status?: number }).status;
     return (
-      <div className="p-6">
-        <Card className="p-12 text-center space-y-4 max-w-md mx-auto">
-          <p className="text-lg font-medium">{status === 404 ? "Automation not found" : "Failed to load automation"}</p>
+      <div className="mx-auto max-w-md">
+        <Card className="space-y-4 p-12 text-center">
+          <p className="text-lg font-medium">
+            {status === 404 ? "Automation not found" : "Failed to load automation"}
+          </p>
           <p className="text-sm text-muted-foreground">
             {status === 404 ? "It may have been deleted." : error.message}
           </p>
@@ -153,9 +162,7 @@ export default function AutomationDetailPage({ params }: { params: { id: string 
   if (!automation) return null;
 
   const trigger = safeJson<Record<string, unknown>>(automation.trigger, {});
-  const conditions = safeJson<Record<string, unknown>>(automation.conditions, {});
   const triggerType = (trigger.type as string) || "manual";
-  const conditionKeys = Object.keys(conditions).filter((k) => conditions[k] !== null && conditions[k] !== "" && conditions[k] !== undefined);
 
   const triggerDetail = (() => {
     if (trigger.cron) return String(trigger.cron);
@@ -172,7 +179,10 @@ export default function AutomationDetailPage({ params }: { params: { id: string 
   const canResume = status === "PAUSED";
   const canComplete = status === "DRAFT" || status === "ACTIVE" || status === "PAUSED";
 
-  const writeAction = async (key: "start" | "pause" | "resume" | "complete", fn: (id: string) => Promise<unknown>) => {
+  const writeAction = async (
+    key: "start" | "pause" | "resume" | "complete",
+    fn: (id: string) => Promise<unknown>
+  ) => {
     if (busy) return;
     if (key === "complete" && !window.confirm("Mark this automation as complete? It will stop running and cannot be restarted.")) {
       return;
@@ -220,77 +230,99 @@ export default function AutomationDetailPage({ params }: { params: { id: string 
   const editingAction = editingIndex !== null ? actions[editingIndex] : undefined;
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl mx-auto">
-      <div className="flex items-center gap-3">
-        <Link href="/work?type=automations">
-          <Button variant="ghost" size="sm" className="gap-2"><ArrowLeft className="h-4 w-4" /> Back</Button>
-        </Link>
-      </div>
-
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold">{automation.name}</h1>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <PageHeader
+        backHref="/work?type=automations"
+        icon={Zap}
+        eyebrow="Automation"
+        title={
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="truncate">{automation.name}</span>
             <Badge className={AUTOMATION_STATUS_COLOR[status] || "bg-muted"}>{status}</Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">{automation.description || "No description"}</p>
-        </div>
-        {!terminal && (
-          <div className="flex gap-2">
-            {canStart && (
-              <Button onClick={() => writeAction("start", startRoute)} disabled={busy !== null} className="gap-2">
-                <Play className="h-3.5 w-3.5" /> {busy === "start" ? "Starting..." : "Start"}
-              </Button>
-            )}
-            {canPause && (
-              <Button variant="outline" onClick={() => writeAction("pause", pauseRoute)} disabled={busy !== null} className="gap-2">
-                <Pause className="h-3.5 w-3.5" /> {busy === "pause" ? "Pausing..." : "Pause"}
-              </Button>
-            )}
-            {canResume && (
-              <Button onClick={() => writeAction("resume", resumeRoute)} disabled={busy !== null} className="gap-2">
-                <Play className="h-3.5 w-3.5" /> {busy === "resume" ? "Resuming..." : "Resume"}
-              </Button>
-            )}
-            {canComplete && (
-              <Button variant="outline" size="sm" onClick={() => writeAction("complete", completeRoute)} disabled={busy !== null} className="gap-2">
-                <Square className="h-3.5 w-3.5" /> Mark Complete
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
+          </span>
+        }
+        description={automation.description || "No description"}
+        actions={
+          !terminal ? (
+            <>
+              {canStart && (
+                <Button onClick={() => writeAction("start", startRoute)} disabled={busy !== null} className="gap-2">
+                  <Play className="h-3.5 w-3.5" /> {busy === "start" ? "Starting…" : "Start"}
+                </Button>
+              )}
+              {canPause && (
+                <Button
+                  variant="outline"
+                  onClick={() => writeAction("pause", pauseRoute)}
+                  disabled={busy !== null}
+                  className="gap-2"
+                >
+                  <Pause className="h-3.5 w-3.5" /> Pause
+                </Button>
+              )}
+              {canResume && (
+                <Button onClick={() => writeAction("resume", resumeRoute)} disabled={busy !== null} className="gap-2">
+                  <Play className="h-3.5 w-3.5" /> Resume
+                </Button>
+              )}
+              {canComplete && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => writeAction("complete", completeRoute)}
+                  disabled={busy !== null}
+                  className="gap-2"
+                >
+                  <Square className="h-3.5 w-3.5" /> Mark Complete
+                </Button>
+              )}
+            </>
+          ) : undefined
+        }
+      />
 
       {actionError && (
-        <p className="text-sm text-destructive bg-destructive/5 border border-destructive/20 rounded-md px-3 py-2">{actionError}</p>
+        <p className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {actionError}
+        </p>
       )}
 
-      {/* One horizontal spec strip: the same facts the sidebar cards carried,
-          read across. */}
-      <div className="grid grid-cols-2 gap-px rounded-lg border border-border bg-border overflow-hidden lg:grid-cols-6">
-        <div className="bg-background p-3">
-          <p className="text-xs text-muted-foreground">Status</p>
-          <p className="mt-1"><Badge className={AUTOMATION_STATUS_COLOR[status] || "bg-muted text-muted-foreground"}>{status}</Badge></p>
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border lg:grid-cols-6">
+        <div className="bg-background p-4">
+          <SectionLabel>Status</SectionLabel>
+          <div className="mt-1">
+            <Badge className={AUTOMATION_STATUS_COLOR[status] || "bg-muted text-muted-foreground"}>{status}</Badge>
+          </div>
         </div>
-        <div className="bg-background p-3">
-          <p className="text-xs text-muted-foreground">Trigger</p>
-          <p className="mt-1"><Badge variant="outline" className="whitespace-nowrap">{TRIGGER_LABELS[triggerType] || triggerType}{triggerDetail ? ` — ${triggerDetail}` : ""}</Badge></p>
+        <div className="bg-background p-4">
+          <SectionLabel>Trigger</SectionLabel>
+          <div className="mt-1">
+            <Badge variant="outline" className="whitespace-nowrap">
+              {TRIGGER_LABELS[triggerType] || triggerType}
+              {triggerDetail ? ` — ${triggerDetail}` : ""}
+            </Badge>
+          </div>
         </div>
-        <div className="bg-background p-3">
-          <p className="text-xs text-muted-foreground">Last run</p>
-          <p className="mt-1 text-sm font-mono">{formatWhen(automation.lastRun)}</p>
+        <div className="bg-background p-4">
+          <SectionLabel>Last run</SectionLabel>
+          <p className="mt-1 font-mono text-sm">{formatWhen(automation.lastRun)}</p>
         </div>
-        <div className="bg-background p-3">
-          <p className="text-xs text-muted-foreground">Next run</p>
-          <p className="mt-1 text-sm font-mono">{formatWhen(automation.nextRun)}</p>
+        <div className="bg-background p-4">
+          <SectionLabel>Next run</SectionLabel>
+          <p className="mt-1 font-mono text-sm">{formatWhen(automation.nextRun)}</p>
         </div>
-        <div className="bg-background p-3">
-          <p className="text-xs text-muted-foreground">Runs</p>
-          <p className="mt-1 text-sm font-semibold tabular-nums">{automation.runCount || 0}</p>
+        <div className="bg-background p-4">
+          <SectionLabel>Runs</SectionLabel>
+          <p className="mt-1 text-lg font-semibold tabular-nums">{automation.runCount || 0}</p>
         </div>
-        <div className="bg-background p-3">
-          <p className="text-xs text-muted-foreground">Errors</p>
-          <p className={cn("mt-1 text-sm font-semibold tabular-nums", (automation.errorCount || 0) > 0 && "text-destructive")}>
+        <div className="bg-background p-4">
+          <SectionLabel>Errors</SectionLabel>
+          <p
+            className={cn(
+              "mt-1 text-lg font-semibold tabular-nums",
+              (automation.errorCount || 0) > 0 && "text-destructive"
+            )}
+          >
             {automation.errorCount || 0}
           </p>
         </div>
@@ -298,9 +330,11 @@ export default function AutomationDetailPage({ params }: { params: { id: string 
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold flex items-center gap-2">
-            <Zap className="h-4 w-4 text-primary" /> Flow
-          </h2>
+          <SectionLabel>
+            <span className="flex items-center gap-2">
+              <Zap className="h-3.5 w-3.5 text-primary" /> Flow
+            </span>
+          </SectionLabel>
           <span className="text-xs text-muted-foreground">{actions.length} steps</span>
         </div>
         {actions.length > 0 ? (
@@ -322,11 +356,13 @@ export default function AutomationDetailPage({ params }: { params: { id: string 
         )}
       </section>
 
-      <section className="space-y-2">
-        <h2 className="font-semibold flex items-center gap-2">
-          <CheckCircle2 className="h-4 w-4 text-primary" /> Run History
-        </h2>
-        {(!automation.runs || automation.runs.length === 0) ? (
+      <section className="space-y-3">
+        <SectionLabel>
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Run history
+          </span>
+        </SectionLabel>
+        {!automation.runs || automation.runs.length === 0 ? (
           <p className="text-sm text-muted-foreground">No runs yet.</p>
         ) : (
           <DataTable
@@ -343,14 +379,25 @@ export default function AutomationDetailPage({ params }: { params: { id: string 
         <WorkflowEditorDrawer
           key={editingIndex}
           open={editingIndex !== null}
-          onOpenChange={(open) => { if (!open) setEditingIndex(null); }}
+          onOpenChange={(open) => {
+            if (!open) setEditingIndex(null);
+          }}
           action={{ index: editingIndex, type: editingAction.type, config: editingAction.config || {} }}
           onSave={saveAction}
-          actionTypes={["create_mission", "create_task", "invoke_agent", "call_tool", "call_api", "send_webhook", "write_memory", "notify_user"]}
+          actionTypes={[
+            "create_mission",
+            "create_task",
+            "invoke_agent",
+            "call_tool",
+            "call_api",
+            "send_webhook",
+            "write_memory",
+            "notify_user",
+          ]}
         />
       )}
 
-      {saving && <p className="text-sm text-muted-foreground">Saving...</p>}
+      {saving && <p className="text-sm text-muted-foreground">Saving…</p>}
     </div>
   );
 }
@@ -368,8 +415,6 @@ const resumeRoute = async (id: string) => {
   if (!res.ok) throw new Error("Failed to resume");
 };
 const completeRoute = async (id: string) => {
-  /* Named `/cancel` upstream, but the handler transitions the automation to
-   * COMPLETED (automation-state.complete), which is what this button promises. */
   const res = await fetch(`/api/automations/${id}/cancel`, { method: "POST" });
   if (!res.ok) throw new Error("Failed to mark complete");
 };

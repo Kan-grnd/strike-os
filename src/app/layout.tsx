@@ -21,8 +21,18 @@ const jetbrainsMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Strike OS — Adaptive AI Workforce Operating System",
-  description: "One intelligence, many workers",
+  title: {
+    default: "Strike OS",
+    template: "%s · Strike OS",
+  },
+  description: "Strike OS — adaptive AI workforce operating system.",
+  applicationName: "Strike OS",
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: { index: false, follow: false, noimageindex: true },
+  },
 };
 
 export default function RootLayout({

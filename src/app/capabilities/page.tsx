@@ -2,12 +2,17 @@
 
 import Link from "next/link";
 import useSWR from "swr";
+import { motion } from "motion/react";
 import { Card } from "@/components/ui/card";
 import { Badge, badgeVariants } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Target, RotateCcw, AlertCircle } from "lucide-react";
+import { Target, RotateCcw, AlertCircle, Layers, CheckCircle2 } from "lucide-react";
 import { CAPABILITY_CATALOG } from "@/lib/capabilities";
 import { cn, safeJsonArray } from "@/lib/utils";
+import { PageHeader, SectionLabel } from "@/components/shared/page-header";
+import { KpiCard } from "@/components/dashboard/kpi-card";
+
+const EASE = [0.16, 1, 0.3, 1] as const;
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
@@ -28,18 +33,52 @@ export default function CapabilitiesPage() {
     });
   });
 
+  const allCaps = Object.values(CAPABILITY_CATALOG).flat();
+  const covered = allCaps.filter((cap) => (capabilityAgents[cap] || []).length > 0);
+  const gaps = allCaps.length - covered.length;
+
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Capabilities</h1>
-        <p className="text-sm text-muted-foreground">Registry of capabilities and the agents that provide them</p>
-      </div>
+    <div className="mx-auto max-w-[1400px] space-y-6">
+      <PageHeader
+        eyebrow="Workforce"
+        icon={Target}
+        title="Capabilities"
+        description="Registry of capabilities and the agents that provide them."
+      />
+
+      <section className="grid gap-4 sm:grid-cols-3">
+        <KpiCard
+          index={0}
+          icon={Layers}
+          label="Capabilities"
+          value={allCaps.length}
+          caption={`${Object.keys(CAPABILITY_CATALOG).length} categories`}
+        />
+        <KpiCard
+          index={1}
+          icon={CheckCircle2}
+          label="Covered"
+          value={covered.length}
+          caption="At least one agent provides these"
+          accent="hsl(var(--success) / 0.4)"
+        />
+        <KpiCard
+          index={2}
+          icon={AlertCircle}
+          label="Gaps"
+          value={gaps}
+          caption={gaps > 0 ? "No agent provides these yet" : "Full coverage"}
+          accent="hsl(var(--warning) / 0.4)"
+        />
+      </section>
 
       {error && (
         <Card className="p-8 text-center">
-          <AlertCircle className="h-10 w-10 mx-auto text-destructive mb-3" />
+          <AlertCircle className="mx-auto mb-3 h-10 w-10 text-destructive" />
           <p className="text-lg font-medium">Couldn't load capabilities</p>
-          <p className="text-sm text-muted-foreground mt-1">Something went wrong fetching the workforce registry.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Something went wrong fetching the workforce registry.
+          </p>
           <Button variant="outline" className="mt-4 gap-2" onClick={() => mutate()}>
             <RotateCcw className="h-4 w-4" /> Retry
           </Button>
@@ -47,62 +86,89 @@ export default function CapabilitiesPage() {
       )}
 
       {!error && isLoading && agents.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">Loading capabilities...</div>
+        <div className="grid gap-3 md:grid-cols-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="h-24 animate-pulse bg-muted/40" />
+          ))}
+        </div>
       )}
 
       {!error && (
-        <div className="space-y-6">
-          {Object.entries(CAPABILITY_CATALOG).map(([category, caps]) => (
-            <div key={category}>
-              <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider">{category}</h2>
+        <div className="space-y-8">
+          {Object.entries(CAPABILITY_CATALOG).map(([category, caps], ci) => (
+            <section key={category} className="space-y-3">
+              <SectionLabel>{category}</SectionLabel>
               <div className="grid gap-3 md:grid-cols-2">
-                {caps.map((cap) => {
+                {caps.map((cap, i) => {
                   const providers = capabilityAgents[cap] || [];
+                  const empty = providers.length === 0;
                   return (
-                    <Card key={cap} className="p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="rounded-md p-2 bg-muted shrink-0">
-                          <Target className="h-4 w-4 text-muted-foreground" />
+                    <motion.div
+                      key={cap}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        duration: 0.35,
+                        delay: Math.min(ci * 0.03 + i * 0.02, 0.3),
+                        ease: EASE,
+                      }}
+                    >
+                      <Card className="flex h-full items-start gap-3 p-4 transition-colors hover:border-ring/40">
+                        <div
+                          className={cn(
+                            "shrink-0 rounded-lg border p-2",
+                            empty
+                              ? "border-warning/40 text-warning"
+                              : "text-muted-foreground"
+                          )}
+                        >
+                          <Target className="h-4 w-4" />
                         </div>
-                        <div className="flex-1 min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="font-mono text-sm font-medium">{cap}</p>
                           {!isLoading && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {providers.length > 0 ? (
-                                <>
-                                  {providers.length} agent{providers.length > 1 ? "s" : ""} provide{providers.length === 1 ? "s" : ""} this
-                                </>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {empty ? (
+                                <span className="text-warning">
+                                  No agent provides this yet
+                                </span>
                               ) : (
-                                <span className="text-warning">No agent provides this yet</span>
+                                <>
+                                  {providers.length} agent
+                                  {providers.length > 1 ? "s" : ""} provide
+                                  {providers.length === 1 ? "s" : ""} this
+                                </>
                               )}
                             </p>
                           )}
                           {providers.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
+                            <div className="mt-2 flex flex-wrap gap-1">
                               {providers.slice(0, 3).map((p) => (
                                 <Link
                                   key={p.id}
                                   href={`/agents/${p.id}`}
                                   className={cn(
                                     badgeVariants({ variant: "outline" }),
-                                    "text-xs hover:border-primary/40 hover:text-foreground transition-colors"
+                                    "text-xs transition-colors hover:border-primary/40 hover:text-foreground"
                                   )}
                                 >
                                   {p.name}
                                 </Link>
                               ))}
                               {providers.length > 3 && (
-                                <Badge variant="outline" className="text-xs">+{providers.length - 3}</Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  +{providers.length - 3}
+                                </Badge>
                               )}
                             </div>
                           )}
                         </div>
-                      </div>
-                    </Card>
+                      </Card>
+                    </motion.div>
                   );
                 })}
               </div>
-            </div>
+            </section>
           ))}
         </div>
       )}

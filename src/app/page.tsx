@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import { motion } from "motion/react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -11,13 +13,12 @@ import {
   Users,
   ListTodo,
   Activity,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
   Rocket,
   Layers,
+  ArrowUpRight,
+  CircleDot,
 } from "lucide-react";
-import { cn, formatRelativeTime } from "@/lib/utils";
+import { cn, formatRelativeTime, truncate } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   useAgents,
@@ -28,39 +29,28 @@ import {
   usePerformance,
   useCosts,
 } from "@/hooks/useApi";
-import Link from "next/link";
-import { FleetHealth, isAgentActiveLive } from "@/components/dashboard/charts";
+import { isAgentActiveLive } from "@/components/dashboard/charts";
+import { KpiCard } from "@/components/dashboard/kpi-card";
+import { ThroughputChart, FleetStateChart } from "@/components/dashboard/recharts";
+
+const EASE = [0.16, 1, 0.3, 1] as const;
 
 export default function HomePage() {
-  const { data: agentsData, isLoading: agentsLoading } = useAgents();
-  const { data: tasksData, isLoading: tasksLoading } = useTasks({ status: "RUNNING" });
-  const { data: missionsData, isLoading: missionsLoading } = useMissions();
-  const { data: automationsData, isLoading: automationsLoading } = useAutomations();
-  const { data: eventsData, isLoading: eventsLoading } = useEvents({});
-  const { data: performanceData, isLoading: performanceLoading } = usePerformance();
-  const { data: costsData, isLoading: costsLoading } = useCosts();
+  const { data: agentsData } = useAgents();
+  const { data: tasksData } = useTasks({ status: "RUNNING" });
+  const { data: missionsData } = useMissions();
+  const { data: automationsData } = useAutomations();
+  const { data: eventsData } = useEvents({});
+  const { data: performanceData } = usePerformance();
+  const { data: costsData } = useCosts();
 
   const agents = agentsData?.agents || [];
   const runningTasks = tasksData?.tasks || [];
   const missions = missionsData?.missions || [];
   const automations = automationsData?.automations || [];
-  const missionPercent: Record<string, number> = {};
-  for (const m of missions as any[]) {
-    const tasks = m.tasks || [];
-    const done = tasks.filter((t: any) => t.status === "COMPLETED").length;
-    missionPercent[`mission:${m.id}`] = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
-  }
+  const events = eventsData?.events || [];
   const performance = performanceData || { completedTasks: 0, failedTasks: 0 };
   const costs = costsData && costsData.totalCost > 0 ? costsData : undefined;
-
-  const loading =
-    agentsLoading ||
-    tasksLoading ||
-    missionsLoading ||
-    automationsLoading ||
-    eventsLoading ||
-    performanceLoading ||
-    costsLoading;
 
   const activeMissions = missions.filter((m: any) => m.status === "RUNNING");
   const activeAgents = agents.filter((a: any) => isAgentActiveLive(a));
@@ -71,38 +61,51 @@ export default function HomePage() {
   ).length;
   const activeAutomations = automations.filter((a: any) => a.status === "ACTIVE").length;
 
-  const nowItems: { title: string; description: string; status: "running" | "waiting" | "completed"; time: string }[] = [];
+  // Trailing event series (12 buckets over 2h) — real data only, used for
+  // the KPI sparkline so the visual is never decorative fiction.
+  const eventSpark = React.useMemo(() => {
+    const BUCKET = 10 * 60_000;
+    const N = 12;
+    const now = Date.now();
+    const start = now - N * BUCKET;
+    const arr = new Array<number>(N).fill(0);
+    for (const e of events) {
+      const t = Date.parse((e as any)?.timestamp ?? "");
+      if (Number.isNaN(t) || t < start || t > now) continue;
+      const i = Math.min(N - 1, Math.max(0, Math.floor((t - start) / BUCKET)));
+      arr[i]++;
+    }
+    return arr;
+  }, [events]);
+
+  const nowItems: {
+    title: string;
+    description: string;
+    status: "running" | "waiting" | "completed";
+    time: string;
+    href?: string;
+  }[] = [];
   activeMissions.forEach((m: any) => {
     nowItems.push({
-      title: truncate(m.goal, 48),
-      description: `${m.tasks?.length || 0} tasks • ${activeAgents.length} agents active`,
+      title: truncate(m.goal, 52),
+      description: `${m.tasks?.length || 0} tasks · ${activeAgents.length} agents active`,
       status: "running",
       time: formatRelativeTime(m.createdAt),
+      href: `/missions/${m.id}`,
     });
   });
-  runningTasks.forEach((t: any) => {
+  runningTasks.slice(0, 3).forEach((t: any) => {
     nowItems.push({
-      title: truncate(t.description, 48),
-      description: `Task ${t.status?.toLowerCase() || "queued"} • owner ${t.ownerAgentId ? "assigned" : "unassigned"}`,
+      title: truncate(t.description, 52),
+      description: `Task ${t.status?.toLowerCase() || "queued"} · ${t.agentName || "unassigned"}`,
       status: "waiting",
       time: formatRelativeTime(t.createdAt),
+      href: `/tasks`,
     });
   });
-  const scheduled = automations.filter(
-    (a: any) => (a.status === "ACTIVE" || a.status === "SCHEDULED") && a.nextRun
-  );
-  scheduled.slice(0, 3).forEach((a: any) => {
-    nowItems.push({
-      title: truncate(a.name, 48),
-      description: a.description || "Scheduled automation",
-      status: "waiting",
-      time: a.nextRun ? formatRelativeTime(a.nextRun) : "scheduled",
-    });
-  });
-  const nowTop = nowItems.slice(0, 3);
-  const nextAutomation = scheduled[0] ?? null;
+  const nowTop = nowItems.slice(0, 4);
 
-  const streamEvents: { event: string; description: string; time: string }[] = (eventsData?.events || []).slice(0, 6).map((e: any) => {
+  const streamEvents = events.slice(0, 8).map((e: any) => {
     let payload: Record<string, unknown> = {};
     try {
       payload = typeof e.payload === "string" ? JSON.parse(e.payload) : e.payload || {};
@@ -115,230 +118,257 @@ export default function HomePage() {
         (typeof payload.description === "string" && payload.description) ||
         (typeof payload.message === "string" && payload.message) ||
         e.subject ||
+        e.source ||
         "",
       time: formatRelativeTime(e.timestamp),
     };
   });
 
+  const totalCost = costs?.totalCost ?? 0;
+  const successRate =
+    performance.completedTasks + performance.failedTasks > 0
+      ? Math.round(
+          (performance.completedTasks /
+            (performance.completedTasks + performance.failedTasks)) *
+            100
+        )
+      : null;
+
   return (
-    <div className="p-6 space-y-6">
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold">System Status</h2>
-        {loading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {[0, 1, 2, 3].map((i) => (
-              <Card key={i} className="p-6 animate-pulse">
-                <div className="space-y-3">
-                  <div className="h-3 w-20 rounded bg-muted" />
-                  <div className="h-8 w-12 rounded bg-muted" />
-                  <div className="h-3 w-28 rounded bg-muted" />
-                </div>
-              </Card>
-            ))}
+    <div className="mx-auto max-w-[1400px] space-y-6">
+      {/* ── Command deck ─────────────────────────────────────────────── */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: EASE }}
+        className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-card via-card to-muted/40 p-8"
+      >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary/10 blur-3xl"
+        />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
+              </span>
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                System online · live
+              </span>
+            </div>
+            <h1 className="max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">
+              Your AI workforce, at a glance
+            </h1>
+            <p className="max-w-xl text-sm text-muted-foreground">
+              {activeAgents.length > 0
+                ? `${activeAgents.length} agents active across ${activeMissions.length} running mission${activeMissions.length === 1 ? "" : "s"}.`
+                : "Dispatch a mission and watch the fleet work in real time."}
+            </p>
           </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <StatCard
-              icon={Users}
-              label="Active Agents"
-              value={String(activeAgents.length)}
-              change={`${agents.length} total`}
-              trend="neutral"
-            />
-            <StatCard
-              icon={ListTodo}
-              label="Running Tasks"
-              value={String(runningTasks.length)}
-              change={`${tasksData?.tasks?.length || 0} running now`}
-              trend="neutral"
-            />
-            <StatCard
-              icon={Brain}
-              label="Active Missions"
-              value={String(activeMissions.length)}
-              change={`${completedToday} completed today`}
-              trend="neutral"
-            />
-            <StatCard
-              icon={Zap}
-              label="Automations"
-              value={String(activeAutomations)}
-              change={
-                nextAutomation
-                  ? `${automations.length} configured · next ${truncate(nextAutomation.name, 14)} ${formatRelativeTime(nextAutomation.nextRun)}`
-                  : `${automations.length} configured`
-              }
-              trend="neutral"
-            />
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/architect"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:scale-[1.02]"
+            >
+              <Rocket className="h-4 w-4" />
+              Start a mission
+            </Link>
+            <Link
+              href="/topology"
+              className="inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-accent"
+            >
+              <Layers className="h-4 w-4" />
+              Live topology
+            </Link>
           </div>
-        )}
-      </section>
-
-      <Separator />
-
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Fleet Health</h2>
-        {loading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[0, 1, 2, 3].map((i) => (
-              <Card key={i} className="p-6 animate-pulse">
-                <div className="space-y-3">
-                  <div className="h-3 w-24 rounded bg-muted" />
-                  <div className="h-12 w-full rounded bg-muted" />
-                </div>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <FleetHealth
-            agents={agents}
-            runningMissions={activeMissions}
-            missionPercent={missionPercent}
-            events={eventsData?.events || []}
-            completed={performance.completedTasks ?? 0}
-            failed={performance.failedTasks ?? 0}
-            costs={costs}
-          />
-        )}
-      </section>
-
-      <Separator />
-
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Current Activity</h2>
-          <Badge variant="outline" className="gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-            Live
-          </Badge>
         </div>
+      </motion.section>
 
-        {!loading && agents.length === 0 && missions.length === 0 && automations.length === 0 ? (
-          <EmptyState
-            icon={Rocket}
-            title="No activity yet"
-            description="Create your first agent to start building your workforce."
-            cta="Create your first agent"
-            ctaHref="/architect"
-          />
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card className="p-6">
-              <h3 className="mb-4 text-sm font-semibold text-muted-foreground">NOW</h3>
-              {nowTop.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nothing running right now.</p>
-              ) : (
-                <div className="space-y-4">
-                  {nowTop.map((item, i) => (
-                    <ActivityItem key={i} {...item} />
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            <Card className="p-6">
-              <h3 className="mb-4 text-sm font-semibold text-muted-foreground">
-                OPERATIONAL STREAM
-              </h3>
-              <ScrollArea className="h-[200px]">
-                <div className="space-y-3">
-                  {streamEvents.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No system events yet.</p>
-                  ) : (
-                    streamEvents.map((ev, i) => <StreamEvent key={i} {...ev} />)
-                  )}
-                </div>
-              </ScrollArea>
-            </Card>
-          </div>
-        )}
+      {/* ── KPI rail ─────────────────────────────────────────────────── */}
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          index={0}
+          icon={Users}
+          label="Active agents"
+          value={activeAgents.length}
+          caption={`${agents.length} in the fleet`}
+          accent="hsl(var(--info) / 0.5)"
+        />
+        <KpiCard
+          index={1}
+          icon={ListTodo}
+          label="Running tasks"
+          value={runningTasks.length}
+          caption={`${performance.completedTasks} completed · 7d`}
+          accent="hsl(var(--primary) / 0.4)"
+        />
+        <KpiCard
+          index={2}
+          icon={Brain}
+          label="Active missions"
+          value={activeMissions.length}
+          caption={`${completedToday} completed today`}
+        />
+        <KpiCard
+          index={3}
+          icon={Activity}
+          label="Events · 2h"
+          value={eventSpark.reduce((s, v) => s + v, 0)}
+          caption={
+            successRate != null ? `${successRate}% task success` : "No outcomes yet"
+          }
+          spark={eventSpark}
+          accent="hsl(var(--success) / 0.4)"
+        />
       </section>
 
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Quick Actions</h2>
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          <QuickActionCard
-            title="Create Agent"
-            description="Add a new agent to your workforce"
-            icon={Users}
-          />
-          <QuickActionCard
-            title="Start Mission"
-            description="Launch a new mission"
-            icon={Brain}
-          />
-          <QuickActionCard
-            title="View Topology"
-            description="Inspect live workforce runtime & signals"
-            icon={Layers}
-            href="/topology"
-          />
-        </div>
+      {/* ── Charts ───────────────────────────────────────────────────── */}
+      <section className="grid gap-4 lg:grid-cols-5">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1, ease: EASE }}
+          className="lg:col-span-3"
+        >
+          <ThroughputChart events={events} />
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.16, ease: EASE }}
+          className="lg:col-span-2"
+        >
+          <FleetStateChart agents={agents} />
+        </motion.div>
+      </section>
+
+      {/* ── Activity ─────────────────────────────────────────────────── */}
+      <section className="grid gap-4 lg:grid-cols-2">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.22, ease: EASE }}
+        >
+          <Card className="flex h-full flex-col p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Happening now
+              </h2>
+              <Badge variant="outline" className="gap-1.5">
+                <CircleDot className="h-3 w-3 text-success" />
+                Live
+              </Badge>
+            </div>
+            {agents.length === 0 && missions.length === 0 ? (
+              <EmptyState
+                icon={Rocket}
+                title="No activity yet"
+                description="Create your first agent to start building your workforce."
+                cta="Create your first agent"
+                ctaHref="/architect"
+              />
+            ) : nowTop.length === 0 ? (
+              <p className="py-6 text-sm text-muted-foreground">
+                Nothing running right now.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {nowTop.map((item, i) => (
+                  <ActivityRow key={i} {...item} />
+                ))}
+              </div>
+            )}
+          </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.28, ease: EASE }}
+        >
+          <Card className="flex h-full flex-col p-6">
+            <h2 className="mb-4 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Operational stream
+            </h2>
+            <ScrollArea className="h-[280px] pr-3">
+              <div className="space-y-3">
+                {streamEvents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No system events yet.
+                  </p>
+                ) : (
+                  streamEvents.map((ev, i) => <StreamEvent key={i} {...ev} />)
+                )}
+              </div>
+            </ScrollArea>
+          </Card>
+        </motion.div>
+      </section>
+
+      {/* ── Secondary signals ────────────────────────────────────────── */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <MiniStat
+          icon={Zap}
+          label="Automations"
+          value={String(automations.filter((a: any) => a.status === "ACTIVE").length)}
+          caption={`${automations.length} configured`}
+          href="/automations"
+        />
+        <KpiCost totalCost={totalCost} dims={costs?.dimensions} />
+        <MiniStat
+          icon={ListTodo}
+          label="Fleet success · 7d"
+          value={successRate != null ? `${successRate}%` : "—"}
+          caption={`${performance.completedTasks} completed / ${performance.failedTasks} failed`}
+          href="/performance"
+        />
       </section>
     </div>
   );
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  change,
-  trend,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  change: string;
-  trend: "up" | "down" | "neutral";
-}) {
-  return (
-    <Card className="p-6">
-      <div className="flex items-start justify-between">
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="text-2xl font-bold">{value}</p>
-          <p className="text-xs text-muted-foreground">{change}</p>
-        </div>
-        <div className="rounded-md bg-muted p-2.5">
-          <Icon className="h-5 w-5 text-muted-foreground" />
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-function ActivityItem({
+function ActivityRow({
   title,
   description,
   status,
   time,
+  href,
 }: {
   title: string;
   description: string;
   status: "running" | "waiting" | "completed";
   time: string;
+  href?: string;
 }) {
-  const Icon = status === "running" ? Zap : status === "waiting" ? Clock : CheckCircle2;
-
-  return (
-    <div className="flex items-start gap-3">
-      <div
-        className={cn(
-          "mt-0.5 rounded-md p-1.5",
-          status === "running" && "bg-primary/10 text-primary",
-          status === "waiting" && "bg-muted text-muted-foreground",
-          status === "completed" && "bg-success/10 text-success"
-        )}
-      >
-        <Icon className="h-4 w-4" />
+  const dot =
+    status === "running"
+      ? "bg-primary"
+      : status === "completed"
+        ? "bg-success"
+        : "bg-warning";
+  const body = (
+    <div className="flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/50">
+      <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", dot)} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{title}</p>
+        <p className="truncate text-xs text-muted-foreground">{description}</p>
       </div>
-      <div className="flex-1 space-y-1">
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-xs text-muted-foreground">{description}</p>
-        <p className="text-micro text-muted-foreground">{time}</p>
-      </div>
+      <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+        {time}
+      </span>
     </div>
+  );
+  return href ? (
+    <Link href={href} className="group block">
+      <div className="flex items-center">
+        <div className="min-w-0 flex-1">{body}</div>
+        <ArrowUpRight className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+      </div>
+    </Link>
+  ) : (
+    body
   );
 }
 
@@ -352,51 +382,86 @@ function StreamEvent({
   time: string;
 }) {
   return (
-    <div className="flex items-start gap-3 text-sm">
-      <div className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-      <div className="flex-1 space-y-0.5">
-        <p className="font-medium">{event}</p>
-        <p className="text-xs text-muted-foreground">{description}</p>
-        <p className="text-micro text-muted-foreground">{time}</p>
+    <div className="flex items-start gap-3">
+      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/50" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="truncate font-mono text-[11px] font-medium">{event}</span>
+          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
+            {time}
+          </span>
+        </div>
+        {description && (
+          <p className="truncate text-xs text-muted-foreground">{description}</p>
+        )}
       </div>
     </div>
   );
 }
 
-function truncate(text: string, max: number) {
-  if (!text) return "";
-  return text.length > max ? `${text.slice(0, max)}…` : text;
-}
-
-function QuickActionCard({
-  title,
-  description,
+function MiniStat({
   icon: Icon,
+  label,
+  value,
+  caption,
   href,
 }: {
-  title: string;
-  description: string;
   icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  caption: string;
   href?: string;
 }) {
-  const body = (
-    <Card className="group cursor-pointer transition-colors hover:border-primary/50 p-4">
-      <div className="flex items-start gap-3">
-        <div className="rounded-md bg-muted p-2 group-hover:bg-primary/10 transition-colors">
-          <Icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-        </div>
-        <div className="space-y-1">
-          <p className="font-medium">{title}</p>
-          <p className="text-xs text-muted-foreground">{description}</p>
-        </div>
+  const inner = (
+    <Card className="flex h-full items-center gap-4 p-5 transition-colors hover:border-ring/40">
+      <div className="rounded-lg bg-muted/70 p-2.5">
+        <Icon className="h-5 w-5 text-muted-foreground" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          {label}
+        </p>
+        <p className="font-mono text-2xl font-bold tabular-nums">{value}</p>
+        <p className="truncate text-xs text-muted-foreground">{caption}</p>
       </div>
     </Card>
   );
   return href ? (
-    <Link href={href} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-      {body}
+    <Link href={href} className="block h-full">
+      {inner}
     </Link>
   ) : (
-    body
+    inner
+  );
+}
+
+function KpiCost({
+  totalCost,
+  dims,
+}: {
+  totalCost: number;
+  dims?: Record<string, number>;
+}) {
+  const entries = Object.entries(dims || {}).sort((a, b) => b[1] - a[1]);
+  const [topName, topValue] = entries[0] || [null, null];
+  return (
+    <Card className="flex h-full items-center gap-4 p-5">
+      <div className="rounded-lg bg-muted/70 p-2.5">
+        <Zap className="h-5 w-5 text-muted-foreground" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Observed cost · 7d
+        </p>
+        <p className="font-mono text-2xl font-bold tabular-nums">
+          ${totalCost.toFixed(2)}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          {topName != null
+            ? `most in ${topName}: $${Number(topValue).toFixed(2)}`
+            : "No metered spend yet"}
+        </p>
+      </div>
+    </Card>
   );
 }

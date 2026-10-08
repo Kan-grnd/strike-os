@@ -1,10 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  ArrowLeft,
   Check,
   CheckCircle2,
   Copy,
@@ -16,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { motion } from "motion/react";
+import { PageHeader, SectionLabel, EASE } from "@/components/shared/page-header";
 import { buildImplementerPrompt, type EditTicketRow } from "@/lib/edit-tickets";
 
 const KIND_STYLE: Record<string, { label: string; className: string }> = {
@@ -71,7 +71,6 @@ function parseDataContext(row: EditTicketRow) {
 }
 
 export default function EditQueuePage() {
-  const router = useRouter();
   const [tickets, setTickets] = useState<EditTicketRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -151,7 +150,7 @@ export default function EditQueuePage() {
     const priority = t.priority || "MEDIUM";
     const priorityStyle = PRIORITY_STYLE[priority] ?? PRIORITY_STYLE.MEDIUM;
     return (
-      <div className="rounded-lg border border-border bg-background p-4">
+      <div className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-ring/40">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -277,25 +276,20 @@ export default function EditQueuePage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold">Edit queue</h2>
-          <p className="text-sm text-muted-foreground">
-            Tickets grabbed directly from the live UI — exact selectors, live styles, verbatim intents.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => router.push("/")}>
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-          <Button variant="outline" size="sm" onClick={load}>
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+    <div className="mx-auto max-w-[1100px] space-y-6">
+      <PageHeader
+        backHref="/"
+        icon={Inbox}
+        eyebrow="System"
+        title="Edit queue"
+        description="Tickets grabbed directly from the live UI — exact selectors, live styles, verbatim intents."
+        actions={
+          <Button variant="outline" size="sm" onClick={load} className="gap-2">
+            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
             Refresh
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
@@ -352,21 +346,31 @@ export default function EditQueuePage() {
           </div>
           {open.length > 0 && (
             <section className="space-y-3">
-              <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Open ({open.length})
-              </h3>
-              {open.map((t) => (
-                <TicketRow key={t.id} t={t} />
+              <SectionLabel>Open · {open.length}</SectionLabel>
+              {open.map((t, i) => (
+                <motion.div
+                  key={t.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: Math.min(i * 0.04, 0.4), ease: EASE }}
+                >
+                  <TicketRow t={t} />
+                </motion.div>
               ))}
             </section>
           )}
           {done.length > 0 && (
             <section className="space-y-3">
-              <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Done ({done.length})
-              </h3>
-              {done.map((t) => (
-                <TicketRow key={t.id} t={t} />
+              <SectionLabel>Done · {done.length}</SectionLabel>
+              {done.map((t, i) => (
+                <motion.div
+                  key={t.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: Math.min(i * 0.04, 0.4), ease: EASE }}
+                >
+                  <TicketRow t={t} />
+                </motion.div>
               ))}
             </section>
           )}

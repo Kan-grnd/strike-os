@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "motion/react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Sparkles, Clock, DollarSign, Zap, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { cn, formatCost, formatDuration } from "@/lib/utils";
+import { PageHeader, SectionLabel, EASE } from "@/components/shared/page-header";
 
 type PlanStep = {
   step: number;
@@ -98,80 +100,120 @@ export default function NewMissionPage() {
   const totalDuration = planSteps?.reduce((s, x) => s + (x.estimatedDuration || 0), 0) || 0;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">New Mission</h1>
-        <p className="text-sm text-muted-foreground">Describe the goal and Strike OS will plan, assign, and execute</p>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-6">
+      <PageHeader
+        icon={Sparkles}
+        eyebrow="Execution"
+        title="New Mission"
+        description="Describe the goal and Strike OS will plan, assign, and execute the work"
+      />
 
-      <Card className="p-6 space-y-4">
-        <div>
-          <label htmlFor="mission-goal" className="text-sm font-medium">Mission Goal</label>
+      <Card className="space-y-4 p-6">
+        <div className="space-y-2">
+          <label htmlFor="mission-goal" className="text-sm font-medium">
+            Mission goal
+          </label>
           <Textarea
             id="mission-goal"
-            placeholder="Create a competitor intelligence workforce that continuously monitors approved sources and flags signal changes..."
+            placeholder="Create a competitor intelligence workforce that continuously monitors approved sources and flags signal changes…"
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
-            className="mt-2 min-h-[80px]"
+            className="min-h-[96px]"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button onClick={planMission} disabled={planning || !goal.trim()} className="gap-2">
             <Sparkles className="h-4 w-4" />
-            {planning ? "Planning..." : planSteps ? "Re-plan" : "Plan Mission"}
+            {planning ? "Planning…" : planSteps ? "Re-plan" : "Plan mission"}
           </Button>
-          <Button onClick={launch} disabled={launching || !missionId || !planSteps} variant="outline" className="gap-2">
+          <Button
+            onClick={launch}
+            disabled={launching || !missionId || !planSteps}
+            variant="outline"
+            className="gap-2"
+          >
             <Zap className="h-4 w-4" />
-            {launching ? "Launching..." : "Launch Mission"}
+            {launching ? "Launching…" : "Launch mission"}
           </Button>
         </div>
         {error && (
-          <p className="flex items-center gap-2 text-sm text-destructive bg-destructive/5 border border-destructive/20 rounded-md px-3 py-2">
+          <p className="flex items-center gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
             <AlertCircle className="h-4 w-4 shrink-0" /> {error}
           </p>
         )}
       </Card>
 
       {planSteps && (
-        <Card className="p-6 space-y-4 border-success/30 bg-success/5">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-success" />
-            <h2 className="font-semibold">Plan for this mission</h2>
-            {missionId && <Badge variant="outline" className="font-mono text-xs">{missionId.slice(0, 8)}</Badge>}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-            <div className="rounded-lg p-3 text-center border glass">
-              <p className="text-xs text-muted-foreground">Steps</p>
-              <p className="font-bold text-xl">{planSteps.length}</p>
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: EASE }}
+        >
+          <Card className="space-y-5 border-success/30 bg-success/[0.03] p-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-success" />
+              <h2 className="font-semibold">Plan for this mission</h2>
+              {missionId && (
+                <Badge variant="outline" className="font-mono text-xs">
+                  {missionId.slice(0, 8)}
+                </Badge>
+              )}
             </div>
-            <div className="rounded-lg p-3 text-center border glass">
-              <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="h-3 w-3" /> Est. Cost</p>
-              <p className="font-bold text-xl">{formatCost(totalCost)}</p>
-            </div>
-            <div className="rounded-lg p-3 text-center border glass">
-              <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><Clock className="h-3 w-3" /> Est. Duration</p>
-              <p className="font-bold text-xl">{formatDuration(totalDuration)}</p>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {planSteps.map((step) => (
-              <div key={step.step} className="flex items-center gap-3 rounded-md p-3 border glass">
-                <Badge variant="outline" className="font-mono">{step.step}</Badge>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{step.description}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Agent type: {step.agentType}
-                    {step.dependencies?.length ? ` • depends on: ${step.dependencies.join(", ")}` : ""}
-                  </p>
-                </div>
-                <span className="text-xs text-muted-foreground">{formatDuration(step.estimatedDuration)}</span>
+
+            <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-3">
+              <div className="bg-background p-4">
+                <SectionLabel>Steps</SectionLabel>
+                <p className="mt-1 text-2xl font-bold tabular-nums">{planSteps.length}</p>
               </div>
-            ))}
-          </div>
-          <Button variant="ghost" size="sm" onClick={planMission} disabled={planning} className="gap-2">
-            <RefreshCw className={cn("h-3.5 w-3.5", planning && "animate-spin")} /> Re-plan
-          </Button>
-        </Card>
+              <div className="bg-background p-4">
+                <SectionLabel>
+                  <span className="flex items-center gap-1">
+                    <DollarSign className="h-3 w-3" /> Est. cost
+                  </span>
+                </SectionLabel>
+                <p className="mt-1 text-2xl font-bold tabular-nums">{formatCost(totalCost)}</p>
+              </div>
+              <div className="bg-background p-4">
+                <SectionLabel>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> Est. duration
+                  </span>
+                </SectionLabel>
+                <p className="mt-1 text-2xl font-bold tabular-nums">{formatDuration(totalDuration)}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {planSteps.map((step, i) => (
+                <motion.div
+                  key={step.step}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.35, delay: Math.min(i * 0.05, 0.4), ease: EASE }}
+                  className="flex items-center gap-3 rounded-lg border bg-background/60 p-3"
+                >
+                  <Badge variant="outline" className="font-mono">
+                    {step.step}
+                  </Badge>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{step.description}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {step.agentType}
+                      {step.dependencies?.length ? ` · depends on ${step.dependencies.join(", ")}` : ""}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {formatDuration(step.estimatedDuration)}
+                  </span>
+                </motion.div>
+              ))}
+            </div>
+
+            <Button variant="ghost" size="sm" onClick={planMission} disabled={planning} className="gap-2">
+              <RefreshCw className={cn("h-3.5 w-3.5", planning && "animate-spin")} /> Re-plan
+            </Button>
+          </Card>
+        </motion.div>
       )}
     </div>
   );

@@ -5,10 +5,22 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ListChecks, RefreshCw } from "lucide-react";
 import { useTask } from "@/hooks/useApi";
 import { safeJson, formatCost, formatDuration } from "@/lib/utils";
 import { TASK_STATUS_COLOR } from "@/lib/execution-meta";
+import { PageHeader, SectionLabel } from "@/components/shared/page-header";
+
+function Stat({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="bg-background p-3">
+      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 font-mono text-xl font-bold tabular-nums">{value}</p>
+    </div>
+  );
+}
 
 export default function TaskDetailPage({ params }: { params: { id: string } }) {
   const { data, error, isLoading, mutate } = useTask(params.id);
@@ -35,15 +47,24 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
     }
   };
 
-  if (isLoading && !task) return <div className="p-6">Loading task...</div>;
+  if (isLoading && !task) {
+    return (
+      <div className="mx-auto max-w-[1200px] space-y-6">
+        <div className="h-8 w-48 animate-pulse rounded bg-muted" />
+        <div className="h-32 animate-pulse rounded-xl bg-muted/60" />
+      </div>
+    );
+  }
 
   if (error && !task) {
     const status = (error as Error & { status?: number }).status;
     return (
-      <div className="p-6">
-        <Card className="p-12 text-center space-y-4 max-w-md mx-auto">
+      <div className="mx-auto max-w-md py-20">
+        <Card className="space-y-4 p-12 text-center">
           <p className="text-lg font-medium">{status === 404 ? "Task not found" : "Failed to load task"}</p>
-          <p className="text-sm text-muted-foreground">{status === 404 ? "It may have been deleted." : error.message}</p>
+          <p className="text-sm text-muted-foreground">
+            {status === 404 ? "It may have been deleted." : error.message}
+          </p>
           <Button variant="outline" onClick={() => mutate()} className="gap-2">
             <RefreshCw className="h-4 w-4" /> Retry
           </Button>
@@ -58,56 +79,74 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
   const output = safeJson<unknown>(task.output, {});
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href="/tasks"><Button variant="ghost" size="sm" className="gap-2"><ArrowLeft className="h-4 w-4" /> Back</Button></Link>
-      </div>
-
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <h1 className="text-2xl font-bold">Task</h1>
+    <div className="mx-auto max-w-[1200px] space-y-6">
+      <PageHeader
+        backHref="/tasks"
+        icon={ListChecks}
+        eyebrow="Execution"
+        title={
+          <span className="flex flex-wrap items-center gap-2">
+            Task
             <Badge className={TASK_STATUS_COLOR[task.status]}>{task.status}</Badge>
-          </div>
-          <p className="text-base font-medium">{task.description}</p>
-          <div className="flex flex-wrap items-center gap-3 mt-1 text-sm">
-            {task.missionId ? (
-              <Link href={`/missions/${task.missionId}`} className="text-info hover:underline underline-offset-2">Mission {task.missionId.slice(0, 8)}</Link>
-            ) : <span className="text-muted-foreground">No mission</span>}
-            {task.ownerAgentId && (
-              <Link href={`/agents/${task.ownerAgentId}`} className="text-info hover:underline underline-offset-2">Agent {task.ownerAgentId.slice(0, 8)}</Link>
-            )}
-          </div>
-        </div>
-        <div className="flex gap-2">
-          {task.status === "FAILED" && (
+          </span>
+        }
+        description={task.description}
+        actions={
+          task.status === "FAILED" ? (
             <Button onClick={handleRetry} disabled={retrying} className="gap-2">
-              <RefreshCw className="h-4 w-4" /> {retrying ? "Retrying..." : "Retry"}
+              <RefreshCw className="h-4 w-4" /> {retrying ? "Retrying…" : "Retry"}
             </Button>
-          )}
-        </div>
+          ) : undefined
+        }
+      />
+
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        {task.missionId ? (
+          <Link href={`/missions/${task.missionId}`} className="text-info hover:underline underline-offset-2">
+            Mission {task.missionId.slice(0, 8)}
+          </Link>
+        ) : (
+          <span className="text-muted-foreground">No mission</span>
+        )}
+        {task.ownerAgentId && (
+          <Link href={`/agents/${task.ownerAgentId}`} className="text-info hover:underline underline-offset-2">
+            Agent {task.ownerAgentId.slice(0, 8)}
+          </Link>
+        )}
       </div>
 
       {retryError && (
-        <p className="text-sm text-destructive bg-destructive/5 border border-destructive/20 rounded-md px-3 py-2">{retryError}</p>
+        <p className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {retryError}
+        </p>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4"><p className="text-xs text-muted-foreground">Priority</p><p className="font-bold text-xl">{task.priority || 0}</p></Card>
-        <Card className="p-4"><p className="text-xs text-muted-foreground">Retries</p><p className="font-bold text-xl">{task.retryCount || 0}/{task.maxRetries ?? 3}</p></Card>
-        <Card className="p-4"><p className="text-xs text-muted-foreground">Timeout</p><p className="font-bold text-xl">{task.timeout ? formatDuration(task.timeout) : "—"}</p></Card>
-        <Card className="p-4"><p className="text-xs text-muted-foreground">Cost</p><p className="font-bold text-xl">{formatCost(task.cost)}</p></Card>
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border lg:grid-cols-4">
+        <Stat label="Priority" value={task.priority || 0} />
+        <Stat label="Retries" value={`${task.retryCount || 0}/${task.maxRetries ?? 3}`} />
+        <Stat label="Timeout" value={task.timeout ? formatDuration(task.timeout) : "—"} />
+        <Stat label="Cost" value={formatCost(task.cost)} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="p-6">
-          <h2 className="font-semibold mb-3">Input</h2>
-          <pre className="text-xs bg-muted p-3 rounded-md overflow-auto font-mono">{JSON.stringify(input, null, 2)}</pre>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card className="space-y-3 p-5">
+          <SectionLabel>Input</SectionLabel>
+          <pre
+            tabIndex={0}
+            className="overflow-auto rounded-lg bg-muted/60 p-3 font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {JSON.stringify(input, null, 2)}
+          </pre>
         </Card>
-        <Card className="p-6">
-          <h2 className="font-semibold mb-3">Output</h2>
-          <pre className="text-xs bg-muted p-3 rounded-md overflow-auto font-mono">
-            {Object.keys(output as Record<string, unknown>).length > 0 ? JSON.stringify(output, null, 2) : "—"}
+        <Card className="space-y-3 p-5">
+          <SectionLabel>Output</SectionLabel>
+          <pre
+            tabIndex={0}
+            className="overflow-auto rounded-lg bg-muted/60 p-3 font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {Object.keys(output as Record<string, unknown>).length > 0
+              ? JSON.stringify(output, null, 2)
+              : "—"}
           </pre>
         </Card>
       </div>

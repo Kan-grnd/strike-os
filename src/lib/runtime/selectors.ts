@@ -9,7 +9,7 @@ import type {
   TempEdge,
   WorkforceRuntime,
 } from "./types";
-import { buildAdaptiveTopologyLayout, buildTopologyLayout, CARD_SIZE, type TopologyLayout, type ViewportSize } from "./layout";
+import { buildTidyTopologyLayout, CARD_SIZE, type TidyNodeSize, type TopologyLayout } from "./layout";
 
 /**
  * Manual disclosure: zoom is pure scale; the visible node set is decided only
@@ -42,8 +42,8 @@ export interface TopologyNodeData<T = unknown> extends Record<string, unknown> {
   level: TopologyLevel;
   activate?: (id: string, type: string) => void;
   expanded?: boolean;
-  /** Toggle disclosure. dim selects which child kind expands for worker nodes. */
-  toggle?: (id: string, dim?: "sub" | "ops") => void;
+  /** Toggle disclosure: colonies flip their own key, agents flip :sub and :ops together. */
+  toggle?: (id: string) => void;
 }
 
 const REMOVED_STATES = new Set(["cancelled", "stopped"]);
@@ -218,17 +218,17 @@ export function getTopologyNodes(
   expanded: ReadonlySet<string>,
   focusAgentId?: string,
   opts: {
-    narrow?: boolean;
     flashes?: CompletionFlash[];
     activate?: (id: string, type: string) => void;
     expandAll?: () => void;
     allExpanded?: boolean;
-    toggle?: (id: string, dim?: "sub" | "ops") => void;
+    toggle?: (id: string) => void;
     layout?: TopologyLayout;
-    viewport?: ViewportSize;
+    sizes?: ReadonlyMap<string, TidyNodeSize>;
+    selectedId?: string | null;
   } = {}
 ): Node[] {
-  const layout = opts.layout ?? buildAdaptiveTopologyLayout(runtime, opts.narrow ?? false, opts.viewport);
+  const layout = opts.layout ?? buildTidyTopologyLayout(runtime, expanded, opts.sizes);
   const focus = focusAgentId ? focusContext(runtime, focusAgentId) : null;
   const visible = visibleNodeIds(runtime, expanded);
 
@@ -340,6 +340,14 @@ export function getTopologyNodes(
     });
   }
 
+  // React Flow's own click-selection does not survive the inspector opening
+  // (the controlled nodes prop re-syncs), so the app's inspector selection is
+  // the selection: the matching card renders selected.
+  const selectedId = opts.selectedId;
+  if (selectedId) {
+    for (const n of nodes) n.selected = n.id === selectedId;
+  }
+
   return nodes;
 }
 
@@ -350,7 +358,7 @@ function pushAgentNode(
   layout: TopologyLayout,
   expanded: ReadonlySet<string>,
   activate: ((id: string, t: string) => void) | undefined,
-  toggle: ((id: string, dim?: "sub" | "ops") => void) | undefined,
+  toggle: ((id: string) => void) | undefined,
   focus: FocusContext | null,
   pushNode: (node: Node) => void
 ) {
@@ -384,17 +392,41 @@ function pushAgentNode(
   });
 }
 
-/** Structural ownership edges stay theme-neutral: color is reserved for
- *  status meaning (temp edges). Level is carried by position and size. */
-const OWNERSHIP_STROKE = "hsl(var(--muted-foreground) / 0.5)";
+/** Structural ownership edges share one thin neutral line; only live event
+ *  links carry color. Level is carried by position and size, never by tint. */
+export const STRUCTURAL_EDGE_STROKE = "color-mix(in oklab, hsl(var(--card)) 55%, hsl(var(--primary)))";
+/** Neutral verification links: visible against the canvas, claiming no status. */
+export const VERIFICATION_EDGE_STROKE = "hsl(var(--muted-foreground) / 0.65)";
+/** Lateral fan between sibling colony curves at the shared brain handle. */
+export const BRAIN_FAN_DX = 16;
+
+/** Cubic ownership path with a lateral fan at the source end, for sibling
+ *  curves sharing one handle. The bend sits in the first control point, so
+ *  fanned curves separate immediately and rejoin the target exactly. Pure:
+ *  the edge component and the gate both use it. */
+export function edgePathD(
+  sx: number,
+  sy: number,
+  tx: number,
+  ty: number,
+  fanDx = 0
+): string {
+  const dy = ty - sy;
+  const c1x = sx + fanDx;
+  const c1y = sy + dy * 0.4;
+  const c2x = tx;
+  const c2y = ty - dy * 0.25;
+  const f = (n: number) => Math.round(n * 100) / 100;
+  return `M ${f(sx)},${f(sy)} C ${f(c1x)},${f(c1y)} ${f(c2x)},${f(c2y)} ${f(tx)},${f(ty)}`;
+}
 
 export function getTopologyEdges(
   runtime: WorkforceRuntime,
   expanded: ReadonlySet<string>,
   focusAgentId?: string,
-  opts: { narrow?: boolean; tempEdges?: TempEdge[]; layout?: TopologyLayout; viewport?: ViewportSize } = {}
+  opts: { tempEdges?: TempEdge[]; layout?: TopologyLayout; sizes?: ReadonlyMap<string, TidyNodeSize> } = {}
 ): Edge[] {
-  const layout = opts.layout ?? buildAdaptiveTopologyLayout(runtime, opts.narrow ?? false, opts.viewport);
+  const layout = opts.layout ?? buildTidyTopologyLayout(runtime, expanded, opts.sizes);
   const focus = focusAgentId ? focusContext(runtime, focusAgentId) : null;
   const visible = visibleNodeIds(runtime, expanded);
 
@@ -460,7 +492,7 @@ export function getTopologyEdges(
     }
     return { sourceHandle: HANDLE_IDS.outLeft, targetHandle: HANDLE_IDS.inRight };
   };
-  const push = (id: string, source: string, target: string, stroke: string) => {
+  const push = (id: string, source: string, target: string, fanDx = 0) => {
     if (!visible.has(source) || !visible.has(target)) return;
     edges.push({
       id,
@@ -468,27 +500,41 @@ export function getTopologyEdges(
       target,
       ...handlesFor(source, target),
       type: "topology-flow",
-      style: { stroke, strokeWidth: 1.75 },
-      /* Dimming rides in `data`, not `style.opacity`: a custom edge applies its
-       * own paint, so the flag is what pauses the flow and fades the stroke. */
-      data: { dimmed: Boolean(focus && !edgeInFocus(source, target)) },
+      style: { stroke: STRUCTURAL_EDGE_STROKE, strokeWidth: 1 },
+      /* Dimming rides in `data`, not `style.opacity`: the custom edge fades
+       * its single stroke when the flag is set. fanDx fans sibling curves
+       * apart at a shared handle (brain colonies only). */
+      data: { dimmed: Boolean(focus && !edgeInFocus(source, target)), fanDx },
     });
   };
 
-  // Structural ownership spine: theme-neutral, thin.
-  layout.territories.forEach((_, colonyId) =>
-    push(`owns:brain-spec-${colonyId}`, BRAIN_NODE_ID, colonyId, OWNERSHIP_STROKE)
+  // Structural ownership spine: one neutral line per parent level. Colony
+  // curves fan out from the shared brain handle, centred (single colony keeps
+  // the straight path).
+  const colonyIds = Array.from(layout.territories.keys());
+  colonyIds.forEach((colonyId, i) =>
+    push(
+      `owns:brain-spec-${colonyId}`,
+      BRAIN_NODE_ID,
+      colonyId,
+      (i - (colonyIds.length - 1) / 2) * BRAIN_FAN_DX
+    )
   );
   for (const [agentId] of Array.from(layout.agents)) {
     const agent = runtime.agents.find((a) => a.id === agentId);
-    if (agent?.colonyId) push(`owns:spec-agent-${agent.colonyId}-${agentId}`, agent.colonyId, agentId, OWNERSHIP_STROKE);
+    if (agent?.colonyId) push(`owns:spec-agent-${agent.colonyId}-${agentId}`, agent.colonyId, agentId);
   }
   for (const [subId] of Array.from(layout.subAgents)) {
     const sub = runtime.agents.find((a) => a.id === subId);
-    if (sub?.parentId) push(`owns:agent-sub-${sub.parentId}-${subId}`, sub.parentId, subId, OWNERSHIP_STROKE);
+    if (sub?.parentId) push(`owns:agent-sub-${sub.parentId}-${subId}`, sub.parentId, subId);
   }
   for (const task of getVisibleOperations(runtime, expanded)) {
-    if (task.ownerAgentId) push(`owns:agent-op-${task.ownerAgentId}-${task.id}`, task.ownerAgentId, task.id, OWNERSHIP_STROKE);
+    if (task.ownerAgentId)
+      push(
+        `owns:agent-op-${task.ownerAgentId}-${task.id}`,
+        task.ownerAgentId,
+        task.id
+      );
   }
 
   // Transient relationships: only from real runtime events, always animated,
@@ -496,11 +542,22 @@ export function getTopologyEdges(
   // ownership edges do — a delegation that crosses to the far side of the graph
   // used to exit the top of its sender and re-enter the target's top, which made
   // an event read as a parent→child relationship it never claimed to be.
+  // A live link that duplicates an ownership pair is suppressed: the structural
+  // 1px line already draws that path, and a second dashed line on top of it
+  // reads as a rendering defect. The event itself stays visible in the store,
+  // the inspector and the flashes.
+  const ownedPairs = new Set(
+    edges.map((e) => `${e.source}→${e.target}`)
+  );
   for (const t of opts.tempEdges ?? []) {
     if (!visible.has(t.source) || !visible.has(t.target)) continue;
+    if (ownedPairs.has(`${t.source}→${t.target}`)) continue;
+    /* Only active delegation and communication keep color (with a slow dash
+     * flow); verification goes neutral with a dotted pattern. Reduced motion
+     * silences the march in CSS. */
     const style =
       t.kind === "verification"
-        ? { stroke: "hsl(var(--warning))", strokeWidth: 1.75 }
+        ? { stroke: VERIFICATION_EDGE_STROKE, strokeWidth: 1.75, strokeDasharray: "1.5 4" }
         : t.kind === "delegation"
         ? { stroke: "hsl(var(--info))", strokeWidth: 1.75, strokeDasharray: "6 4" }
         : { stroke: "hsl(var(--success))", strokeWidth: 1.75 };
@@ -534,17 +591,17 @@ export function getTopologyGraph(
   expanded: ReadonlySet<string>,
   focusAgentId?: string,
   opts: {
-    narrow?: boolean;
     flashes?: CompletionFlash[];
     tempEdges?: TempEdge[];
     activate?: (id: string, type: string) => void;
     expandAll?: () => void;
     allExpanded?: boolean;
-    toggle?: (id: string, dim?: "sub" | "ops") => void;
-    viewport?: ViewportSize;
+    toggle?: (id: string) => void;
+    sizes?: ReadonlyMap<string, TidyNodeSize>;
+    selectedId?: string | null;
   } = {}
 ): { nodes: Node[]; edges: Edge[] } {
-  const layout = buildAdaptiveTopologyLayout(runtime, opts.narrow ?? false, opts.viewport);
+  const layout = buildTidyTopologyLayout(runtime, expanded, opts.sizes);
   return {
     nodes: getTopologyNodes(runtime, expanded, focusAgentId, { ...opts, layout }),
     edges: getTopologyEdges(runtime, expanded, focusAgentId, { ...opts, layout }),

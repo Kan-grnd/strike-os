@@ -1,0 +1,27 @@
+/* Ambient direction flow for knowledge graph links.
+ *
+ * Shifting stroke-dashoffset by exactly one dash period and looping makes the
+ * pattern travel toward the path end (source -> target, into the arrowhead)
+ * with no visible seam. The direction is the negative offset below; reverse the
+ * sign to animate the other way.
+ *
+ * The global prefers-reduced-motion guard in globals.css collapses every
+ * animation duration to 0.01ms, so this needs no separate reduced-motion path.
+ */
+@keyframes knowledge-edge-flow {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: calc(-1 * var(--flow-period));
+  }
+}
+
+.knowledge-edge-flow {
+  animation: knowledge-edge-flow var(--flow-duration, 1.2s) linear infinite;
+}
+
+/* Dimmed links hold still so the focused ones carry the eye. */
+.knowledge-edge-flow-paused {
+  animation-play-state: paused;
+}

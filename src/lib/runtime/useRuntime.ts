@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import { useRuntimeStore } from "./store";
 import type { WorkforceRuntime } from "./types";
 import { getAttentionRequired, getTopologyGraph } from "./selectors";
+import type { TidyNodeSize } from "./layout";
 
 export const useRuntime = () => useRuntimeStore((state) => state.runtime);
 export const useConnection = () => useRuntimeStore((state) => state.connection);
@@ -41,36 +42,39 @@ export function useTopologyGraph(
   expanded: ReadonlySet<string>,
   focusAgentId?: string | null,
   opts: {
-    narrow?: boolean;
     activate?: (id: string, type: string) => void;
     expandAll?: () => void;
     allExpanded?: boolean;
-    toggle?: (id: string, dim?: "sub" | "ops") => void;
-    viewport?: { w: number; h: number };
+    toggle?: (id: string) => void;
+    sizes?: ReadonlyMap<string, TidyNodeSize>;
+    selectedId?: string | null;
+    /** Fixture override (dev-only brain fixtures); falls back to live data. */
+    runtime?: WorkforceRuntime | null;
   } = {}
 ) {
-  const runtime = useRuntime();
+  const live = useRuntime();
+  const runtime = opts.runtime ?? live;
   const tempEdges = useTempEdges();
   const flashes = useFlashes();
-  const narrow = opts.narrow;
   const activate = opts.activate;
   const expandAll = opts.expandAll;
   const allExpanded = opts.allExpanded;
   const toggle = opts.toggle;
-  const viewport = opts.viewport;
+  const sizes = opts.sizes;
+  const selectedId = opts.selectedId;
   return useMemo(() => {
     if (!runtime) return { nodes: [], edges: [] };
     return getTopologyGraph(runtime, expanded, focusAgentId ?? undefined, {
-      narrow,
       flashes,
       tempEdges,
       activate,
       expandAll,
       allExpanded,
       toggle,
-      viewport,
+      sizes,
+      selectedId,
     });
-  }, [runtime, expanded, focusAgentId, tempEdges, flashes, narrow, viewport, activate, expandAll, allExpanded, toggle]);
+  }, [runtime, expanded, focusAgentId, tempEdges, flashes, sizes, selectedId, activate, expandAll, allExpanded, toggle]);
 }
 
 export function useAttentionRequired() {

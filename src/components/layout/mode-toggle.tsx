@@ -9,7 +9,7 @@ import { useThemeSelection } from "@/components/ui/theme-provider";
  * Header dark/light toggle. Resolves the current appearance from the live
  * document (every theme pack sets `color-scheme` explicitly), so it stays
  * correct even while `theme` is a future/"system" value. Clicking toggles
- * between the two flagship packs: dark → ghost, light → abyssal. Picking one
+ * between the two flagship packs: dark → clean, light → graphite. Picking one
  * pins it as this browser's own theme, so the workspace default stops applying.
  */
 export function ModeToggle() {
@@ -45,7 +45,7 @@ export function ModeToggle() {
       size="icon"
       className="h-9 w-9"
       type="button"
-      onClick={() => chooseTheme(isDark ? "ghost" : "abyssal")}
+      onClick={() => chooseTheme(isDark ? "clean" : "graphite")}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >

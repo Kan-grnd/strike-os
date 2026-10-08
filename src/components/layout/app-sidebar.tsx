@@ -194,7 +194,10 @@ export function AppSidebar({
 
   return (
     <TooltipProvider delayDuration={250} skipDelayDuration={400}>
-      <div className={cn("relative flex h-screen shrink-0", suppressAnimation ? "transition-none" : "")}>
+      <nav
+        aria-label="Primary"
+        className={cn("relative flex h-screen shrink-0", suppressAnimation ? "transition-none" : "")}
+      >
         <div
           className={cn(
             /* The panel mounts the instant the width starts animating, so
@@ -250,7 +253,7 @@ export function AppSidebar({
             }
           />
         )}
-      </div>
+      </nav>
     </TooltipProvider>
   );
 }

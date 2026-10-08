@@ -56,7 +56,13 @@ export function DataTable<T>({
   className?: string;
 }) {
   return (
-    <div className={cn("overflow-x-auto rounded-lg border", className)}>
+    <div
+      tabIndex={0}
+      className={cn(
+        "overflow-x-auto rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        className
+      )}
+    >
       <table className="w-full text-sm" style={{ minWidth }}>
         {caption && <caption className="sr-only">{caption}</caption>}
         <thead className="border-b bg-muted/30">

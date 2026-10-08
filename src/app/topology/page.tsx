@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import {
   ReactFlow,
   ReactFlowProvider,
+  useNodes,
   useReactFlow,
   type Node,
 } from "@xyflow/react";
@@ -17,22 +18,26 @@ import { SubAgentNode } from "@/components/topology/nodes/subagent-node";
 import { OperationNode } from "@/components/topology/nodes/operation-node";
 import { FlashNode } from "@/components/topology/nodes/flash-node";
 import { TopologyEdge } from "@/components/topology/topology-edge";
+import "@/components/topology/topology-nodes.css";
 import { InspectorPanel, type InspectorSelection } from "@/components/topology/inspector-panel";
 import { useSubscribeRuntime, useTopologyGraph, useRuntime, useConnection, useResync, useTempEdges, useFlashes } from "@/lib/runtime/useRuntime";
-import { getLiveAgents } from "@/lib/runtime/selectors";
+import { useFixtureRuntime } from "@/lib/runtime/fixtures";
+import { BRAIN_NODE_ID, getLiveAgents } from "@/lib/runtime/selectors";
 import {
   FIT_MIN_ZOOM,
   NO_INSETS,
-  VIEWPORT_DEADBAND,
-  fitTopAlignedTransformFor,
+  fitAllTransformFor,
+  fitTopAnchoredTransformFor,
+  fitZoomFor,
+  formatZoomPct,
   graphFitsIn,
   narrowFor,
   type Insets,
   type Placed,
+  type TidyNodeSize,
 } from "@/lib/runtime/layout";
-import { Loader2, Plus, RefreshCw, Scan, WifiOff, X, Zap } from "lucide-react";
+import { Loader2, Maximize2, Plus, RefreshCw, Scan, WifiOff, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 const nodeTypes = {
   brain: BrainNode,
@@ -43,13 +48,13 @@ const nodeTypes = {
   flash: FlashNode,
 };
 
-/* Ownership links carry the ambient flow; transient event edges keep React
+/* Ownership links are one thin neutral line; transient event edges keep React
  * Flow's own animated default. Stable module-level map, like nodeTypes. */
 const edgeTypes = { "topology-flow": TopologyEdge };
 
 /** Marks a floating element the camera has to keep clear of. It lives on the
  *  inspector, the one panel big enough to sit on top of a branch. Corner chips
- *  — the legend, the connection badge — are deliberately not marked:
+ *  — the control pills, the connection badge — are deliberately not marked:
  *  they overlap a corner of the pane, and displacing the whole graph to clear
  *  one would shove the graph sideways to avoid a small box. */
 const OVERLAY_ATTR = "data-topology-overlay";
@@ -70,7 +75,10 @@ function TopologyCanvas() {
   const [narrow, setNarrowState] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { getNodes, getNodesBounds, getViewport, setViewport } = useReactFlow();
-  const runtime = useRuntime();
+  const liveRuntime = useRuntime();
+  const fixtureRuntime = useFixtureRuntime();
+  /* Dev-only fixture override (?fixture=brain-…); ignored in production. */
+  const runtime = fixtureRuntime ?? liveRuntime;
   const connection = useConnection();
   const resync = useResync();
   const tempEdges = useTempEdges();
@@ -213,16 +221,6 @@ function TopologyCanvas() {
     [openInspector]
   );
 
-  const toggleNode = useCallback((id: string, dim?: "sub" | "ops") => {
-    const key = dim ? `${id}:${dim}` : id;
-    setExpandedNodes((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }, []);
-
   const territoryIds = useMemo(
     () =>
       runtime
@@ -251,23 +249,68 @@ function TopologyCanvas() {
     setExpandedNodes(next);
   }, [allExpanded, territoryIds, runtime]);
 
-  /* Spacing adapts to the pane, but only across coarse bands. Without the
-   * quantisation a drag-resize would rebuild the layout on every pixel and the
-   * cards would visibly swim; snapping to VIEWPORT_DEADBAND means the graph only
-   * re-spaces when the pane has actually changed size by a meaningful amount. */
-  const bandedViewport = useMemo(() => {
-    if (!paneSize) return undefined;
-    const snap = (v: number) => Math.round(v / VIEWPORT_DEADBAND) * VIEWPORT_DEADBAND;
-    return { w: snap(paneSize.w), h: snap(paneSize.h) };
-  }, [paneSize]);
+  /* One chevron per agent controls all of its task nodes — sub-agents and
+   * operations together. Toggling sets or clears both disclosure keys, so the
+   * two child kinds can never disagree; colonies keep their own single key. */
+  const toggleNode = useCallback((id: string) => {
+    setExpandedNodes((prev) => {
+      const next = new Set(prev);
+      if (territoryIds.includes(id)) {
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }
+      const sub = `${id}:sub`;
+      const ops = `${id}:ops`;
+      if (next.has(sub) || next.has(ops)) {
+        next.delete(sub);
+        next.delete(ops);
+      } else {
+        next.add(sub);
+        next.add(ops);
+      }
+      return next;
+    });
+  }, [territoryIds]);
+
+  /* Measured node sizes feed back into the tidy-tree layout: React Flow
+   * measures every card after mount, so the layout reserves real boxes rather
+   * than assumed ones, and re-lays-out if a card ever changes size. The map
+   * keeps its reference while its content is identical, so position-only
+   * updates (every relayout) cannot loop back into a new layout. */
+  const rfNodes = useNodes();
+  const measuredSizesRef = useRef<Map<string, TidyNodeSize>>(new Map());
+  const measuredSizes = useMemo(() => {
+    const next = new Map<string, TidyNodeSize>();
+    for (const n of rfNodes) {
+      const w = Math.round(n.measured?.width ?? 0);
+      const h = Math.round(n.measured?.height ?? 0);
+      if (w > 0 && h > 0) next.set(String(n.id), { w, h });
+    }
+    const prev = measuredSizesRef.current;
+    if (prev.size === next.size) {
+      let same = true;
+      for (const [id, s] of Array.from(next)) {
+        const p = prev.get(id);
+        if (!p || p.w !== s.w || p.h !== s.h) {
+          same = false;
+          break;
+        }
+      }
+      if (same) return prev;
+    }
+    measuredSizesRef.current = next;
+    return next;
+  }, [rfNodes]);
 
   const { nodes, edges } = useTopologyGraph(expandedNodes, focusAgentId, {
-    narrow,
     activate,
     toggle: toggleNode,
     expandAll,
     allExpanded,
-    viewport: bandedViewport,
+    sizes: measuredSizes,
+    selectedId: selection === null ? null : selection.type === "system" ? "brain" : selection.id,
+    runtime,
   });
 
   /* ── Camera ─────────────────────────────────────────────────────────────────
@@ -337,6 +380,8 @@ function TopologyCanvas() {
   );
   const lastPaneKey = useRef(paneKey);
 
+  /* Fit-all: the whole tree in the pane with 56px top / 24px side padding,
+   *  down to the 0.4 floor. This is the deliberate overview move. */
   const fitGraph = useCallback(
     (opts: { animate?: boolean; force?: boolean } = {}) => {
       const pane = paneRef.current;
@@ -353,11 +398,11 @@ function TopologyCanvas() {
       if (!opts.force && graphFitsIn(cards, current, usable, insetsRef.current)) {
         return true;
       }
-      const target = fitTopAlignedTransformFor(cards, usable);
+      const target = fitAllTransformFor(cards, pane);
       void setViewport(
         {
-          x: target.x + insetsRef.current.left,
-          y: target.y + insetsRef.current.top,
+          x: target.x,
+          y: target.y,
           zoom: target.zoom,
         },
         { duration: opts.animate ? 200 : 0 }
@@ -365,6 +410,42 @@ function TopologyCanvas() {
       return true;
     },
     [frameableCards, getViewport, setViewport]
+  );
+
+  /* Readable fit: the given zoom with the core sphere top-anchored — its
+   *  190px box top 56px below the pane top, its centre x on the pane centre.
+   *  Auto-fit calls this at exactly 1.0; Reset view at min(1.0, whole-tree
+   *  fit). The sphere never moves vertically on expand/collapse: its graph
+   *  top is constant, so only the x recentres when the tree widens. */
+  const brainAnchor = useCallback((): { cx: number; top: number } | null => {
+    try {
+      const rect = getNodesBounds([BRAIN_NODE_ID]);
+      if (!(rect.width > 0) || !(rect.height > 0)) return null;
+      return { cx: rect.x + rect.width / 2, top: rect.y };
+    } catch {
+      return null;
+    }
+  }, [getNodesBounds]);
+  const fitReadable = useCallback(
+    (zoom: number, opts: { animate?: boolean } = {}) => {
+      /* Pane-based per the anchor rule (not the inset-adjusted usable area):
+       * x = pane.w/2 - brainCenterX, y = 56 - brainTop. */
+      const pane = paneRef.current;
+      if (!pane) return false;
+      const anchor = brainAnchor();
+      if (!anchor) return false;
+      const target = fitTopAnchoredTransformFor(anchor.cx, anchor.top, pane, zoom);
+      void setViewport(
+        {
+          x: target.x,
+          y: target.y,
+          zoom: target.zoom,
+        },
+        { duration: opts.animate ? 200 : 0 }
+      );
+      return true;
+    },
+    [brainAnchor, setViewport]
   );
 
   /* A signature of everything the camera frames. It is the node ids and where
@@ -385,13 +466,22 @@ function TopologyCanvas() {
   const lastRefitKey = useRef<string>("");
   /* A gesture is a real pointer or wheel gesture only. React Flow fires the
    * same start/end pair for a camera move it performs itself, and it passes no
-   * event for those, so the presence of an event is the whole discriminator. */
+   * event for those, so the presence of an event is the whole discriminator.
+   * hasInteractedRef is sticky: once the user has moved the view, auto-fit
+   * never fires again — Reset and Fit-all are the way back. */
   const userGestureRef = useRef(false);
+  const hasInteractedRef = useRef(false);
+  const [zoomPct, setZoomPct] = useState("100%");
   const [gestureSettled, setGestureSettled] = useState(0);
 
   useEffect(() => {
     if (!runtime || !paneSize) return;
     if (lastRefitKey.current === refitKey) return;
+    /* The user has taken the camera: auto-fit stays out of the way. */
+    if (hasInteractedRef.current) {
+      lastRefitKey.current = refitKey;
+      return;
+    }
     /* While the user is dragging the graph there is nothing to correct yet, and
      * correcting mid-drag would yank the canvas out from under them. Leaving the
      * key unclaimed is deliberate: onMoveEnd bumps gestureSettled, this effect
@@ -408,7 +498,8 @@ function TopologyCanvas() {
     let attempts = 0;
     const attempt = () => {
       if (userGestureRef.current) return;
-      if (!fitGraph({ animate: !paneMoved })) {
+      /* Auto-fit is exactly 1.0 on the core sphere — readable text, always. */
+      if (!fitReadable(1.0, { animate: !paneMoved })) {
         if (attempts < 30) {
           attempts += 1;
           frame = window.requestAnimationFrame(attempt);
@@ -419,17 +510,21 @@ function TopologyCanvas() {
     };
     frame = window.requestAnimationFrame(attempt);
     return () => window.cancelAnimationFrame(frame);
-  }, [refitKey, runtime, paneSize, gestureSettled, fitGraph, paneKey]);
+  }, [refitKey, runtime, paneSize, gestureSettled, fitGraph, fitReadable, paneKey]);
 
   const onMoveStart = useCallback((event: unknown) => {
-    if (event) userGestureRef.current = true;
+    if (event) {
+      userGestureRef.current = true;
+      hasInteractedRef.current = true;
+    }
   }, []);
 
   const onMoveEnd = useCallback(() => {
+    setZoomPct(formatZoomPct(getViewport().zoom));
     if (!userGestureRef.current) return;
     userGestureRef.current = false;
     setGestureSettled((n) => n + 1);
-  }, []);
+  }, [getViewport]);
 
   const onNodeClick = useCallback(
     (_: unknown, node: Node) => openInspector(node.id as string, node.type as string),
@@ -440,7 +535,7 @@ function TopologyCanvas() {
     (_: unknown, node: Node) => {
       if (node.type === "brain") {
         setFocusAgentId(null);
-        fitGraph({ animate: true, force: true });
+        fitReadable(1.0, { animate: true });
         return;
       }
       if (node.type === "agent" || node.type === "subagent") {
@@ -464,6 +559,16 @@ function TopologyCanvas() {
   const resetView = useCallback(() => {
     setSelection(null);
     setFocusAgentId(null);
+    /* Readable fit: 1.0, or the largest zoom that still frames the whole
+     * tree — whichever is smaller — on the same top anchor. */
+    const pane = paneRef.current;
+    const zoom = pane ? Math.min(1.0, fitZoomFor(frameableCards(), pane)) : 1.0;
+    fitReadable(zoom, { animate: true });
+  }, [fitReadable, frameableCards]);
+
+  const fitAllView = useCallback(() => {
+    setSelection(null);
+    setFocusAgentId(null);
     fitGraph({ animate: true, force: true });
   }, [fitGraph]);
 
@@ -473,6 +578,7 @@ function TopologyCanvas() {
    * loading phase watching a placeholder that was about to be thrown away. */
   const shell = (body: ReactNode) => (
     <div ref={containerRef} className="h-full w-full relative">
+      <h1 className="sr-only">Workforce Topology</h1>
       {body}
     </div>
   );
@@ -584,23 +690,13 @@ function TopologyCanvas() {
         </div>
       )}
 
-      <div className={cn(
-        "pointer-events-none absolute bottom-4 left-4 z-40 rounded-lg border glass-elevated px-3 py-2 text-xs text-muted-foreground",
-        narrow
-          ? "flex items-center gap-x-2"
-          : "flex flex-wrap items-center gap-x-3 gap-y-1"
-      )}>
-        <span className={cn("flex items-center gap-1.5", narrow && "gap-1")}>
-          <span className="inline-block h-0.5 w-5 border-t-2 border-dotted border-info" />
-          {!narrow && <span>delegation</span>}
-        </span>
-        <span className={cn("flex items-center gap-1.5", narrow && "gap-1")}>
-          <span className="inline-block h-0.5 w-5 bg-success" />
-          {!narrow && <span>communication</span>}
-        </span>
-        <span className={cn("flex items-center gap-1.5", narrow && "gap-1")}>
-          <span className="inline-block h-0.5 w-5 bg-warning" />
-          {!narrow && <span>verification</span>}
+      <div className="pointer-events-none absolute top-4 left-4 z-40 flex items-center gap-2">
+        <span
+          className="glass-elevated pointer-events-auto rounded-full border px-3 py-1.5 text-xs tabular-nums text-muted-foreground"
+          aria-label={`Zoom ${zoomPct}`}
+          title="Zoom level"
+        >
+          {zoomPct}
         </span>
         {/* Reset must exist on every size: on a phone the graph is far taller
             than the screen, so losing the way back to "everything" is a trap.
@@ -610,16 +706,20 @@ function TopologyCanvas() {
           onClick={resetView}
           aria-label="Reset view"
           title="Reset view"
-          className={cn(
-            "pointer-events-auto inline-flex items-center justify-center text-foreground/70 underline underline-offset-2 hover:text-foreground",
-            narrow ? "h-6 w-6 rounded-md border border-border" : "h-auto"
-          )}
+          className="glass-elevated pointer-events-auto inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium text-foreground/70 hover:text-foreground"
         >
-        {narrow ? (
           <Scan className="h-3.5 w-3.5" aria-hidden />
-        ) : (
-          <span className="text-xs">reset view</span>
-        )}
+          {!narrow && <span>Reset</span>}
+        </button>
+        <button
+          type="button"
+          onClick={fitAllView}
+          aria-label="Fit all"
+          title="Fit all"
+          className="glass-elevated pointer-events-auto inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium text-foreground/70 hover:text-foreground"
+        >
+          <Maximize2 className="h-3.5 w-3.5" aria-hidden />
+          {!narrow && <span>Fit all</span>}
         </button>
       </div>
     </>

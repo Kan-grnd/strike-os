@@ -309,7 +309,7 @@ function ChatPageInner() {
       <style dangerouslySetInnerHTML={{ __html: MOTION_CSS }} />
 
       {/* ── open chat layer ── */}
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <a
           href="#chat-composer"
           className="sr-only rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[95] focus:ring-2 focus:ring-ring"
@@ -546,8 +546,8 @@ function ChatPageInner() {
               </div>
             </PromptComposer>
           </div>
-        </form>
-      </main>
+</form>
+      </div>
     </div>
   );
 }

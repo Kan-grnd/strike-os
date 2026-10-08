@@ -4,47 +4,41 @@
 
 /* ─── Theme packs ───────────────────────────────────────────────
    Applied by next-themes as class names on <html> (attribute="class"):
-     abyssal    — refined near-black neutral dark (default; also covers
-                  the legacy "dark" class emitted before first choice)
-     ember      — warm charcoal dark, orange accent (solar-dusk)
-     ghost      — light flagship
-     cobalt     — deep slate-blue dark, sky accent (clean-slate)
-     sandstorm  — warm paper light, burnt-orange accent (solar-dusk)
-abyss-teal — earthy green dark, sage accent (kodama-grove)
-      strike     — deep navy dark, brand vivid-orange accent
-      mist       — cool pale blue-grey light
-      forest     — deep green dark
-      onyx       — pure black dark, cyan accent
-     high-contrast — pure white light, black, strong borders
-   Surface values are taken from curated shadcn presets (tweakcn), kept
-   low-saturation; color lives in --primary/--ring. Every pack enforces a
-   surface-separation budget so cards never melt into the page: light packs
-   keep card ~2–4% darker than background with visibly darker borders,
-   popover floats above card; dark packs lift card 4–7% above background
-   and brighten borders for definition. State colors are
+     clean     — minimal light monochrome (flagship light)
+     calm      — soft low-contrast light
+     bold      — high-contrast black & white
+     graphite  — dark neutral monochrome (default; also covers the legacy
+                 "dark" class emitted before first choice)
+     void      — pure black monochrome
+     signal    — dark slate, vivid orange accent (the one color pack)
+   Every pack carries four registry colors (bg-surface-accent-secondary,
+   see @/lib/theme-packs) and enforces a surface-separation budget so cards
+   never melt into the page: light packs keep card ~2–4% darker than
+   background with visibly darker borders; dark packs lift card 4–7% above
+   background and brighten borders for definition. State colors are
    IMMUTABLE across every pack and match the signal layer's stateHex
    exactly: failed #f87171 (red), blocked #fbbf24 (amber), ok #34d399
-   (emerald), approval #a78bfa (violet). The orange accents
-   (ember/sandstorm) stay in the warm orange family (hue 21–28) so they
-   never read as the blocked amber (hue 43). No gradients. */
+   (emerald), approval #a78bfa (violet). Signal's orange accent stays in
+   the warm orange family (hue 21–25) so it never reads as the blocked
+   amber (hue 43). No gradients. */
 
 @layer base {
   :root,
-  .ghost {
+  .clean {
     --background: 0 0% 100%;
-    --foreground: 0 0% 20%;
-    --card: 0 0% 97.5%;
-    --card-foreground: 0 0% 20%;
+    --foreground: 0 0% 12%;
+    --card: 0 0% 98.0392156862745%;
+    --card-foreground: 0 0% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 20%;
-    --primary: 0 0% 10%;
+    --popover-foreground: 0 0% 12%;
+    --primary: 0 0% 9.019607843137255%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 94%;
-    --secondary-foreground: 0 0% 33%;
-    --muted: 0 0% 97%;
-    --muted-foreground: 220 9% 42%;
+    --secondary: 0 0% 89.80392156862746%;
+    --secondary-foreground: 0 0% 20%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 42%;
     --accent: 0 0% 92%;
-    --accent-foreground: 0 0% 20%;
+    --accent-foreground: 0 0% 12%;
     --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
     --destructive-foreground: 0 0% 10%;
     --success: 158 64% 52%; /* #34d399 ok (immutable) */
@@ -52,11 +46,12 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
     --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
     --warning-foreground: 0 0% 10%;
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 210 80% 45%;
+    --info: 210 80% 42%;
     --info-foreground: 0 0% 100%;
-    --border: 220 14% 87%;
-    --input: 220 13% 84%;
-    --ring: 220 9% 20%;
+    --border: 0 0% 88%;
+    --input: 0 0% 90%;
+    --ring: 0 0% 9%;
+
     --radius: 0.5rem;
 
     --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -66,16 +61,16 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
   }
 
   .dark,
-  .abyssal {
-    --background: 0 0% 9%;
+  .graphite {
+    --background: 0 0% 9.019607843137255%;
     --foreground: 0 0% 90%;
-    --card: 0 0% 16%;
+    --card: 0 0% 12.941176470588237%;
     --card-foreground: 0 0% 90%;
-    --popover: 0 0% 18%;
+    --popover: 0 0% 15%;
     --popover-foreground: 0 0% 90%;
-    --primary: 0 0% 90%;
-    --primary-foreground: 0 0% 6%;
-    --secondary: 0 0% 17%;
+    --primary: 0 0% 90.98039215686275%;
+    --primary-foreground: 0 0% 7%;
+    --secondary: 0 0% 18.03921568627451%;
     --secondary-foreground: 0 0% 90%;
     --muted: 0 0% 13%;
     --muted-foreground: 0 0% 64%;
@@ -88,92 +83,30 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
     --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
     --warning-foreground: 0 0% 6%;
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 205 82% 55%;
+    --info: 210 70% 60%;
     --info-foreground: 0 0% 8%;
-    --border: 0 0% 28%;
-    --input: 0 0% 21%;
-    --ring: 0 0% 90%;
+    --border: 0 0% 26%;
+    --input: 0 0% 18%;
+    --ring: 0 0% 91%;
 
     color-scheme: dark;
   }
 
-  .ember {
-    --background: 24 10% 10%; /* #1c1917 warm charcoal */
-    --foreground: 60 5% 96%;
-    --card: 12 6% 17%;
-    --card-foreground: 60 5% 96%;
-    --popover: 12 6% 19%;
-    --popover-foreground: 60 5% 96%;
-    --primary: 25 95% 53%; /* #f97316 orange — dark text keeps AA */
-    --primary-foreground: 24 12% 9%;
-    --secondary: 33 5% 33%;
-    --secondary-foreground: 60 5% 96%;
-    --muted: 30 10% 12%;
-    --muted-foreground: 24 5% 64%;
-    --accent: 198 46% 24%; /* cool teal pop on warm dark (solar-dusk) */
-    --accent-foreground: 20 6% 90%;
-    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
-    --destructive-foreground: 0 0% 6%;
-    --success: 158 64% 52%; /* #34d399 ok (immutable) */
-    --success-foreground: 0 0% 6%;
-    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
-    --warning-foreground: 0 0% 6%;
-    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 197 85% 55%;
-    --info-foreground: 0 0% 8%;
-    --border: 30 6% 27%;
-    --input: 30 8% 19%;
-    --ring: 25 95% 53%;
-
-    color-scheme: dark;
-  }
-
-  .cobalt {
-    --background: 222 47% 11%; /* #0f172a slate navy */
-    --foreground: 214 32% 91%;
-    --card: 217 33% 19%;
-    --card-foreground: 214 32% 91%;
-    --popover: 217 33% 21%;
-    --popover-foreground: 214 32% 91%;
-    --primary: 199 89% 60%; /* #38bdf8 sky */
-    --primary-foreground: 215 50% 9%;
-    --secondary: 216 23% 25%;
-    --secondary-foreground: 216 12% 84%;
-    --muted: 217 41% 15%;
-    --muted-foreground: 218 11% 65%;
-    --accent: 217 19% 29%;
-    --accent-foreground: 216 12% 84%;
-    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
-    --destructive-foreground: 0 0% 6%;
-    --success: 158 64% 52%; /* #34d399 ok (immutable) */
-    --success-foreground: 0 0% 6%;
-    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
-    --warning-foreground: 0 0% 6%;
-    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 205 82% 55%;
-    --info-foreground: 0 0% 8%;
-    --border: 215 14% 37%;
-    --input: 217 33% 19%;
-    --ring: 199 89% 60%;
-
-    color-scheme: dark;
-  }
-
-  .sandstorm {
-    --background: 40 47% 97%; /* #fcfaf5 warm paper */
-    --foreground: 21 18% 25%;
-    --card: 36 45% 93%; /* visibly lifted off the paper */
-    --card-foreground: 21 18% 25%;
-    --popover: 36 45% 96%;
-    --popover-foreground: 21 18% 25%;
-    --primary: 26 90% 37%; /* #b45309 burnt balsa — AA 7.5:1 on white */
+  .calm {
+    --background: 45 16.666666666666703% 95.29411764705881%;
+    --foreground: 45 8% 18%;
+    --card: 50 15% 92.15686274509804%;
+    --card-foreground: 45 8% 18%;
+    --popover: 45 14% 94%;
+    --popover-foreground: 45 8% 18%;
+    --primary: 60 3.496503496503504% 28.03921568627451%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 43 43% 80%;
-    --secondary-foreground: 33 5% 32%;
-    --muted: 39 45% 90%;
-    --muted-foreground: 25 6% 38%;
-    --accent: 36 35% 85%;
-    --accent-foreground: 33 5% 32%;
+    --secondary: 46.66666666666671 12.328767123287673% 85.68627450980392%;
+    --secondary-foreground: 45 6% 28%;
+    --muted: 45 13% 91%;
+    --muted-foreground: 45 6% 45%;
+    --accent: 45 12% 87%;
+    --accent-foreground: 45 8% 18%;
     --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
     --destructive-foreground: 0 0% 10%;
     --success: 158 64% 52%; /* #34d399 ok (immutable) */
@@ -181,180 +114,25 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
     --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
     --warning-foreground: 0 0% 10%;
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 21 80% 45%;
+    --info: 45 40% 40%;
     --info-foreground: 0 0% 100%;
-    --border: 36 36% 76%;
-    --input: 35 30% 90%;
-    --ring: 26 90% 37%;
+    --border: 45 12% 80%;
+    --input: 45 12% 90%;
+    --ring: 60 3.5% 28%;
 
     color-scheme: light;
   }
 
-  .abyss-teal {
-    --background: 42 17% 19%; /* #3a3529 earthy dark */
-    --foreground: 38 41% 88%;
-    --card: 39 12% 25%;
-    --card-foreground: 38 41% 88%;
-    --popover: 39 12% 27%;
-    --popover-foreground: 38 41% 88%;
-    --primary: 95 16% 55%; /* #8a9f7b sage */
-    --primary-foreground: 27 12% 15%;
-    --secondary: 40 13% 33%;
-    --secondary-foreground: 38 41% 88%;
-    --muted: 39 13% 27%;
-    --muted-foreground: 33 9% 71%;
-    --accent: 44 27% 52%;
-    --accent-foreground: 27 12% 15%;
-    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
-    --destructive-foreground: 0 0% 6%;
-    --success: 158 64% 52%; /* #34d399 ok (immutable) */
-    --success-foreground: 0 0% 6%;
-    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
-    --warning-foreground: 0 0% 6%;
-    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 44 22% 42%;
-    --info-foreground: 0 0% 100%;
-    --border: 40 13% 34%;
-    --input: 40 10% 24%;
-    --ring: 95 16% 55%;
-
-    color-scheme: dark;
-  }
-
-  .strike {
-    --background: 226 45% 12%; /* #11172c deep navy */
-    --foreground: 223 30% 91%;
-    --card: 226 34% 17%; /* lifted off the navy page */
-    --card-foreground: 223 30% 91%;
-    --popover: 226 34% 19%;
-    --popover-foreground: 223 30% 91%;
-    --primary: 25 95% 55%; /* #f97a1f brand vivid orange */
-    --primary-foreground: 226 45% 10%;
-    --secondary: 226 20% 24%;
-    --secondary-foreground: 224 18% 86%;
-    --muted: 226 25% 15%;
-    --muted-foreground: 224 12% 65%;
-    --accent: 226 20% 27%;
-    --accent-foreground: 224 18% 86%;
-    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
-    --destructive-foreground: 0 0% 6%;
-    --success: 158 64% 52%; /* #34d399 ok (immutable) */
-    --success-foreground: 0 0% 6%;
-    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
-    --warning-foreground: 0 0% 6%;
-    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 223 70% 58%;
-    --info-foreground: 226 45% 10%;
-    --border: 226 16% 32%;
-    --input: 226 22% 17%;
-    --ring: 25 95% 55%;
-
-    color-scheme: dark;
-  }
-
-  .mist {
-    --background: 202 30% 97%; /* #f5f8fa cool pale */
-    --foreground: 208 14% 20%;
-    --card: 202 24% 93%; /* visibly lifted off the pale page */
-    --card-foreground: 208 14% 20%;
-    --popover: 200 26% 96%;
-    --popover-foreground: 208 14% 20%;
-    --primary: 204 72% 38%; /* #1b6fa7 deep sky — AA 5.4:1 on white */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 204 16% 89%;
-    --secondary-foreground: 207 12% 30%;
-    --muted: 202 20% 91%;
-    --muted-foreground: 206 9% 40%;
-    --accent: 203 16% 88%;
-    --accent-foreground: 207 12% 30%;
-    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
-    --destructive-foreground: 0 0% 10%;
-    --success: 158 64% 52%; /* #34d399 ok (immutable) */
-    --success-foreground: 0 0% 10%;
-    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
-    --warning-foreground: 0 0% 10%;
-    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 204 70% 42%;
-    --info-foreground: 0 0% 100%;
-    --border: 204 20% 80%;
-    --input: 204 24% 87%;
-    --ring: 204 72% 38%;
-
-    color-scheme: light;
-  }
-
-  .forest {
-    --background: 153 33% 11%; /* #13251d deep green */
-    --foreground: 90 12% 88%;
-    --card: 152 22% 16%; /* lifted off the green page */
-    --card-foreground: 90 12% 88%;
-    --popover: 152 22% 18%;
-    --popover-foreground: 90 12% 88%;
-    --primary: 95 34% 52%; /* #7eae5b sage fir */
-    --primary-foreground: 153 30% 10%;
-    --secondary: 151 14% 22%;
-    --secondary-foreground: 95 10% 86%;
-    --muted: 152 18% 13%;
-    --muted-foreground: 100 9% 62%;
-    --accent: 151 14% 24%;
-    --accent-foreground: 95 10% 86%;
-    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
-    --destructive-foreground: 0 0% 6%;
-    --success: 158 64% 52%; /* #34d399 ok (immutable) */
-    --success-foreground: 0 0% 6%;
-    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
-    --warning-foreground: 0 0% 6%;
-    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 151 40% 48%;
-    --info-foreground: 153 30% 10%;
-    --border: 150 12% 30%;
-    --input: 152 16% 14%;
-    --ring: 95 34% 52%;
-
-    color-scheme: dark;
-  }
-
-  .onyx {
-    --background: 0 0% 0%; /* #000000 pure black */
-    --foreground: 186 40% 95%;
-    --card: 190 13% 8%;
-    --card-foreground: 186 40% 95%;
-    --popover: 190 13% 11%;
-    --popover-foreground: 186 40% 95%;
-    --primary: 188 60% 50%; /* desaturated cyan — #22d3ee toned down */
-    --primary-foreground: 190 60% 6%;
-    --secondary: 190 10% 14%;
-    --secondary-foreground: 186 40% 95%;
-    --muted: 190 10% 9%;
-    --muted-foreground: 187 12% 62%;
-    --accent: 190 12% 13%;
-    --accent-foreground: 186 40% 95%;
-    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
-    --destructive-foreground: 0 0% 6%;
-    --success: 158 64% 52%; /* #34d399 ok (immutable) */
-    --success-foreground: 0 0% 6%;
-    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
-    --warning-foreground: 0 0% 6%;
-    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 187 55% 55%;
-    --info-foreground: 0 0% 8%;
-    --border: 190 12% 21%;
-    --input: 190 10% 12%;
-    --ring: 188 60% 50%;
-
-    color-scheme: dark;
-  }
-
-  .high-contrast {
-    --background: 0 0% 100%; /* #ffffff pure white */
+  .bold {
+    --background: 0 0% 100%;
     --foreground: 0 0% 0%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 0%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 0%;
-    --primary: 0 0% 0%; /* black */
+    --primary: 0 0% 0%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 93%;
+    --secondary: 0 0% 87.05882352941177%;
     --secondary-foreground: 0 0% 0%;
     --muted: 0 0% 93%;
     --muted-foreground: 0 0% 25%;
@@ -369,29 +147,28 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
     --info: 0 0% 0%;
     --info-foreground: 0 0% 100%;
-    --border: 0 0% 40%; /* strong visible borders */
-    --input: 0 0% 85%;
+    --border: 0 0% 40%;
+    --input: 0 0% 90%;
     --ring: 0 0% 0%;
 
     color-scheme: light;
   }
 
-  .vercel {
-    --background: 0 0% 0%; /* #000000 pure black */
-    --foreground: 0 0% 98%; /* #fafafa */
-    --card: 0 0% 6.7%; /* #111111 */
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 8%; /* #141414 */
-    --popover-foreground: 0 0% 98%;
-    --primary: 212 100% 45%; /* #006be6 Vercel blue, one step down from
-                                 #0070f3 so white button text clears AA (4.95:1) */
-    --primary-foreground: 0 0% 100%; /* AA 4.55:1 on white text */
-    --secondary: 0 0% 8%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 6.7%;
-    --muted-foreground: 0 0% 56%; /* #8f8f8f — AA 6.5:1 on black */
-    --accent: 0 0% 10%; /* #1a1a1a hover */
-    --accent-foreground: 0 0% 98%;
+  .void {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 7.8431372549019605%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 9%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 0 0% 94.90196078431372%;
+    --primary-foreground: 0 0% 4%;
+    --secondary: 0 0% 14.901960784313726%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 6%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 0 0% 13%;
+    --accent-foreground: 0 0% 95%;
     --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
     --destructive-foreground: 0 0% 6%;
     --success: 158 64% 52%; /* #34d399 ok (immutable) */
@@ -399,45 +176,44 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
     --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
     --warning-foreground: 0 0% 6%;
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 211 100% 60%; /* #3396ff readable blue on black */
+    --info: 210 60% 62%;
     --info-foreground: 0 0% 6%;
-    --border: 0 0% 17%; /* #2b2b2b */
-    --input: 0 0% 12%; /* #1f1f1f */
-    --ring: 212 100% 45%;
+    --border: 0 0% 21%;
+    --input: 0 0% 12%;
+    --ring: 0 0% 95%;
 
     color-scheme: dark;
   }
 
-  .vercel-light {
-    --background: 0 0% 100%; /* #ffffff pure white */
-    --foreground: 0 0% 9%; /* #171717 */
-    --card: 0 0% 98%; /* #fafafa */
-    --card-foreground: 0 0% 9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 9%;
-    --primary: 212 100% 45%; /* #006be6 Vercel blue, one step down from
-                                 #0070f3 so white button text clears AA (4.95:1) */
-    --primary-foreground: 0 0% 100%; /* AA 4.55:1 on white text */
-    --secondary: 0 0% 95%; /* #f2f2f2 */
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 95%;
-    --muted-foreground: 0 0% 40%; /* #666666 — AA 5.7:1 on white */
-    --accent: 0 0% 92%; /* #ebebeb hover */
-    --accent-foreground: 0 0% 9%;
+  .signal {
+    --background: 240 9.090909090909092% 6.470588235294117%;
+    --foreground: 220 20% 92%;
+    --card: 240 8.474576271186438% 11.568627450980392%;
+    --card-foreground: 220 20% 92%;
+    --popover: 240 8% 13%;
+    --popover-foreground: 220 20% 92%;
+    --primary: 24.581497797356832 94.97907949790795% 53.13725490196079%; /* #f97316 vivid orange */
+    --primary-foreground: 24 50% 8%;
+    --secondary: 240 7.86516853932584% 17.45098039215686%;
+    --secondary-foreground: 220 20% 92%;
+    --muted: 240 7% 9%;
+    --muted-foreground: 220 8% 62%;
+    --accent: 240 7% 17%;
+    --accent-foreground: 220 20% 92%;
     --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
-    --destructive-foreground: 0 0% 10%;
+    --destructive-foreground: 0 0% 6%;
     --success: 158 64% 52%; /* #34d399 ok (immutable) */
-    --success-foreground: 0 0% 10%;
+    --success-foreground: 0 0% 6%;
     --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
-    --warning-foreground: 0 0% 10%;
+    --warning-foreground: 0 0% 6%;
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 212 90% 40%; /* #0a63c2 deep blue on white */
-    --info-foreground: 0 0% 100%;
-    --border: 0 0% 92%; /* #eaeaea */
-    --input: 0 0% 92%;
-    --ring: 212 100% 45%;
+    --info: 215 60% 62%;
+    --info-foreground: 0 0% 6%;
+    --border: 240 6% 24%;
+    --input: 240 7% 10%;
+    --ring: 24.6 95% 53.14%;
 
-    color-scheme: light;
+    color-scheme: dark;
   }
 
   /* Accent overrides — appearance.accent (none = pack default).
@@ -474,12 +250,12 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
 
    Opacity, not colour, is the whole contrast story. Light packs get a
    higher fill because their card/background gap is only 2-4%, and
-   high-contrast drops the material entirely rather than shipping a
+   bold drops the material entirely rather than shipping a
    decoration that pack's users did not ask for. */
 
 @layer base {
   /* Order matters and it is not arbitrary. `:root` is always present and it
-     is the ghost/light pack, so the light block comes first and the dark
+     is the clean/light pack, so the light block comes first and the dark
      packs are named explicitly after it. Reversing these two silently
      hands every dark theme the light material - which is exactly the kind
      of bug that only shows up as "the dark themes look a bit flat".
@@ -496,10 +272,8 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
      light surface, so it becomes a faint inner shadow that still reads
      as an edge. */
   :root,
-  .ghost,
-  .sandstorm,
-  .mist,
-  .vercel-light {
+  .clean,
+  .calm {
     --glass-alpha-card: 0.82;
     --glass-alpha-elevated: 0.9;
     --glass-alpha-bar: 0.74;
@@ -510,30 +284,25 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
 
     --glass-border-alpha: 0.1;
     --glass-border-strong-alpha: 0.18;
-    --glass-highlight-alpha: 0.05;
+    --glass-highlight-alpha: 0.035;
 
     --glass-shadow-control:
-      0 4px 14px hsl(var(--foreground) / 0.06),
-      0 1px 3px hsl(var(--foreground) / 0.05);
+      0 2px 8px hsl(0 0% 0% / 0.06),
+      0 1px 2px hsl(0 0% 0% / 0.05);
     --glass-shadow:
-      0 8px 30px hsl(var(--foreground) / 0.07),
-      0 2px 8px hsl(var(--foreground) / 0.05);
+      0 4px 16px hsl(0 0% 0% / 0.07),
+      0 1px 4px hsl(0 0% 0% / 0.05);
     --glass-shadow-elevated:
-      0 18px 48px hsl(var(--foreground) / 0.1),
-      0 4px 12px hsl(var(--foreground) / 0.06);
+      0 12px 32px hsl(0 0% 0% / 0.1),
+      0 2px 8px hsl(0 0% 0% / 0.06);
   }
 
   /* Dark packs. Cards are far enough from the page colour to carry a
      lighter fill, so the material reads as depth rather than as fog. */
   .dark,
-  .abyssal,
-  .ember,
-  .cobalt,
-  .abyss-teal,
-  .strike,
-  .forest,
-  .onyx,
-  .vercel {
+  .graphite,
+  .void,
+  .signal {
     --glass-alpha-card: 0.68;
     --glass-alpha-elevated: 0.78;
     --glass-alpha-bar: 0.55;
@@ -544,17 +313,23 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
 
     --glass-border-alpha: 0.14;
     --glass-border-strong-alpha: 0.24;
-    --glass-highlight-alpha: 0.06;
+    --glass-highlight-alpha: 0.04;
 
+    /* Shadows are black, never the pack's foreground. Deriving them from
+       --foreground meant every dark pack painted a WHITE halo - the glow
+       this retune exists to remove. A shadow's job is to darken; on a dark
+       pack that is nearly invisible, and the depth now comes from the fill
+       step and the border instead. Spread is deliberately small: the old
+       18px/48px elevated shadow was the worst offender. */
     --glass-shadow-control:
-      0 4px 14px hsl(var(--foreground) / 0.1),
-      0 1px 3px hsl(var(--foreground) / 0.08);
+      0 2px 8px hsl(0 0% 0% / 0.3),
+      0 1px 2px hsl(0 0% 0% / 0.24);
     --glass-shadow:
-      0 8px 30px hsl(var(--foreground) / 0.1),
-      0 2px 8px hsl(var(--foreground) / 0.08);
+      0 4px 16px hsl(0 0% 0% / 0.36),
+      0 1px 4px hsl(0 0% 0% / 0.28);
     --glass-shadow-elevated:
-      0 18px 48px hsl(var(--foreground) / 0.16),
-      0 4px 12px hsl(var(--foreground) / 0.1);
+      0 12px 32px hsl(0 0% 0% / 0.5),
+      0 2px 8px hsl(0 0% 0% / 0.34);
   }
 
   /* The blur radii and the composited values are pack-independent, so they
@@ -565,7 +340,10 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
     --glass-blur-sm: 10px;
     --glass-blur-md: 16px;
     --glass-blur-lg: 22px;
-    --glass-saturate: 1.15;
+    /* No boost. saturate(1.15) pushed every colour passing through the
+       blur further from neutral, which read as radiance on dark packs.
+       Blur alone is the material. */
+    --glass-saturate: 1;
 
     --glass-bg: hsl(var(--card) / var(--glass-alpha-card));
     --glass-bg-elevated: hsl(var(--popover) / var(--glass-alpha-elevated));
@@ -574,10 +352,10 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
     --glass-highlight: inset 0 1px 0 hsl(var(--foreground) / var(--glass-highlight-alpha));
   }
 
-  /* High contrast asks for a flat, unambiguous interface. Same palette,
+  /* Bold asks for a flat, unambiguous interface. Same palette,
      material removed: opaque surfaces, no blur, and the pack's own strong
      borders doing the separating. Last, so nothing above re-enables it. */
-  .high-contrast {
+  .bold {
     --glass-alpha-card: 1;
     --glass-alpha-elevated: 1;
     --glass-alpha-bar: 1;
@@ -605,19 +383,13 @@ abyss-teal — earthy green dark, sage accent (kodama-grove)
      identical to the pre-glass UI. */
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     :root,
-    .ghost,
-    .sandstorm,
-    .mist,
-    .vercel-light,
+    .clean,
+    .calm,
+    .bold,
     .dark,
-    .abyssal,
-    .ember,
-    .cobalt,
-    .abyss-teal,
-    .strike,
-    .forest,
-    .onyx,
-    .vercel {
+    .graphite,
+    .void,
+    .signal {
       --glass-alpha-card: 1;
       --glass-alpha-elevated: 1;
       --glass-alpha-bar: 1;

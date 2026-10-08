@@ -5,18 +5,23 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Play, Pause, Square, RefreshCw, Sparkles, AlertCircle } from "lucide-react";
+import { Play, Pause, Square, RefreshCw, Sparkles, AlertCircle, Target } from "lucide-react";
 import { useMission } from "@/hooks/useApi";
 import { MissionProgressBar } from "@/components/execution/mission-progress-bar";
 import { DataTable, type DataTableColumn } from "@/components/execution/data-table";
 import { safeJson, formatCost, formatDuration } from "@/lib/utils";
 import { MISSION_STATUS_COLOR, TASK_STATUS_COLOR, missionProgress } from "@/lib/execution-meta";
+import { PageHeader, SectionLabel } from "@/components/shared/page-header";
 
 const PLAN_COLUMNS: DataTableColumn<any>[] = [
   {
     header: "Step",
     width: "70px",
-    render: (s) => <Badge variant="outline" className="font-mono">{s.step}</Badge>,
+    render: (s) => (
+      <Badge variant="outline" className="font-mono">
+        {s.step}
+      </Badge>
+    ),
   },
   { header: "Description", render: (s) => <span className="font-medium">{s.description}</span> },
   {
@@ -29,7 +34,7 @@ const PLAN_COLUMNS: DataTableColumn<any>[] = [
     width: "90px",
     align: "right",
     render: (s) => (
-      <span className="text-xs text-muted-foreground whitespace-nowrap">
+      <span className="whitespace-nowrap text-xs text-muted-foreground">
         {formatDuration(s.estimatedDuration)}
       </span>
     ),
@@ -47,7 +52,10 @@ const TASK_COLUMNS: DataTableColumn<any>[] = [
   {
     header: "Description",
     render: (t) => (
-      <Link href={`/tasks/${t.id}`} className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded-sm">
+      <Link
+        href={`/tasks/${t.id}`}
+        className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+      >
         {t.description}
       </Link>
     ),
@@ -56,7 +64,7 @@ const TASK_COLUMNS: DataTableColumn<any>[] = [
     header: "Owner",
     width: "150px",
     render: (t) => (
-      <span className="text-xs text-muted-foreground font-mono truncate block">
+      <span className="block truncate font-mono text-xs text-muted-foreground">
         {t.ownerAgentId ? t.ownerAgentId.slice(0, 8) : "—"}
       </span>
     ),
@@ -73,7 +81,7 @@ const EVENT_COLUMNS: DataTableColumn<any>[] = [
     header: "Time",
     width: "180px",
     render: (e) => (
-      <span className="text-xs text-muted-foreground whitespace-nowrap">
+      <span className="whitespace-nowrap text-xs text-muted-foreground">
         {new Date(e.timestamp).toLocaleString()}
       </span>
     ),
@@ -84,12 +92,12 @@ const EVENT_COLUMNS: DataTableColumn<any>[] = [
     render: (e) => (
       <span className="flex items-center gap-2 text-xs">
         {e.agentId && (
-          <Link href={`/agents/${e.agentId}`} className="text-info hover:underline font-mono">
+          <Link href={`/agents/${e.agentId}`} className="font-mono text-info hover:underline">
             agent {e.agentId.slice(0, 8)}
           </Link>
         )}
         {e.taskId && (
-          <Link href={`/tasks/${e.taskId}`} className="text-info hover:underline font-mono">
+          <Link href={`/tasks/${e.taskId}`} className="font-mono text-info hover:underline">
             task {e.taskId.slice(0, 8)}
           </Link>
         )}
@@ -106,7 +114,7 @@ const EVENT_COLUMNS: DataTableColumn<any>[] = [
         .map((k) => `${k}: ${String(payload[k]).slice(0, 120)}`)
         .join(" · ");
       return (
-        <span className="text-xs text-muted-foreground truncate block max-w-[360px]" title={text}>
+        <span className="block max-w-[360px] truncate text-xs text-muted-foreground" title={text}>
           {text || "—"}
         </span>
       );
@@ -122,9 +130,6 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
 
   const mission = data?.mission;
   const events = data?.events || [];
-  /* The table caption promises newest-last, so sort rather than trust the
-     API's order. Unparseable timestamps sink to the bottom instead of
-     rendering "Invalid Date" at the top of the log. */
   const eventsByTime = [...events].sort(
     (a: any, b: any) => (new Date(a.timestamp).getTime() || 0) - (new Date(b.timestamp).getTime() || 0)
   );
@@ -177,15 +182,23 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
     }
   };
 
-  if (isLoading && !mission) return <div className="p-6">Loading mission...</div>;
+  if (isLoading && !mission)
+    return (
+      <div className="mx-auto max-w-6xl space-y-4">
+        <div className="h-8 w-64 animate-pulse rounded bg-muted" />
+        <div className="h-24 animate-pulse rounded-xl bg-muted/60" />
+      </div>
+    );
 
   if (error && !mission) {
     const status = (error as Error & { status?: number }).status;
     return (
-      <div className="p-6">
-        <Card className="p-12 text-center space-y-4 max-w-md mx-auto">
+      <div className="mx-auto max-w-md">
+        <Card className="space-y-4 p-12 text-center">
           <p className="text-lg font-medium">{status === 404 ? "Mission not found" : "Failed to load mission"}</p>
-          <p className="text-sm text-muted-foreground">{status === 404 ? "It may have been deleted." : error.message}</p>
+          <p className="text-sm text-muted-foreground">
+            {status === 404 ? "It may have been deleted." : error.message}
+          </p>
           <Button variant="outline" onClick={() => mutate()} className="gap-2">
             <RefreshCw className="h-4 w-4" /> Retry
           </Button>
@@ -196,81 +209,84 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
 
   if (!mission) return null;
 
-  const plan = safeJson<Array<{ step: number; description: string; agentType: string; estimatedDuration?: number }>>(mission.plan, []);
+  const plan = safeJson<Array<{ step: number; description: string; agentType: string; estimatedDuration?: number }>>(
+    mission.plan,
+    []
+  );
   const prog = missionProgress(mission);
-
   const isTerminal = ["COMPLETED", "FAILED", "CANCELLED"].includes(mission.status);
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl mx-auto">
-      <div className="flex items-center gap-3">
-        <Link href="/work?type=missions">
-          <Button variant="ghost" size="sm" className="gap-2"><ArrowLeft className="h-4 w-4" /> Back</Button>
-        </Link>
-      </div>
-
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold">{mission.goal}</h1>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <PageHeader
+        backHref="/work?type=missions"
+        icon={Target}
+        eyebrow="Mission"
+        title={
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="truncate">{mission.goal}</span>
             <Badge className={MISSION_STATUS_COLOR[mission.status] || "bg-muted"}>{mission.status}</Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">Mission ID: {mission.id} • Priority: {mission.priority}</p>
-          {mission.completedAt && (
-            <p className="text-xs text-muted-foreground">Completed: {new Date(mission.completedAt).toLocaleString()}</p>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {mission.status === "PLANNING" && (
-            <Button onClick={genPlan} disabled={busy !== null} className="gap-2">
-              <Sparkles className="h-3.5 w-3.5" /> {busy === "start" ? "Planning..." : "Generate Plan"}
-            </Button>
-          )}
-          {mission.status === "READY" && (
-            <Button onClick={() => handleStatus("start")} disabled={busy !== null} className="gap-2">
-              <Play className="h-3.5 w-3.5" /> {busy === "start" ? "Starting..." : "Start"}
-            </Button>
-          )}
-          {mission.status === "RUNNING" && (
-            <>
-              <Button variant="outline" onClick={() => handleStatus("pause")} disabled={busy !== null} className="gap-2">
-                <Pause className="h-3.5 w-3.5" /> {busy === "pause" ? "Pausing..." : "Pause"}
+          </span>
+        }
+        description={`Priority ${mission.priority} · ${mission.id.slice(0, 8)}${
+          mission.completedAt ? ` · completed ${new Date(mission.completedAt).toLocaleString()}` : ""
+        }`}
+        actions={
+          <>
+            {mission.status === "PLANNING" && (
+              <Button onClick={genPlan} disabled={busy !== null} className="gap-2">
+                <Sparkles className="h-3.5 w-3.5" /> {busy === "start" ? "Planning…" : "Generate Plan"}
               </Button>
-              <Button onClick={() => handleStatus("cancel")} disabled={busy !== null} variant="outline" className="gap-2">
-                <Square className="h-3.5 w-3.5" /> Cancel
+            )}
+            {mission.status === "READY" && (
+              <Button onClick={() => handleStatus("start")} disabled={busy !== null} className="gap-2">
+                <Play className="h-3.5 w-3.5" /> {busy === "start" ? "Starting…" : "Start"}
               </Button>
-            </>
-          )}
-          {mission.status === "PAUSED" && (
-            <>
-              <Button onClick={() => handleStatus("resume")} disabled={busy !== null} className="gap-2">
-                <Play className="h-3.5 w-3.5" /> {busy === "resume" ? "Resuming..." : "Resume"}
+            )}
+            {mission.status === "RUNNING" && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => handleStatus("pause")}
+                  disabled={busy !== null}
+                  className="gap-2"
+                >
+                  <Pause className="h-3.5 w-3.5" /> Pause
+                </Button>
+                <Button variant="outline" onClick={() => handleStatus("cancel")} disabled={busy !== null} className="gap-2">
+                  <Square className="h-3.5 w-3.5" /> Cancel
+                </Button>
+              </>
+            )}
+            {mission.status === "PAUSED" && (
+              <>
+                <Button onClick={() => handleStatus("resume")} disabled={busy !== null} className="gap-2">
+                  <Play className="h-3.5 w-3.5" /> Resume
+                </Button>
+                <Button variant="outline" onClick={() => handleStatus("cancel")} disabled={busy !== null} className="gap-2">
+                  <Square className="h-3.5 w-3.5" /> Cancel
+                </Button>
+              </>
+            )}
+            {plan.length > 0 && !isTerminal && (
+              <Button variant="outline" size="sm" onClick={genPlan} disabled={busy !== null} className="gap-2">
+                <RefreshCw className="h-3.5 w-3.5" /> Replan
               </Button>
-              <Button onClick={() => handleStatus("cancel")} disabled={busy !== null} variant="outline" className="gap-2">
-                <Square className="h-3.5 w-3.5" /> Cancel
-              </Button>
-            </>
-          )}
-          {plan.length > 0 && !isTerminal && (
-            <Button variant="outline" size="sm" onClick={genPlan} disabled={busy !== null} className="gap-2">
-              <RefreshCw className="h-3.5 w-3.5" /> Replan
-            </Button>
-          )}
-        </div>
-      </div>
+            )}
+          </>
+        }
+      />
 
       {actionError && (
-        <p className="flex items-center gap-2 text-sm text-destructive bg-destructive/5 border border-destructive/20 rounded-md px-3 py-2">
+        <p className="flex items-center gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" /> {actionError}
         </p>
       )}
 
-      {/* One dense strip instead of four stat cards: the same four numbers,
-          read across instead of down. */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border rounded-lg overflow-hidden border">
-        <div className="bg-background p-3">
-          <p className="text-xs text-muted-foreground">Progress</p>
-          <p className="font-bold text-xl tabular-nums">{prog.pct}%</p>
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border lg:grid-cols-4">
+        <div className="bg-background p-4">
+          <SectionLabel>Progress</SectionLabel>
+          <p className="mt-1 text-2xl font-bold tabular-nums">{prog.pct}%</p>
           {(prog.failed > 0 || prog.cancelled > 0) && (
             <p className="text-xs">
               {prog.failed > 0 && <span className="text-destructive">{prog.failed} failed</span>}
@@ -278,24 +294,24 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
               {prog.cancelled > 0 && <span className="text-muted-foreground">{prog.cancelled} cancelled</span>}
             </p>
           )}
-          <MissionProgressBar mission={mission} className="mt-1.5" />
+          <MissionProgressBar mission={mission} className="mt-2" />
         </div>
-        <div className="bg-background p-3">
-          <p className="text-xs text-muted-foreground">Tasks</p>
-          <p className="font-bold text-xl tabular-nums">{prog.total}</p>
+        <div className="bg-background p-4">
+          <SectionLabel>Tasks</SectionLabel>
+          <p className="mt-1 text-2xl font-bold tabular-nums">{prog.total}</p>
         </div>
-        <div className="bg-background p-3">
-          <p className="text-xs text-muted-foreground">Cost</p>
-          <p className="font-bold text-xl tabular-nums">{formatCost(mission.totalCost)}</p>
+        <div className="bg-background p-4">
+          <SectionLabel>Cost</SectionLabel>
+          <p className="mt-1 text-2xl font-bold tabular-nums">{formatCost(mission.totalCost)}</p>
         </div>
-        <div className="bg-background p-3">
-          <p className="text-xs text-muted-foreground">Duration</p>
-          <p className="font-bold text-xl tabular-nums">{formatDuration(mission.duration)}</p>
+        <div className="bg-background p-4">
+          <SectionLabel>Duration</SectionLabel>
+          <p className="mt-1 text-2xl font-bold tabular-nums">{formatDuration(mission.duration)}</p>
         </div>
       </div>
 
-      <section className="space-y-2">
-        <h2 className="font-semibold">Plan</h2>
+      <section className="space-y-3">
+        <SectionLabel>Plan</SectionLabel>
         {plan.length > 0 ? (
           <DataTable
             columns={PLAN_COLUMNS}
@@ -314,33 +330,33 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
         )}
       </section>
 
-      <section className="space-y-2">
-        <h2 className="font-semibold">Tasks</h2>
-        {!mission.tasks?.length ? (
-          <p className="text-sm text-muted-foreground">No tasks assigned</p>
-        ) : (
+      <section className="space-y-3">
+        <SectionLabel>Tasks</SectionLabel>
+        {prog.total > 0 ? (
           <DataTable
             columns={TASK_COLUMNS}
-            rows={mission.tasks}
+            rows={mission.tasks || []}
             rowKey={(t: any) => t.id}
-            minWidth="480px"
-            caption="Tasks assigned to this mission"
+            minWidth="520px"
+            caption="Mission tasks"
           />
+        ) : (
+          <p className="text-sm text-muted-foreground">No tasks yet.</p>
         )}
       </section>
 
-      <section className="space-y-2">
-        <h2 className="font-semibold">Events</h2>
-        {events.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No events yet.</p>
-        ) : (
+      <section className="space-y-3">
+        <SectionLabel>Activity</SectionLabel>
+        {eventsByTime.length > 0 ? (
           <DataTable
             columns={EVENT_COLUMNS}
-            rows={eventsByTime.slice(0, 20)}
+            rows={eventsByTime}
             rowKey={(e: any) => e.id}
-            minWidth="620px"
-            caption="Mission events, newest last"
+            minWidth="680px"
+            caption="Mission event log"
           />
+        ) : (
+          <p className="text-sm text-muted-foreground">No events recorded yet.</p>
         )}
       </section>
     </div>

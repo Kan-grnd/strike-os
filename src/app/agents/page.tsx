@@ -1,69 +1,147 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
-  Users, Search, Plus, Cpu, Wrench, Brain, Target, Eye,
-  ChevronRight, X, RotateCcw, AlertCircle,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Users,
+  Search,
+  Plus,
+  X,
+  RotateCcw,
+  AlertCircle,
+  Boxes,
+  Activity,
+  ShieldAlert,
 } from "lucide-react";
-import { cn, safeJsonArray } from "@/lib/utils";
 import { useAgents, useColonies } from "@/hooks/useApi";
 import {
-  AGENT_TYPE_COLOR, AGENT_TYPE_OPTIONS, AGENT_STATUS_COLOR, AGENT_STATUS_OPTIONS,
-  ATTENTION_STATES, ATTENTION_LABELS, ATTENTION_COLOR,
+  AGENT_TYPE_OPTIONS,
+  AGENT_STATUS_OPTIONS,
+  ATTENTION_STATES,
 } from "@/lib/agent-meta";
+import { AgentCard } from "@/components/fleet/agent-card";
+import { PageHeader, SectionLabel } from "@/components/shared/page-header";
+import { KpiCard } from "@/components/dashboard/kpi-card";
+import { EmptyState } from "@/components/ui/empty-state";
+
+function titleCase(value: string) {
+  return value.charAt(0) + value.slice(1).toLowerCase();
+}
 
 function Agents() {
   const searchParams = useSearchParams();
   const colonyParam = searchParams.get("colonyId") ?? "";
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [colonyFilter, setColonyFilter] = useState(colonyParam);
+
   useEffect(() => {
     setColonyFilter(colonyParam);
   }, [colonyParam]);
+
   const { data, isLoading, error, mutate } = useAgents({
-    status: statusFilter,
-    type: typeFilter,
+    status: statusFilter === "all" ? "" : statusFilter,
+    type: typeFilter === "all" ? "" : typeFilter,
     colonyId: colonyFilter,
   });
   const { data: coloniesData } = useColonies();
   const colonies = coloniesData?.colonies || [];
   const colonyName = colonies.find((c: any) => c.id === colonyFilter)?.name;
 
-  const agents = (data?.agents || []).filter(
-    (a: any) =>
-      !search ||
-      a.name.toLowerCase().includes(search.toLowerCase()) ||
-      a.description?.toLowerCase().includes(search.toLowerCase())
+  const agents = useMemo(
+    () =>
+      (data?.agents || []).filter(
+        (a: any) =>
+          !search ||
+          a.name?.toLowerCase().includes(search.toLowerCase()) ||
+          a.description?.toLowerCase().includes(search.toLowerCase())
+      ),
+    [data, search]
   );
 
-  const hasFilters = !!(statusFilter || typeFilter || colonyFilter);
+  const allAgents: any[] = data?.agents || [];
+  const running = allAgents.filter((a) => a.status === "RUNNING").length;
+  const attention = allAgents.filter((a) =>
+    ATTENTION_STATES.has(a.runtimeState)
+  ).length;
+
+  const hasFilters =
+    search !== "" || statusFilter !== "all" || typeFilter !== "all" || !!colonyFilter;
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("all");
+    setTypeFilter("all");
+    setColonyFilter("");
+  };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Agents</h1>
-          <p className="text-sm text-muted-foreground">Your AI workforce members</p>
-        </div>
-        <Link href="/architect">
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-            New Agent
-          </Button>
-        </Link>
-      </div>
+    <div className="mx-auto max-w-[1400px] space-y-6">
+      <PageHeader
+        eyebrow="Workforce"
+        icon={Users}
+        title="Agents"
+        description="Every member of your AI workforce, with live runtime state."
+        actions={
+          <Link href="/architect">
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              New Agent
+            </Button>
+          </Link>
+        }
+      />
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          index={0}
+          icon={Users}
+          label="Total agents"
+          value={allAgents.length}
+          caption={`${colonies.length} colonies`}
+          accent="hsl(var(--primary) / 0.4)"
+        />
+        <KpiCard
+          index={1}
+          icon={Activity}
+          label="Running"
+          value={running}
+          caption={`${allAgents.length - running} not running`}
+          accent="hsl(var(--success) / 0.4)"
+        />
+        <KpiCard
+          index={2}
+          icon={ShieldAlert}
+          label="Needs attention"
+          value={attention}
+          caption={attention > 0 ? "Blocked, failed or awaiting approval" : "All clear"}
+          accent="hsl(var(--warning) / 0.4)"
+        />
+        <KpiCard
+          index={3}
+          icon={Boxes}
+          label="Colonies"
+          value={colonies.length}
+          caption="Logical groupings"
+        />
+      </section>
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 basis-full sm:basis-auto sm:max-w-sm sm:min-w-[16rem]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search agents..."
             className="pl-9"
@@ -71,28 +149,32 @@ function Agents() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select
-          aria-label="Filter by status"
-          className="rounded-md border bg-background px-3 py-2 text-sm"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="">All Status</option>
-          {AGENT_STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>
-          ))}
-        </select>
-        <select
-          aria-label="Filter by type"
-          className="rounded-md border bg-background px-3 py-2 text-sm"
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-        >
-          <option value="">All Types</option>
-          {AGENT_TYPE_OPTIONS.map((t) => (
-            <option key={t} value={t}>{t.charAt(0) + t.slice(1).toLowerCase()}</option>
-          ))}
-        </select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[150px]" aria-label="Filter by status">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All status</SelectItem>
+            {AGENT_STATUS_OPTIONS.map((s) => (
+              <SelectItem key={s} value={s}>
+                {titleCase(s)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-[150px]" aria-label="Filter by type">
+            <SelectValue placeholder="Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            {AGENT_TYPE_OPTIONS.map((t) => (
+              <SelectItem key={t} value={t}>
+                {titleCase(t)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {colonyFilter && (
           <Badge variant="secondary" className="gap-1.5 px-2.5 py-1">
             Colony: {colonyName || colonyFilter}
@@ -108,11 +190,7 @@ function Agents() {
         {hasFilters && (
           <button
             className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-            onClick={() => {
-              setStatusFilter("");
-              setTypeFilter("");
-              setColonyFilter("");
-            }}
+            onClick={clearFilters}
           >
             Clear filters
           </button>
@@ -121,9 +199,11 @@ function Agents() {
 
       {error && (
         <Card className="p-8 text-center">
-          <AlertCircle className="h-10 w-10 mx-auto text-destructive mb-3" />
+          <AlertCircle className="mx-auto mb-3 h-10 w-10 text-destructive" />
           <p className="text-lg font-medium">Couldn't load agents</p>
-          <p className="text-sm text-muted-foreground mt-1">Something went wrong fetching your workforce.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Something went wrong fetching your workforce.
+          </p>
           <Button variant="outline" className="mt-4 gap-2" onClick={() => mutate()}>
             <RotateCcw className="h-4 w-4" /> Retry
           </Button>
@@ -131,79 +211,40 @@ function Agents() {
       )}
 
       {!error && isLoading && agents.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">Loading agents...</div>
-      )}
-      {!error && !isLoading && agents.length === 0 && (
-        <Card className="p-12 text-center">
-          <Users className="h-12 w-12 mx-auto text-faint mb-4" />
-          <p className="text-lg font-medium">No agents yet</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            {hasFilters ? "No agents match the current filters." : "Create your first workforce member"}
-          </p>
-          {!hasFilters && (
-            <Link href="/architect">
-              <Button className="mt-4 gap-2"><Plus className="h-4 w-4" /> Create Agent</Button>
-            </Link>
-          )}
-        </Card>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="h-44 animate-pulse bg-muted/40" />
+          ))}
+        </div>
       )}
 
-      <div className="grid gap-4">
-        {agents.map((agent: any) => {
-          const caps = safeJsonArray(agent.capabilities);
-          const toolIds = safeJsonArray(agent.tools);
-          const modelIds = safeJsonArray(agent.models);
-          const needsAttention = ATTENTION_STATES.has(agent.runtimeState);
-          return (
-            <Link key={agent.id} href={`/agents/${agent.id}`}>
-              <Card className="p-6 hover:border-primary/40 transition-colors cursor-pointer group">
-                <div className="flex items-start gap-4">
-                  <div className={cn("rounded-lg p-3 shrink-0 border", AGENT_TYPE_COLOR[agent.type] || "border-primary/40")}>
-                    {agent.type === "ARCHITECT" ? <Brain className="h-5 w-5" /> :
-                     agent.type === "PLANNER" ? <Target className="h-5 w-5" /> :
-                     agent.type === "OBSERVER" ? <Eye className="h-5 w-5" /> :
-                     <Users className="h-5 w-5" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-semibold text-base">{agent.name}</h3>
-                      <Badge className={cn("text-xs", AGENT_STATUS_COLOR[agent.status])}>{agent.status}</Badge>
-                      <Badge variant="outline" className="text-xs">{agent.type}</Badge>
-                      {needsAttention && (
-                        <Badge className={cn("text-xs", ATTENTION_COLOR[agent.runtimeState])}>
-                          {ATTENTION_LABELS[agent.runtimeState] ?? agent.runtimeState}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{agent.description}</p>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-faint">
-                      {caps.length > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Target className="h-3 w-3" /> {caps.length} capabilities
-                        </span>
-                      )}
-                      {toolIds.length > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Wrench className="h-3 w-3" /> {toolIds.length} tools
-                        </span>
-                      )}
-                      {modelIds.length > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Cpu className="h-3 w-3" /> {modelIds.length} models
-                        </span>
-                      )}
-                      {agent.tasksCompleted > 0 && (
-                        <span>{agent.tasksCompleted} tasks • {agent.successRate}% success</span>
-                      )}
-                    </div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-faint group-hover:text-foreground transition-colors shrink-0" />
-                </div>
-              </Card>
-            </Link>
-          );
-        })}
-      </div>
+      {!error && !isLoading && agents.length === 0 && (
+        <EmptyState
+          icon={Users}
+          title={hasFilters ? "No agents match" : "No agents yet"}
+          description={
+            hasFilters
+              ? "No agents match the current filters. Try widening them."
+              : "Create your first workforce member to get started."
+          }
+          cta={hasFilters ? undefined : "Create Agent"}
+          ctaHref={hasFilters ? undefined : "/architect"}
+          className="py-16"
+        />
+      )}
+
+      {!error && agents.length > 0 && (
+        <>
+          <SectionLabel>
+            {agents.length} agent{agents.length === 1 ? "" : "s"}
+          </SectionLabel>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {agents.map((agent: any, i: number) => (
+              <AgentCard key={agent.id} agent={agent} index={i} />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

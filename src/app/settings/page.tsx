@@ -18,10 +18,19 @@ import {
   Pause,
   Database,
 } from "lucide-react";
+import { motion } from "motion/react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { PageHeader } from "@/components/shared/page-header";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -124,29 +133,48 @@ export default function SettingsPage() {
   }, [settings]);
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold">Settings</h1>
+    <div className="mx-auto max-w-5xl space-y-6">
+      <PageHeader
+        icon={SettingsIcon}
+        eyebrow="System"
+        title="Settings"
+        description="Workspace identity, appearance, live data, secrets and automations."
+      />
 
-      <div className="flex gap-6">
-        <nav className="w-48 shrink-0 space-y-1">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                tab === t.id
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <t.icon className="h-4 w-4" />
-              {t.label}
-            </button>
-          ))}
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <nav
+          aria-label="Settings sections"
+          className="-mx-1 flex shrink-0 gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:w-52 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0"
+        >
+          {TABS.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "relative flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  active
+                    ? "text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="settings-tab"
+                    className="absolute inset-0 rounded-md bg-primary"
+                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                  />
+                )}
+                <t.icon className="relative z-10 h-4 w-4" />
+                <span className="relative z-10 whitespace-nowrap">{t.label}</span>
+              </button>
+            );
+          })}
         </nav>
 
-        <div className="flex-1 min-w-0 space-y-4">
+        <div className="min-w-0 flex-1 space-y-4">
           {tab === "workspace" && (
             <WorkspaceTab settings={settings} save={save} isSaving={isSaving} />
           )}
@@ -216,7 +244,7 @@ function WorkspaceTab({
       <Card className="p-6">
         <FormRow label="Workspace name" hint="Shown across the platform">
           <div className="flex items-center gap-2">
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+            <Input aria-label="Workspace name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
         </FormRow>
         <div className="flex justify-end pt-3">
@@ -233,18 +261,24 @@ function WorkspaceTab({
 
       <Card className="p-6">
         <FormRow label="Default colony" hint="Selected for new agents & missions">
-          <select
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm h-10"
-            value={settings?.["workspace.defaultColonyId"] || ""}
-            onChange={(e) => save("workspace.defaultColonyId", e.target.value)}
+          <Select
+            value={settings?.["workspace.defaultColonyId"] || "none"}
+            onValueChange={(v) =>
+              save("workspace.defaultColonyId", v === "none" ? "" : v)
+            }
           >
-            <option value="">— No default —</option>
-            {colonies.map((c: any) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full" aria-label="Default colony">
+              <SelectValue placeholder="— No default —" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">— No default —</SelectItem>
+              {colonies.map((c: any) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </FormRow>
       </Card>
 
@@ -373,6 +407,7 @@ function AppearanceTab({
                     <span className="h-6 w-6 rounded-md border border-black/10" style={{ background: p.bg }} />
                     <span className="h-6 w-6 rounded-md border border-black/10" style={{ background: p.surface }} />
                     <span className="h-6 w-6 rounded-md border border-black/10" style={{ background: p.accent }} />
+                    <span className="h-6 w-6 rounded-md border border-black/10" style={{ background: p.secondary }} />
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="whitespace-nowrap text-sm font-semibold text-foreground" title={p.name}>
@@ -400,19 +435,22 @@ function AppearanceTab({
           label="Default theme"
           hint="Used by browsers that have not picked a theme of their own"
         >
-          <select
-            aria-label="Default theme"
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm h-10"
+          <Select
             value={workspaceDefault}
-            onChange={(e) => setWorkspaceDefault(e.target.value)}
+            onValueChange={(v) => setWorkspaceDefault(v)}
             disabled={isSaving(WORKSPACE_DEFAULT_THEME_KEY)}
           >
-            {THEME_PACKS.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full" aria-label="Default theme">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {THEME_PACKS.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </FormRow>
         {pinnedLocally && (
           <div className="mt-2 flex items-center justify-between gap-4 rounded-md border border-border bg-muted/50 px-3 py-2">
@@ -433,17 +471,21 @@ function AppearanceTab({
 
       <Card className="p-6">
         <FormRow label="Corner radius" hint="Maps to --radius, applied app-wide">
-          <select
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm h-10"
+          <Select
             value={settings?.["appearance.radius"] || "0.5rem"}
-            onChange={(e) => save("appearance.radius", e.target.value)}
+            onValueChange={(v) => save("appearance.radius", v)}
           >
-            {RADII.map((r) => (
-              <option key={r.value} value={r.value}>
-                {r.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full" aria-label="Corner radius">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {RADII.map((r) => (
+                <SelectItem key={r.value} value={r.value}>
+                  {r.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </FormRow>
       </Card>
 
@@ -620,19 +662,21 @@ function SecretsTab() {
 
       <Card className="p-6 space-y-4">
         <h3 className="text-sm font-semibold">Add secret</h3>
-        <div className="grid grid-cols-3 gap-3">
-          <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-          <select
-            className="rounded-md border bg-background px-3 py-2 text-sm h-10"
-            value={provider}
-            onChange={(e) => setProvider(e.target.value)}
-          >
-            <option value="anthropic">Anthropic</option>
-            <option value="openai">OpenAI</option>
-            <option value="omniroute">OmniRoute</option>
-            <option value="other">Other</option>
-          </select>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Input placeholder="Name" aria-label="Secret name" value={name} onChange={(e) => setName(e.target.value)} />
+          <Select value={provider} onValueChange={setProvider}>
+            <SelectTrigger className="w-full" aria-label="Provider">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="anthropic">Anthropic</SelectItem>
+              <SelectItem value="openai">OpenAI</SelectItem>
+              <SelectItem value="omniroute">OmniRoute</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
           <Input
+            aria-label="Environment variable reference"
             placeholder="Env reference (e.g. ANTHROPIC_API_KEY)"
             value={reference}
             onChange={(e) => setReference(e.target.value)}
@@ -818,6 +862,7 @@ function DangerZoneTab({ onReset }: { onReset: () => Promise<void> }) {
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
             placeholder='Type "RESET" to confirm'
+            aria-label="Type RESET to confirm reset"
             className="max-w-xs"
           />
           <Button

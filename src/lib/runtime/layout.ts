@@ -7,27 +7,22 @@ import type { AgentRuntime, ColonyRuntime, TaskRuntime, WorkforceRuntime } from 
  * else is derived from hierarchy + a deterministic sibling order — never a
  * force simulation, never random.
  *
- * One shape, at every viewport size: a top-down tree. The brain is the topmost
- * card in the graph, territories hang in a centred row (or rows) below it, and
- * each territory's whole subtree is built as one axis-aligned block hanging
- * beneath its own card, so one territory's workers can never restructure a
- * neighbour's rows. The viewport chooses how much *air* a graph gets; it never
- * chooses the shape.
+ * One shape, at every viewport size: a top-down tidy tree. The brain is the
+ * topmost card in the graph, colonies hang below it, and each worker's
+ * children (sub-agents and operations side by side) hang below their parent.
+ * Distances are fixed config constants, never a fraction of the canvas or
+ * viewport: neighbouring boxes are exactly `TIDY_SIBLING_GAP` apart and each
+ * depth band starts exactly `TIDY_LEVEL_GAP` below the previous band's
+ * bottom edge. A two-colony graph is compact; a forty-agent colony grows by
+ * the same fixed steps. The viewport chooses the camera, never the shape.
  *
- * This is the shape a reader already knows — the org chart — so rank is legible
- * without learning the graph: up is the boss, down is the worker, side by side
- * means same level. The layout it replaced was a hub and spokes, with the brain
- * sitting *between* its territories. That is the right shape for a network and
- * the wrong one for a hierarchy, because it spends the brain's most useful
- * property — being the thing everything descends from — to make the two-
- * territory graph look like a badge.
+ * Positions come from hierarchy only. Transient relationship edges
+ * (delegation, communication, verification) are drawn on top of the tree and
+ * never move a node. Collapsed colonies contribute only their own card width.
  *
- * The top-down shape also deleted the geometry this file used to need. A block
- * only ever grows downward from its own card, so blocks stacked in a row are
- * separated on x by construction, and each row is a fixed band on y. There is
- * no radius to search and no clash test to pass: a pair of blocks either has
- * disjoint x-ranges (same row) or disjoint y-bands (different rows), and both
- * follow from the row being laid out, not from a number being tuned.
+ * Positions use the measured node sizes when the caller has them (the canvas
+ * feeds React Flow's measurements back in), falling back to the rendered card
+ * sizes below. No single fixed node width is assumed anywhere.
  */
 
 export interface TopologyLayout {
@@ -36,52 +31,51 @@ export interface TopologyLayout {
   agents: Map<string, { x: number; y: number }>;
   subAgents: Map<string, { x: number; y: number }>;
   operations: Map<string, { x: number; y: number }>;
-  /** The spacing this layout was actually built with, after tier + clamping. */
-  spacing: TopologySpacing;
 }
 
-const BRAIN_Y = 0;
-const MAX_AGENTS_PER_ROW = 6;
-/** How many territories share one row under the brain before the next row
- *  starts. Past this a graph is a tree with a trunk, not a row of peers, and
- *  eight side-by-side blocks would force the camera so far out that no card is
- *  legible. Matches the `widestRow > 4` spacing trigger on purpose. */
-const MAX_TERRITORIES_PER_ROW = 4;
+/** Fixed layout distances, in graph px, in one place. */
+/** Exact edge-to-edge gap between neighbouring node boxes at every level. */
+export const TIDY_SIBLING_GAP = 32;
+/** Exact gap between one depth band's bottom edge and the next band's top.
+ *  72 gives the orb room to breathe above the colony row; the reference's
+ *  primary `--level-gap` is 88 and its secondary is 72. */
+export const TIDY_LEVEL_GAP = 72;
+/** Children wider than this wrap into additional rows instead of widening
+ *  the tree without limit. Wide enough that two full agent rows (3 x 220px
+ *  plus gaps = 724px each) sit side by side with room to spare. */
+export const TIDY_MAX_ROW_WIDTH = 2400;
 
-/* Card heights measured in a real browser on the *tallest* content variant, after
- * the compact pass. The decisive change was structural, not numeric: worker
- * action rows can no longer wrap (flex-nowrap + shortened toggle labels), so a
- * worker's height no longer depends on how many toggles it has or how long the
- * labels are. It used to jump 121px -> 161px the moment a worker showed both
- * toggles, which pushed every row below it down and used to overlap outright.
- * Every step below is measured-height + GAP, and each worker reserves exactly
- * the depth its own subtree needs, so siblings can never collide.
- * Measured with /tmp/opencode/measure_cards.py + /tmp/opencode/probe_sub.py. */
-const WORKER_CARD_H = 104;
-const OP_CARD_H = 104;
+/* Fallback card heights for the custom node family, measured from the
+ * reference (`strike_topology (1).html`). The live canvas feeds React Flow's
+ * measured sizes back into the layout, so these only matter before measurement
+ * lands (SSR, tests): the colony's 28px folder tab overflows above the body
+ * box rather than inflating it, so the body is only its own padding plus
+ * content. */
+const SPECIALIST_CARD_H = 80;
+const AGENT_CARD_H = 78;
+const SUB_CARD_H = 75;
+const OP_CARD_H = 75;
 
 const REMOVED_STATES = new Set(["cancelled", "stopped"]);
 
 /** The brain is a circular orb, not a card: one square size drives its width
- *  reservation, its band anchor and its edge-anchor centre. */
-const BRAIN_ORB = 180;
+ *  reservation, its band anchor and its edge-anchor centre. Reference: 200px
+ *  ring canvas with a 140px sphere inset at 30,30. */
+const BRAIN_ORB = 200;
 
-/** Rendered card widths (Tailwind w-64 / w-60 / w-56 / w-44), in px. */
+/** Rendered card widths for the custom node family, in px (reference
+ *  `--colony-w` / `--agent-w` / `--task-w`). */
 const CARD_W = {
   brain: BRAIN_ORB,
-  specialist: 240,
-  agent: 240,
-  sub: 224,
-  operation: 176,
+  specialist: 260,
+  agent: 220,
+  sub: 200,
+  operation: 200,
 } as const;
 
-/** Brain height used to place the territory band (the orb's diameter). */
+/** Brain height (the orb's diameter). The colony band starts one level gap
+ *  below the orb's bottom edge. */
 const BRAIN_CARD_H = BRAIN_ORB;
-
-/** Extra air between the brain orb and the first colony row, on top of the
- *  per-tier row gap, so the ownership spokes have room to read as separate
- *  from the orb instead of crowding its bottom edge. */
-const BRAIN_COLONY_GAP = 16;
 
 /** Every card's rendered size, in one place.
  *
@@ -95,9 +89,9 @@ const BRAIN_COLONY_GAP = 16;
  *  how big a card is. */
 export const CARD_SIZE = {
   brain: { w: CARD_W.brain, h: BRAIN_CARD_H },
-  specialist: { w: CARD_W.specialist, h: WORKER_CARD_H },
-  agent: { w: CARD_W.agent, h: WORKER_CARD_H },
-  sub: { w: CARD_W.sub, h: WORKER_CARD_H },
+  specialist: { w: CARD_W.specialist, h: SPECIALIST_CARD_H },
+  agent: { w: CARD_W.agent, h: AGENT_CARD_H },
+  sub: { w: CARD_W.sub, h: SUB_CARD_H },
   operation: { w: CARD_W.operation, h: OP_CARD_H },
 } as const;
 
@@ -127,193 +121,303 @@ const byCreation = <T extends { id: string }>(createdAt: (item: T) => number, a:
 const inCreationOrder = <T extends { id: string }>(items: T[], createdAt: (item: T) => number): T[] =>
   [...items].sort((a, b) => byCreation(createdAt, a, b));
 
-/** How many root agents sit side by side before the row wraps. */
-const maxPerRow = (narrow: boolean): number => (narrow ? 2 : MAX_AGENTS_PER_ROW);
-
-/* ── Adaptive spacing ──────────────────────────────────────────────────────
- * A three-node graph and a sixty-node graph cannot both look right at one fixed
- * gap: the small one floats in dead space, the large one has to shrink the
- * camera far enough that the cards stop being readable. So spacing is chosen
- * from the shape of the graph, and every choice is clamped by hard floors that
- * encode what "readable" actually means here.
- *
- * The floors are the whole point. The gutter is negotiable down to MIN_GUTTER
- * because it is only whitespace, but a horizontal *step* is negotiable only
- * down to card-width + MIN_GUTTER — a step narrower than the card it positions
- * is not "tight", it is an overlap. Vertical gaps go tighter than the old 20
- * because rows are what multiply on a deep graph. */
-export interface TopologySpacing {
-  /** Vertical breathing room between bands. */
-  gap: number;
-  /** Horizontal breathing room between siblings, on top of card width. */
-  gutter: number;
-  /** Air between two territory blocks sitting in the same row. */
-  territoryGap: number;
-  /** Inset from the colony centre edge to the outermost card. */
-  pad: number;
+/** Measured node size override, keyed by node id. The canvas feeds React
+ *  Flow's measured width/height back into the layout; anything missing falls
+ *  back to the rendered card sizes, so the engine never assumes one width. */
+export interface TidyNodeSize {
+  w: number;
+  h: number;
 }
 
-export type SpacingTier = "small" | "medium" | "large";
-
-/** Hard floors and ceilings, independent of tier. */
-export const SPACING_LIMITS = {
-  minGap: 12,
-  maxGap: 36,
-  minGutter: 8,
-  maxGutter: 48,
-  minTerritoryGap: 96,
-  minPad: 24,
-} as const;
-
-const TIERS: Record<SpacingTier, TopologySpacing> = {
-  small: { gap: 28, gutter: 32, territoryGap: 160, pad: 40 },
-  medium: { gap: 20, gutter: 24, territoryGap: 160, pad: 40 },
-  large: { gap: 14, gutter: 16, territoryGap: 144, pad: 32 },
-};
-
-/* Narrow layouts stack colonies vertically and fit the width first, so they get
- * their own tier values: less air between bands, and tighter territory spacing,
- * because a phone is already width-starved. */
-const NARROW_TIERS: Record<SpacingTier, TopologySpacing> = {
-  small: { gap: 24, gutter: 28, territoryGap: 120, pad: 32 },
-  medium: { gap: 18, gutter: 20, territoryGap: 120, pad: 32 },
-  large: { gap: 12, gutter: 12, territoryGap: 104, pad: 24 },
-};
-
-const snap = (v: number, step = 2): number => Math.round(v / step) * step;
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 
-/** Which spacing tier a graph of this shape deserves. */
-export function spacingTierFor(
-  counts: { nodes: number; depth: number; widestRow: number },
-  narrow = false
-): SpacingTier {
-  /* A phone is already width-starved before any of this: two root agents side by
-   * side build a ~540px graph inside a ~390px pane, so fitView has to shrink to
-   * roughly 0.6x before a single card is legible, and every extra pixel of air
-   * costs zoom. A graph that is only "medium" on a desktop therefore has to
-   * start compacting earlier here, which is why the node and depth triggers are
-   * lower on narrow.
-   *
-   * Row width is deliberately not a narrow trigger: maxPerRow caps narrow rows
-   * at 2, so the wide `widestRow > 4` test could never fire and tightening on it
-   * would move nothing. Node count and depth are the signals that actually move. */
-  if (narrow) {
-    if (counts.nodes > 16 || counts.depth >= 3) return "large";
-    return counts.nodes <= 8 ? "small" : "medium";
-  }
-  if (counts.nodes > 24 || counts.depth >= 4 || counts.widestRow > 4) return "large";
-  if (counts.nodes <= 8) return "small";
-  return "medium";
-}
-
-/**
- * Default spacing for a graph of this shape, clamped to the floors.
+/* ── Walker tidy-tree core ────────────────────────────────────────────────
+ * Positions are assigned by the Buchheim–Jünger–Leipert linear-time version
+ * of the Reingold–Tilford tidy-tree algorithm — the moral equivalent of
+ * d3-hierarchy's `tree().nodeSize([1, levelGap])` with a separation function
+ * of `(widthA + widthB) / 2 + siblingGap`, implemented directly so the layout
+ * needs no new dependency and every step stays visible in this file.
  *
- * `narrow` picks both the narrow tier table and the narrow tier triggers; the
- * counts themselves are the same numbers, because a phone showing 40 nodes is
- * still a big graph.
- */
-export function spacingFor(
-  counts: { nodes: number; depth: number; widestRow: number },
-  narrow = false
-): TopologySpacing {
-  const tier = spacingTierFor(counts, narrow);
-  const base = (narrow ? NARROW_TIERS : TIERS)[tier];
-  return {
-    gap: clamp(base.gap, SPACING_LIMITS.minGap, SPACING_LIMITS.maxGap),
-    gutter: clamp(base.gutter, SPACING_LIMITS.minGutter, SPACING_LIMITS.maxGutter),
-    territoryGap: Math.max(base.territoryGap, SPACING_LIMITS.minTerritoryGap),
-    pad: Math.max(base.pad, SPACING_LIMITS.minPad),
-  };
+ * The property that makes it the right algorithm: any two neighbouring boxes
+ * at the same depth end up exactly `separation` apart on their centres, i.e.
+ * exactly `TIDY_SIBLING_GAP` edge to edge, and every parent is centred over
+ * its children. All coordinates are centre-x; the caller converts to the
+ * centre-x/top-y convention React Flow uses (`nodeOrigin={[0.5, 0]}`).
+ *
+ * Everything here is a pure function of the tree, so the same data always
+ * produces the same pixels: no randomness, no viewport input, no iteration
+ * order except the stable sibling order the tree is built in. */
+type TidyKind = "brain" | "specialist" | "agent" | "subagent" | "operation";
+
+interface TidyNode {
+  id: string;
+  kind: TidyKind;
+  w: number;
+  h: number;
+  depth: number;
+  parent: TidyNode | null;
+  children: TidyNode[];
+  prelim: number;
+  mod: number;
+  ancestor: TidyNode;
+  thread: TidyNode | null;
+  change: number;
+  shift: number;
+  /** 1-based position among siblings; drives the shift distribution. */
+  index: number;
+  x: number;
+  y: number;
 }
 
-/** Pull a proposed spacing back inside the floors. Every override goes through
- * this, so no caller can build a layout that overlaps. */
-export function clampSpacing(s: TopologySpacing): TopologySpacing {
-  return {
-    gap: clamp(snap(s.gap), SPACING_LIMITS.minGap, SPACING_LIMITS.maxGap),
-    gutter: clamp(snap(s.gutter), SPACING_LIMITS.minGutter, SPACING_LIMITS.maxGutter),
-    territoryGap: Math.max(snap(s.territoryGap), SPACING_LIMITS.minTerritoryGap),
-    pad: Math.max(snap(s.pad), SPACING_LIMITS.minPad),
-  };
-}
+/** Centre-to-centre distance of two neighbouring boxes. */
+const tidySeparation = (a: TidyNode, b: TidyNode): number =>
+  (a.w + b.w) / 2 + TIDY_SIBLING_GAP;
 
-/** Merge an override onto tier defaults, then clamp. */
-function resolveSpacing(
-  counts: { nodes: number; depth: number; widestRow: number },
-  narrow: boolean,
-  override?: Partial<TopologySpacing>
-): TopologySpacing {
-  const base = spacingFor(counts, narrow);
-  if (!override) return base;
-  return clampSpacing({
-    gap: override.gap ?? base.gap,
-    gutter: override.gutter ?? base.gutter,
-    territoryGap: override.territoryGap ?? base.territoryGap,
-    pad: override.pad ?? base.pad,
-  });
-}
+const tidyLeftSibling = (v: TidyNode): TidyNode | null =>
+  v.parent && v.index > 1 ? v.parent.children[v.index - 2] : null;
 
-/* Horizontal steps must clear the widest card that can sit in that column plus
- * a gutter. The old steps were narrower than the cards themselves (agents 180px
- * apart with 256px cards), so every sibling pair painted over the card next to
- * it, and operations inherited the same too-narrow column. */
-const gapFor = (s: TopologySpacing, kind: "territory" | "agent" | "sub" | "pad"): number => {
-  if (kind === "pad") return s.pad;
-  if (kind === "territory") return s.territoryGap;
-  if (kind === "agent") return CARD_W.agent + s.gutter;
-  return CARD_W.sub + s.gutter;
+const tidyNextLeft = (v: TidyNode): TidyNode | null =>
+  v.children.length > 0 ? v.children[0] : v.thread;
+
+const tidyNextRight = (v: TidyNode): TidyNode | null => {
+  const n = v.children.length;
+  return n > 0 ? v.children[n - 1] : v.thread;
 };
 
-/* Every sub-agent in a band shares ONE lattice of pitch subGap, instead of each
- * parent fanning its own children out from its own centre. The old fan was the
- * bug: two parents side by side, each with two children, put parent A's right
- * child and parent B's left child only 16px apart while the cards are 224px
- * wide, so they painted over each other. It stayed hidden because a lone child
- * has a zero offset, so the old fixture (one sub-agent) could never reproduce
- * it. On a shared lattice no two sub-agents can be closer than the pitch, which
- * is card width + gutter by construction — the overlap becomes unrepresentable
- * rather than merely unlikely.
- *
- * Slots are claimed nearest-first, walking outward, so a sub-agent stays
- * roughly under its parent while collisions resolve deterministically in stable
- * sibling order. `taken` is owned by the caller, because a lattice is only
- * shared by cards that share a coordinate frame: the tree layout gives every
- * territory its own block, and one block's slot numbering means nothing in
- * another's. */
-function claimLatticeSlot(taken: Set<number>, desired: number, pitch: number): number {
-  const base = Math.round(desired / pitch);
-  for (let d = 0; d < 1000; d += 1) {
-    for (const candidate of d === 0 ? [base] : [base - d, base + d]) {
-      if (!taken.has(candidate)) {
-        taken.add(candidate);
-        return candidate;
-      }
+function tidyMoveSubtree(wl: TidyNode, wr: TidyNode, shift: number): void {
+  const subtrees = wr.index - wl.index;
+  if (subtrees === 0) return;
+  wr.change -= shift / subtrees;
+  wr.shift += shift;
+  wl.change += shift / subtrees;
+  wr.prelim += shift;
+  wr.mod += shift;
+}
+
+function tidyAncestor(vil: TidyNode, v: TidyNode, defaultAncestor: TidyNode): TidyNode {
+  return vil.ancestor.parent === v.parent ? vil.ancestor : defaultAncestor;
+}
+
+function tidyApportion(v: TidyNode, defaultAncestor: TidyNode): TidyNode {
+  const w = tidyLeftSibling(v);
+  if (!w) return defaultAncestor;
+  let vir = v;
+  let vor = v;
+  let vil = w;
+  let vol = v.parent!.children[0];
+  let sir = vir.mod;
+  let sor = vor.mod;
+  let sil = vil.mod;
+  let sol = vol.mod;
+  while (tidyNextRight(vil) && tidyNextLeft(vir)) {
+    vil = tidyNextRight(vil)!;
+    vir = tidyNextLeft(vir)!;
+    vol = tidyNextLeft(vol)!;
+    vor = tidyNextRight(vor)!;
+    vor.ancestor = v;
+    const shift = vil.prelim + sil - (vir.prelim + sir) + tidySeparation(vir, vil);
+    if (shift > 0) {
+      const a = tidyAncestor(vil, v, defaultAncestor);
+      tidyMoveSubtree(a, v, shift);
+      sir += shift;
+      sor += shift;
+    }
+    sil += vil.mod;
+    sir += vir.mod;
+    sol += vol.mod;
+    sor += vor.mod;
+  }
+  const vilRight = tidyNextRight(vil);
+  const virLeft = tidyNextLeft(vir);
+  if (vilRight && !virLeft) {
+    vor.thread = vilRight;
+    vor.mod += sil - sor;
+  } else if (virLeft && !tidyNextLeft(vol)) {
+    vol.thread = virLeft;
+    vol.mod += sir - sol;
+  }
+  return defaultAncestor;
+}
+
+function tidyExecuteShifts(v: TidyNode): void {
+  let shift = 0;
+  let change = 0;
+  for (let i = v.children.length - 1; i >= 0; i -= 1) {
+    const w = v.children[i];
+    w.prelim += shift;
+    w.mod += shift;
+    change += w.change;
+    shift += w.shift + change;
+  }
+}
+
+function tidyFirstWalk(v: TidyNode): void {
+  if (v.children.length === 0) {
+    const l = tidyLeftSibling(v);
+    v.prelim = l ? l.prelim + tidySeparation(v, l) : 0;
+  } else {
+    let defaultAncestor = v.children[0];
+    for (const w of v.children) {
+      tidyFirstWalk(w);
+      defaultAncestor = tidyApportion(w, defaultAncestor);
+    }
+    tidyExecuteShifts(v);
+    const first = v.children[0];
+    const last = v.children[v.children.length - 1];
+    const midpoint = (first.prelim + last.prelim) / 2;
+    const l = tidyLeftSibling(v);
+    if (l) {
+      v.prelim = l.prelim + tidySeparation(v, l);
+      v.mod = v.prelim - midpoint;
+    } else {
+      v.prelim = midpoint;
     }
   }
-  return base;
 }
 
-/* ── Top-down tree ───────────────────────────────────────────────────────────
- * One territory's subtree, in block-local coordinates: the territory card's
- * centre-x / top-y is the origin, and everything hangs below it. The block is
- * built once, in this frame, and then only translated into its row. */
-interface TerritoryBlock {
-  colonyId: string;
-  agents: Map<string, { x: number; y: number }>;
-  subAgents: Map<string, { x: number; y: number }>;
-  operations: Map<string, { x: number; y: number }>;
-  cards: Placed[];
-  box: Box;
+function tidySecondWalk(v: TidyNode, m: number): void {
+  v.x = v.prelim + m;
+  for (const w of v.children) tidySecondWalk(w, m + v.mod);
 }
 
-export function buildTopologyLayout(
+/* ── Row wrapping ─────────────────────────────────────────────────────────
+ * A parent whose children are wider than `TIDY_MAX_ROW_WIDTH` wraps them into
+ * additional rows below instead of widening the tree without limit. This
+ * applies to the children of a single parent (agents, tasks) — sibling
+ * colonies are never split across rows unless there are more than 4 of them,
+ * so two colonies always sit side by side under the sphere. Each
+ * chunk row is centred on the parent, so the parent stays centred over the
+ * union of its children; rows stack with `TIDY_SIBLING_GAP` pitch that clears
+ * the full translated content above, so wrapped rows can never land on
+ * another subtree. Member subtrees move rigidly, which preserves every exact
+ * gap inside them; only the wrapped rows themselves are new geometry. */
+
+interface TidySpan {
+  minX: number;
+  maxX: number;
+}
+
+/** Horizontal extent of a node card plus every descendant card. */
+function tidySubtreeSpan(v: TidyNode): TidySpan {
+  let minX = v.x - v.w / 2;
+  let maxX = v.x + v.w / 2;
+  for (const c of v.children) {
+    const s = tidySubtreeSpan(c);
+    if (s.minX < minX) minX = s.minX;
+    if (s.maxX > maxX) maxX = s.maxX;
+  }
+  return { minX, maxX };
+}
+
+/** Lowest card bottom edge in a subtree. */
+function tidySubtreeBottom(v: TidyNode): number {
+  let bottom = v.y + v.h;
+  for (const c of v.children) bottom = Math.max(bottom, tidySubtreeBottom(c));
+  return bottom;
+}
+
+/** Rigid translation: the whole subtree keeps its internal geometry. */
+function tidyTranslate(v: TidyNode, dx: number, dy: number): void {
+  v.x += dx;
+  v.y += dy;
+  for (const c of v.children) tidyTranslate(c, dx, dy);
+}
+
+/** Width of members laid left to right with exact sibling gaps. */
+function tidyRowWidth(members: TidyNode[]): number {
+  if (members.length === 0) return 0;
+  let w = -TIDY_SIBLING_GAP;
+  for (const m of members) {
+    const s = tidySubtreeSpan(m);
+    w += s.maxX - s.minX + TIDY_SIBLING_GAP;
+  }
+  return w;
+}
+
+/** Greedy chunks in stable order: fill each row, then start the next. Fill
+ *  order is what keeps existing rows still when a node is added — an addition
+ *  only ever extends the last chunk or opens a new one below it. */
+function tidyChunkMembers(members: TidyNode[]): TidyNode[][] {
+  const chunks: TidyNode[][] = [];
+  let cur: TidyNode[] = [];
+  let curW = 0;
+  for (const m of members) {
+    const s = tidySubtreeSpan(m);
+    const mw = s.maxX - s.minX;
+    if (cur.length > 0 && curW + TIDY_SIBLING_GAP + mw > TIDY_MAX_ROW_WIDTH) {
+      chunks.push(cur);
+      cur = [];
+      curW = 0;
+    }
+    cur.push(m);
+    curW += (cur.length === 1 ? mw : mw + TIDY_SIBLING_GAP);
+  }
+  if (cur.length > 0) chunks.push(cur);
+  return chunks;
+}
+
+/** Restore exact sibling gaps across one row, anchoring its left edge where
+ *  it is. Every member subtree moves rigidly, so all exact gaps inside the
+ *  moved subtrees survive; then the row is recentered on its parent, which
+ *  keeps every parent centred over its children. */
+function tidyRecompactRow(a: TidyNode): void {
+  if (a.children.length === 0) return;
+  let cursor = Infinity;
+  for (const c of a.children) {
+    const s = tidySubtreeSpan(c);
+    if (s.minX < cursor) cursor = s.minX;
+  }
+  for (const c of a.children) {
+    const s = tidySubtreeSpan(c);
+    tidyTranslate(c, cursor - s.minX, 0);
+    cursor += s.maxX - s.minX + TIDY_SIBLING_GAP;
+  }
+  const first = a.children[0];
+  const last = a.children[a.children.length - 1];
+  const dx = a.x - (first.x + last.x) / 2;
+  if (dx !== 0) for (const c of a.children) tidyTranslate(c, dx, 0);
+}
+
+/** Wrap one over-wide parent's children into centred chunk rows and repair
+ *  the rows above it. Chunk rows stack below the full translated content of
+ *  the previous chunk, so a wrapped row can never land on another subtree;
+ *  the upward walk restores exact gaps and centering level by level. Only
+ *  horizontal translations happen above the chunks, so no band ever moves. */
+function tidyWrapParent(p: TidyNode): void {
+  const kids = p.children;
+  if (kids.length < 2 || tidyRowWidth(kids) <= TIDY_MAX_ROW_WIDTH) return;
+  const chunks = tidyChunkMembers(kids);
+  if (chunks.length < 2) return;
+  let rowY = kids[0].y;
+  for (const chunk of chunks) {
+    const cw = tidyRowWidth(chunk);
+    let cursor = p.x - cw / 2;
+    for (const m of chunk) {
+      const s = tidySubtreeSpan(m);
+      tidyTranslate(m, cursor - s.minX, rowY - m.y);
+      cursor += s.maxX - s.minX + TIDY_SIBLING_GAP;
+    }
+    let bottom = rowY;
+    for (const m of chunk) bottom = Math.max(bottom, tidySubtreeBottom(m));
+    rowY = bottom + TIDY_SIBLING_GAP;
+  }
+  let a: TidyNode | null = p.parent;
+  while (a) {
+    tidyRecompactRow(a);
+    a = a.parent;
+  }
+}
+
+/* ── Tidy tree assembly ───────────────────────────────────────────────────
+ * The tree is hierarchy only: brain → colonies → agents → sub-agents and
+ * operations as siblings in one child row. Transient edges never appear here.
+ * Collapsed colonies contribute only their own card; a worker's children are
+ * the visible sub-agents plus the visible operations, stably ordered. */
+export function buildTidyTopologyLayout(
   runtime: WorkforceRuntime,
-  narrow = false,
-  spacingOverride?: Partial<TopologySpacing>
+  expanded: ReadonlySet<string> = new Set(),
+  sizes?: ReadonlyMap<string, TidyNodeSize>
 ): TopologyLayout {
-  const brain = { x: 0, y: BRAIN_Y };
 
   /* Sibling order is decided here, once, from the data — see byCreation. The
    * runtime arrays are filtered and sorted into copies; nothing downstream is
@@ -351,7 +455,7 @@ export function buildTopologyLayout(
     rootsByColony.set(agent.colonyId, list);
   }
 
-  // ── Sub-agent tree and operation counts (needed to size the bands below) ──
+  // ── Sub-agent tree and operation ownership ──
   const childrenOf = new Map<string, AgentRuntime[]>();
   for (const agent of liveSubAgents) {
     if (!agent.parentId) continue;
@@ -359,283 +463,186 @@ export function buildTopologyLayout(
     list.push(agent);
     childrenOf.set(agent.parentId, list);
   }
-  const opCountOf = new Map<string, number>();
   const opsByOwner = new Map<string, TaskRuntime[]>();
   for (const task of liveOps) {
     if (!task.ownerAgentId) continue;
-    opCountOf.set(task.ownerAgentId, (opCountOf.get(task.ownerAgentId) ?? 0) + 1);
     const list = opsByOwner.get(task.ownerAgentId) ?? [];
     list.push(task);
     opsByOwner.set(task.ownerAgentId, list);
   }
 
-  /* Shape of this graph, which decides its spacing tier. Depth is the longest
-   * parent chain of live agents; widestRow is the largest number of roots that
-   * share a row, because a wide row is what forces the camera out.
-   *
-   * The parent lookup is a single map built here, not a search through the agent
-   * arrays: this runs inside a memo that re-executes on every runtime event, and
-   * rebuilding `[...liveSubAgents, ...liveAgents]` per level made the walk
-   * O(agents x depth) with an array allocation at every step. Both folds below
-   * also avoid `Math.max(...spread)`, which throws once a colony count grows
-   * past the argument limit. */
-  const parentOf = new Map<string, string | undefined>();
-  for (const agent of liveSubAgents) parentOf.set(agent.id, agent.parentId);
-  for (const agent of liveAgents) parentOf.set(agent.id, agent.parentId);
-  const depthOf = (id: string, seen: Set<string>): number => {
-    if (seen.has(id)) return 0;
-    seen.add(id);
-    const parent = parentOf.get(id);
-    const below = parent ? 1 + depthOf(parent, seen) : 0;
-    seen.delete(id);
-    return below;
+  /* Tree assembly: hierarchy only. Colonies always appear; agents appear when
+   * their colony is expanded; sub-agents and operations appear when their
+   * owner's toggle is set. A worker's children mix sub-agents and operations
+   * in one row, stably ordered by creation time then id. */
+  const sizeOf = (kind: TidyKind, id: string): { w: number; h: number } => {
+    const measured = sizes?.get(id);
+    if (measured && measured.w > 0 && measured.h > 0) return { w: measured.w, h: measured.h };
+    if (kind === "brain") return { w: CARD_SIZE.brain.w, h: CARD_SIZE.brain.h };
+    if (kind === "specialist") return { w: CARD_W.specialist, h: SPECIALIST_CARD_H };
+    if (kind === "agent") return { w: CARD_W.agent, h: AGENT_CARD_H };
+    if (kind === "subagent") return { w: CARD_W.sub, h: SUB_CARD_H };
+    return { w: CARD_W.operation, h: OP_CARD_H };
   };
-  let depth = 0;
-  for (const agent of liveAgents) depth = Math.max(depth, depthOf(agent.id, new Set()));
-  for (const agent of liveSubAgents) depth = Math.max(depth, depthOf(agent.id, new Set()));
-  let widestRow = 0;
-  for (const roots of Array.from(rootsByColony.values())) {
-    widestRow = Math.max(widestRow, Math.min(roots.length, maxPerRow(narrow)));
-  }
-
-  const spacing = resolveSpacing(
-    { nodes: 1 + liveColonies.length + liveAgents.length + liveSubAgents.length + liveOps.length, depth, widestRow },
-    narrow,
-    spacingOverride
-  );
-  const GAP = spacing.gap;
-  const LEVEL_H = WORKER_CARD_H + GAP; // worker row -> its sub-agent row
-  const OP_STACK = OP_CARD_H + GAP; // one operation -> the next under the same owner
-  /** Territory card -> the first agent row beneath it. */
-  const COLONY_BAND_H = WORKER_CARD_H + GAP * 2;
-
-  /* Vertical bands inside one worker's column run strictly top to bottom:
-   *   own card -> its operations -> its sub-agents -> their operations -> …
-   * Because each band only starts where the previous one ended, a sub-agent row
-   * can never land on an operation card at the same x (which happens whenever a
-   * worker has a single child, so the child inherits the parent's x). */
-  const opsBelow = (id: string): number => opCountOf.get(id) ?? 0;
-  const subRowOffset = (id: string): number =>
-    LEVEL_H + (opsBelow(id) > 0 ? opsBelow(id) * OP_STACK + GAP : 0);
-  const opRowOffset = LEVEL_H;
-
-  /** Total vertical space this worker's whole column needs, from its own top. */
-  const subtreeDepth = (id: string, guard: Set<string>): number => {
-    const n = opsBelow(id);
-    const kids = childrenOf.get(id) ?? [];
-    let bottom = WORKER_CARD_H;
-    if (n > 0) bottom = Math.max(bottom, opRowOffset + (n - 1) * OP_STACK + OP_CARD_H);
-    if (kids.length > 0 && !guard.has(id)) {
-      guard.add(id);
-      const below = Math.max(...kids.map((k) => subtreeDepth(k.id, guard)));
-      guard.delete(id);
-      bottom = Math.max(bottom, subRowOffset(id) + below);
-    }
-    return bottom;
-  };
-
-  const perRow = maxPerRow(narrow);
-  // The guard starts empty: it is the ancestor chain, and seeding it with the
-  // node's own id would make every worker look like it was already visiting and
-  // silently drop its whole subtree (which shrank the bands below).
-  const rowDepth = (chunk: AgentRuntime[]): number =>
-    Math.max(...chunk.map((a) => subtreeDepth(a.id, new Set())));
-
-  /* ── Top-down tree: one shape, at every size ──
-   *
-   * Every block is built on its own, which is what keeps one territory from
-   * reaching into another's rows: the rows and the sub-agent lattice are
-   * reserved from one territory's workers alone, where the old column path
-   * shared one row cursor across all colonies, so a deep subtree in one
-   * territory pushed every row of the other one down.
-   *
-   * There is deliberately no narrow branch here. A phone used to get a
-   * different *graph* — territories stacked into bands, one shared sub-agent
-   * lattice, a completely different set of coordinates — so the same workforce
-   * meant two different hierarchies depending on the window, and a screenshot
-   * taken on a phone could not be compared with one taken on a desktop. The
-   * viewport now buys air and nothing else, and that includes how many
-   * territories share a row: the wrap is a constant, not a response to width. */
-  {
-    const agentGap = gapFor(spacing, "agent");
-    const subGap = gapFor(spacing, "sub");
-
-    const buildBlock = (colonyId: string): TerritoryBlock => {
-      const roots = rootsByColony.get(colonyId) ?? [];
-      const agents = new Map<string, { x: number; y: number }>();
-      const subAgents = new Map<string, { x: number; y: number }>();
-      const operations = new Map<string, { x: number; y: number }>();
-      const cards: Placed[] = [{ x: 0, y: 0, w: CARD_W.specialist, h: WORKER_CARD_H }];
-
-      let cursor = COLONY_BAND_H;
-      for (let r = 0; r * perRow < roots.length; r += 1) {
-        const chunk = roots.slice(r * perRow, (r + 1) * perRow);
-        chunk.forEach((agent, j) => {
-          const pos = { x: (j - (chunk.length - 1) / 2) * agentGap, y: cursor };
-          agents.set(agent.id, pos);
-          cards.push({ ...pos, w: CARD_W.agent, h: WORKER_CARD_H });
-        });
-        /* A row reserves as much height as the deepest subtree in it. A flat
-         * spacing-derived pitch would be tidier, and wrong: a root with a
-         * two-deep subtree would have its own child laid over the next row. The
-         * rule that matters here is the scope, not the reserve. What used to be
-         * broken is that this cursor was shared by every colony, so one
-         * territory's depth moved the rows of all the others. It is now a
-         * local, owned by this block alone. */
-        cursor += rowDepth(chunk) + GAP;
-      }
-
-      // BFS so a parent always resolves before its own children, and the lattice
-      // is this block's alone — see claimLatticeSlot.
-      const takenSlots = new Set<number>();
-      const queue: Array<{ pos: { x: number; y: number }; parentId: string }> = [];
-      for (const [id, pos] of Array.from(agents.entries())) queue.push({ pos, parentId: id });
-      while (queue.length > 0) {
-        const { pos, parentId } = queue.shift() as { pos: { x: number; y: number }; parentId: string };
-        const children = childrenOf.get(parentId) ?? [];
-        children.forEach((child, k) => {
-          const desired = pos.x + (k - (children.length - 1) / 2) * subGap;
-          const cPos = {
-            x: claimLatticeSlot(takenSlots, desired, subGap) * subGap,
-            y: pos.y + subRowOffset(parentId),
-          };
-          subAgents.set(child.id, cPos);
-          cards.push({ ...cPos, w: CARD_W.sub, h: WORKER_CARD_H });
-          queue.push({ pos: cPos, parentId: child.id });
-        });
-      }
-
-      const opStack = new Map<string, number>();
-      for (const [ownerId, owned] of Array.from(opsByOwner.entries())) {
-        const ownerPos = agents.get(ownerId) ?? subAgents.get(ownerId);
-        if (!ownerPos) continue;
-        owned.forEach((task) => {
-          const stackIdx = opStack.get(ownerId) ?? 0;
-          const pos = { x: ownerPos.x, y: ownerPos.y + opRowOffset + stackIdx * OP_STACK };
-          operations.set(task.id, pos);
-          cards.push({ ...pos, w: CARD_W.operation, h: OP_CARD_H });
-          opStack.set(ownerId, stackIdx + 1);
-        });
-      }
-
-      return { colonyId, agents, subAgents, operations, cards, box: boxOf(cards)! };
+  const mkNode = (id: string, kind: TidyKind, depth: number, parent: TidyNode | null): TidyNode => {
+    const s = sizeOf(kind, id);
+    const node: TidyNode = {
+      id, kind, w: s.w, h: s.h, depth, parent, children: [],
+      prelim: 0, mod: 0, ancestor: null as unknown as TidyNode, thread: null,
+      change: 0, shift: 0, index: parent ? parent.children.length + 1 : 1, x: 0, y: 0,
     };
-
-    const blocks = liveColonies.map((c) => buildBlock(c.id));
-
-    /* Territories go in centred rows under the brain, at most
-     * MAX_TERRITORIES_PER_ROW per row. The wrap count is a constant rather than
-     * a function of the pane, because the viewport is not allowed to pick the
-     * shape (see the section header) — and it is deliberately the same four the
-     * `widestRow > 4` spacing trigger uses, so a graph that wraps its territories
-     * is also a graph that has already been given the compact tier. */
-    const rows: TerritoryBlock[][] = [];
-    for (let start = 0; start < blocks.length; start += MAX_TERRITORIES_PER_ROW) {
-      rows.push(blocks.slice(start, start + MAX_TERRITORIES_PER_ROW));
-    }
-
-    const territories = new Map<string, { x: number; y: number }>();
-    const agents = new Map<string, { x: number; y: number }>();
-    const subAgents = new Map<string, { x: number; y: number }>();
-    const operations = new Map<string, { x: number; y: number }>();
-
-    /* A block is a fixed box by the time it gets here, so placing one beside
-     * another is arithmetic rather than a search: the row is as wide as the sum
-     * of the blocks in it plus the gaps between them, and each block's left edge
-     * is wherever the cursor is. Overlap is unrepresentable. Two blocks in a row
-     * have disjoint x-ranges because the cursor advances past the box it just
-     * placed; two blocks in different rows have disjoint y-bands because each
-     * row starts a gap below the lowest card of the row above. The hub layout
-     * needed a doubling-and-bisection search over a radius to get the same
-     * guarantee, and could still return a clashing graph if that search were
-     * ever capped. Nothing here can be tuned into a failure.
-     *
-     * Blocks are reserved by their measured box, not by their territory card,
-     * because a block is as wide as its widest row of workers: a territory with
-     * six workers is far wider than its own card, and reserving by the card is
-     * what let a neighbour's workers land on top of the next territory. */
-    const blockGap = gapFor(spacing, "territory");
-
-    /* Everything is below the brain, always. The first row starts a gap under
-     * the brain's bottom edge and each later row a gap under the row above, so
-     * the brain is both the origin of graph space and its topmost card — the
-     * single property the whole layout exists to guarantee. */
-    const brainBottom = brain.y + BRAIN_CARD_H;
-    let lowest = brainBottom;
-    let rowTop = brainBottom + GAP + BRAIN_COLONY_GAP;
-    for (const row of rows) {
-      const rowWidth = row.reduce((sum, b) => sum + b.box.w, 0) + blockGap * (row.length - 1);
-      let left = -rowWidth / 2;
-      for (const block of row) {
-        /* Measured from the block's left edge and top edge rather than from its
-         * own card's centre, since a block's box can extend well past its card
-         * on every side. Translating by the negated min is what pins the top of
-         * the row, not just the top of the first block in it. */
-        const anchor = { x: left - block.box.minX, y: rowTop - block.box.minY };
-        territories.set(block.colonyId, anchor);
-        block.agents.forEach((pos, id) => agents.set(id, { x: pos.x + anchor.x, y: pos.y + anchor.y }));
-        block.subAgents.forEach((pos, id) =>
-          subAgents.set(id, { x: pos.x + anchor.x, y: pos.y + anchor.y })
-        );
-        block.operations.forEach((pos, id) =>
-          operations.set(id, { x: pos.x + anchor.x, y: pos.y + anchor.y })
-        );
-        /* The block's extent is translated, so the bottom is the anchor plus the
-         * box's own maxY. Written this way rather than as `rowTop + box.maxY`
-         * so the next row's gap stays correct even if a block ever stops
-         * starting at local y 0. */
-        lowest = Math.max(lowest, anchor.y + block.box.maxY);
-        left += block.box.w + blockGap;
+    node.ancestor = node;
+    return node;
+  };
+  /* `visited` is the cycle guard: a parent loop would otherwise recurse
+   * forever. An agent whose parent never attaches (a removed ancestor) stays
+   * out of the tree, and its operations park below the graph. */
+  const visited = new Set<string>(["brain"]);
+  const brainNode = mkNode("brain", "brain", 0, null);
+  const attachAgent = (parent: TidyNode, agent: AgentRuntime, depth: number): void => {
+    if (visited.has(agent.id)) return;
+    visited.add(agent.id);
+    const node = mkNode(agent.id, agent.parentId ? "subagent" : "agent", depth, parent);
+    parent.children.push(node);
+    const kids: Array<{ id: string; at: number; agent?: AgentRuntime; task?: TaskRuntime }> = [];
+    if (expanded.has(agent.id + ":sub")) {
+      for (const sub of childrenOf.get(agent.id) ?? []) {
+        kids.push({ id: sub.id, at: epoch(sub.createdAt), agent: sub });
       }
-      rowTop = lowest + GAP;
     }
-
-    /* An operation whose owner is gone (cancelled, or in an archived colony)
-     * belongs to no block, so it is parked under the whole graph rather than
-     * under a worker that does not exist. Done last, once the real extents are
-     * known, which is why it cannot land on top of anything. The test is
-     * "was it placed", not "is its owner present": an owner can exist and still
-     * be outside every block, and skipping those would drop the card and leave
-     * the node builder to fall back to the origin — which is the middle of the
-     * graph, i.e. on top of the brain. */
-    let unowned = 0;
-    for (const task of liveOps) {
-      if (operations.has(task.id)) continue;
-      operations.set(task.id, { x: brain.x, y: lowest + GAP + unowned * OP_STACK });
-      unowned += 1;
+    if (expanded.has(agent.id + ":ops")) {
+      for (const task of opsByOwner.get(agent.id) ?? []) {
+        kids.push({ id: task.id, at: epoch(task.timestamps.createdAt), task });
+      }
     }
-
-    return { brain, territories, agents, subAgents, operations, spacing };
+    kids.sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    for (const kid of kids) {
+      if (kid.agent) attachAgent(node, kid.agent, depth + 1);
+      else if (kid.task && !visited.has(kid.task.id)) {
+        visited.add(kid.task.id);
+        node.children.push(mkNode(kid.task.id, "operation", depth + 1, node));
+      }
+    }
+  };
+  for (const colony of liveColonies) {
+    const node = mkNode(colony.id, "specialist", 1, brainNode);
+    brainNode.children.push(node);
+    if (!expanded.has(colony.id)) continue;
+    for (const agent of rootsByColony.get(colony.id) ?? []) attachAgent(node, agent, 2);
   }
+
+  /* Vertical bands: one fixed band per depth, starting one level gap below the
+   * previous band's bottom edge. Band tops depend only on the tallest card per
+   * band, so adding nodes never moves an existing band. */
+  const maxH = new Map<number, number>();
+  const walkH = (n: TidyNode): void => {
+    maxH.set(n.depth, Math.max(maxH.get(n.depth) ?? 0, n.h));
+    for (const c of n.children) walkH(c);
+  };
+  walkH(brainNode);
+  const topOf = new Map<number, number>([[0, 0]]);
+  for (let d = 1; maxH.has(d); d += 1) {
+    topOf.set(d, (topOf.get(d - 1) ?? 0) + (maxH.get(d - 1) ?? 0) + TIDY_LEVEL_GAP);
+  }
+  const walkY = (n: TidyNode): void => {
+    n.y = topOf.get(n.depth) ?? 0;
+    for (const c of n.children) walkY(c);
+  };
+  walkY(brainNode);
+
+  /* Horizontal centres: one Walker pass, which puts neighbouring boxes at the
+   * same depth exactly one sibling gap apart and every parent over its own
+   * children. */
+  tidyFirstWalk(brainNode);
+  tidySecondWalk(brainNode, -brainNode.prelim);
+
+  /* Row wrapping with repair, deepest parents first. Only translations happen
+   * here — horizontal above the chunks, vertical for the chunks themselves —
+   * so band tops of existing rows never move. The brain is exempt unless it
+   * parents more than 4 colonies: sibling colonies are never split across
+   * rows, so a colony's edge can never be forced to run behind another
+   * colony's nodes. */
+  const all: TidyNode[] = [];
+  const collect = (n: TidyNode): void => {
+    all.push(n);
+    for (const c of n.children) collect(c);
+  };
+  collect(brainNode);
+  const overWide = all
+    .filter((n) => n.children.length > 1 && tidyRowWidth(n.children) > TIDY_MAX_ROW_WIDTH)
+    .filter((n) => n.kind !== "brain" || n.children.length > 4)
+    .sort((a, b) => b.depth - a.depth || a.x - b.x);
+  for (const p of overWide) tidyWrapParent(p);
+
+  /* The repair cascade may have moved the brain; the origin is non-negotiable. */
+  if (brainNode.x !== 0) {
+    const dx = brainNode.x;
+    const shiftAll = (n: TidyNode): void => {
+      n.x -= dx;
+      for (const c of n.children) shiftAll(c);
+    };
+    shiftAll(brainNode);
+  }
+
+  const territories = new Map<string, { x: number; y: number }>();
+  const agents = new Map<string, { x: number; y: number }>();
+  const subAgents = new Map<string, { x: number; y: number }>();
+  const operations = new Map<string, { x: number; y: number }>();
+  const placedIds = new Set<string>(["brain"]);
+  const fill = (n: TidyNode): void => {
+    const pos = { x: n.x, y: n.y };
+    if (n.kind === "specialist") territories.set(n.id, pos);
+    else if (n.kind === "agent") agents.set(n.id, pos);
+    else if (n.kind === "subagent") subAgents.set(n.id, pos);
+    else if (n.kind === "operation") operations.set(n.id, pos);
+    placedIds.add(n.id);
+    for (const c of n.children) fill(c);
+  };
+  fill(brainNode);
+
+  /* An operation whose owner never attached (cancelled, or in an archived
+   * colony) is parked under the whole graph rather than dropped at the
+   * origin — which is the middle of the graph, i.e. on top of the brain. */
+  let lowest = 0;
+  const bottomWalk = (n: TidyNode): void => {
+    lowest = Math.max(lowest, n.y + n.h);
+    for (const c of n.children) bottomWalk(c);
+  };
+  bottomWalk(brainNode);
+  let unowned = 0;
+  for (const task of liveOps) {
+    if (placedIds.has(task.id)) continue;
+    operations.set(task.id, { x: 0, y: lowest + TIDY_LEVEL_GAP + unowned * (OP_CARD_H + TIDY_SIBLING_GAP) });
+    unowned += 1;
+  }
+
+  return {
+    brain: { x: brainNode.x, y: brainNode.y },
+    territories,
+    agents,
+    subAgents,
+    operations,
+  };
 }
 
 export function specialistLabel(colony: ColonyRuntime): string {
   return colony.name.replace(/\s+Colony$/i, "").trim() || colony.name;
 }
 
-/* ── Viewport fill ──────────────────────────────────────────────────────────
- * `fitView` already decides how far to zoom out, so if spacing also chased the
- * viewport the two would cancel each other out and every resize would make the
- * cards swim. They are therefore kept in disjoint regimes: fit only gets a say
- * while the graph is mid-range, and spacing is only allowed to move in the two
- * cases fit cannot fix on its own —
- *
- *   - the graph is pinned at maxZoom but still covers less than half the pane,
- *     so there is dead space nothing will consume (a 3-node graph); or
- *   - fitting would drop the zoom below MIN_FIT_ZOOM, so the cards would become
- *     unreadable and only tighter spacing can save it.
- *
- * In between, tier defaults stand and fit does its normal job. That is what
- * makes the two non-conflicting rather than merely usually-agreeing. */
+/* ── Camera fit ───────────────────────────────────────────────────────────
+ * The layout never sees the viewport, so fitting is entirely the camera's
+ * job: frame the whole tree with a fixed pixel padding, never zooming in past
+ * 100% and never auto-zooming out below 40%. Past the floor the graph is
+ * simply bigger than the pane — a navigation state, not a layout failure —
+ * and the user pans. Manual pan/zoom is never overridden: the page only
+ * re-fits when the graph no longer fits, and `reset view` always re-fits. */
 
-export const FIT_PADDING = 0.18;
-export const FIT_MAX_ZOOM = 0.72;
-/** The canvas clamps at this; the fit estimate has to clamp the same way. */
-export const FIT_MIN_ZOOM = 0.2;
-/** Below this fit zoom, cards stop being readable, so spacing takes over. */
-export const MIN_FIT_ZOOM = 0.45;
-/** Under this share of the pane, a maxZoom-pinned graph is wasting space. */
-export const MIN_FILL_COVERAGE = 0.5;
+export const FIT_PADDING = 24;
+/** Never zoom in beyond 100%: cards are drawn at their real size or smaller. */
+export const FIT_MAX_ZOOM = 1.0;
+/** The canvas clamps at this; the fit estimate has to clamp the same way.
+ *  Below it, fitting stops and panning takes over. */
+export const FIT_MIN_ZOOM = 0.4;
 /** Sizes only react to viewport changes larger than this, so a drag-resize
  *  cannot make cards jitter. */
 export const VIEWPORT_DEADBAND = 48;
@@ -707,45 +714,22 @@ export function boxOf(cards: Placed[]): Box | null {
 /** Every card's on-screen box, from a layout plus the measured card sizes. */
 export function layoutBounds(layout: TopologyLayout): Placed[] {
   const out: Placed[] = [{ ...layout.brain, w: CARD_SIZE.brain.w, h: CARD_SIZE.brain.h }];
-  for (const p of Array.from(layout.territories.values())) out.push({ ...p, w: CARD_W.specialist, h: WORKER_CARD_H });
-  for (const p of Array.from(layout.agents.values())) out.push({ ...p, w: CARD_W.agent, h: WORKER_CARD_H });
-  for (const p of Array.from(layout.subAgents.values())) out.push({ ...p, w: CARD_W.sub, h: WORKER_CARD_H });
+  for (const p of Array.from(layout.territories.values())) out.push({ ...p, w: CARD_W.specialist, h: SPECIALIST_CARD_H });
+  for (const p of Array.from(layout.agents.values())) out.push({ ...p, w: CARD_W.agent, h: AGENT_CARD_H });
+  for (const p of Array.from(layout.subAgents.values())) out.push({ ...p, w: CARD_W.sub, h: SUB_CARD_H });
   for (const p of Array.from(layout.operations.values())) out.push({ ...p, w: CARD_W.operation, h: OP_CARD_H });
   return out;
 }
 
-/** The zoom `fitView` would choose for this graph in this pane, clamped the
- * same way the canvas clamps it.
- *
- * The padding term is `1 + FIT_PADDING`, not `1 - 2 * FIT_PADDING`. The earlier
- * form reserved the padding per side and then divided by the remainder, which
- * made every estimate roughly 1.8x too high; the saturation rule below reads
- * that number directly, so the error was not cosmetic — it reported "already
- * pinned at maxZoom" for graphs the canvas was still zooming out on, and
- * "comfortably readable" for panes sitting below the legibility floor.
- *
- * Calibrated against the live canvas (React Flow 12.11.6) with
- * /tmp/opencode/calibrate_fit.py + /tmp/opencode/calib_models.ts: eight
- * configurations (4 pane sizes x collapsed/expanded, wide and narrow), reading
- * the zoom off `.react-flow__viewport` and the graph extent off the rendered
- * cards. Agreement was within 0.12% on every unclamped case. The competing
- * reading of the library's own source (per-side pixel padding) was 4-9% off,
- * so the form used here is the one the installed version actually exhibits.
- */
+/** The zoom that frames this graph in this pane with a fixed pixel padding,
+ *  clamped the same way the canvas clamps it: never above 100%, never below
+ *  the 40% floor where panning takes over. */
 export function fitZoomFor(bounds: Placed[], viewport: ViewportSize): number {
   const box = boxOf(bounds);
   if (!box) return FIT_MAX_ZOOM;
-  const usable = 1 + FIT_PADDING;
-  const zoomX = viewport.w / (usable * Math.max(1, box.w));
-  const zoomY = viewport.h / (usable * Math.max(1, box.h));
+  const zoomX = viewport.w / (Math.max(1, box.w) + FIT_PADDING * 2);
+  const zoomY = viewport.h / (Math.max(1, box.h) + FIT_PADDING * 2);
   return Math.min(FIT_MAX_ZOOM, Math.max(FIT_MIN_ZOOM, Math.min(zoomX, zoomY)));
-}
-
-/** How much of the pane the graph covers when fit is pinned at maxZoom. */
-function coverageAtMaxZoom(bounds: Placed[], viewport: ViewportSize): number {
-  const box = boxOf(bounds);
-  if (!box) return 0;
-  return ((box.w * FIT_MAX_ZOOM) / viewport.w) * ((box.h * FIT_MAX_ZOOM) / viewport.h);
 }
 
 /* ── Camera ──────────────────────────────────────────────────────────────────
@@ -810,10 +794,10 @@ export function fitTopHeadroom(usable: ViewportSize): number {
 }
 
 /** Like fitTransformFor, but pins the top of the graph a fixed headroom below
- *  the top of the free area instead of centring it vertically. Zoom and
- *  horizontal centring are identical to fitTransformFor, so the whole-graph
- *  guarantee is unchanged; only the vertical placement moves. This is what puts
- *  the brain near the top on load, on Reset view, and on double-click-brain. */
+ *  the top of the free area instead of centring it vertically. The zoom is fit
+ *  against the free area *minus* the headroom, so the pin can never push the
+ *  bottom edge off the pane; horizontal centring matches fitTransformFor. This
+ *  is what Fit-all uses to frame the whole tree. */
 export function fitTopAlignedTransformFor(
   cards: Placed[],
   usable: ViewportSize,
@@ -824,12 +808,74 @@ export function fitTopAlignedTransformFor(
     return { x: 0, y: 0, zoom: FIT_MAX_ZOOM };
   }
   const centreX = (box.minX + box.maxX) / 2;
-  const zoom = fitZoomFor(cards, usable);
+  const zoom = fitZoomFor(cards, { w: usable.w, h: Math.max(1, usable.h - headroom) });
   return {
     zoom,
     x: usable.w / 2 - centreX * zoom,
     y: headroom - box.minY * zoom,
   };
+}
+
+/** Sphere-centred readable framing: the given zoom, with the brain's centre
+ *  at the centre of the free area. Auto-fit calls this at exactly 1.0; Reset
+ *  view at min(1.0, whole-tree fit). */
+export function fitReadableTransformFor(
+  brainCenter: { x: number; y: number },
+  usable: ViewportSize,
+  zoom: number
+): { x: number; y: number; zoom: number } {
+  return {
+    zoom,
+    x: usable.w / 2 - brainCenter.x * zoom,
+    y: usable.h / 2 - brainCenter.y * zoom,
+  };
+}
+
+/* ── Top-anchored framing ────────────────────────────────────────────────
+ * The sphere is never centred vertically: at zoom 1.0 its 190px box top sits
+ * 56px below the pane top and its centre x sits on the pane centre x, so the
+ * tree grows downward and the top half is never empty. Expanding or collapsing
+ * below cannot move the sphere — only its x recentres when the tree widens —
+ * and the same anchor serves load, Reset and the untouched auto-fit. */
+
+/** Top-anchored readable framing at the given zoom. Pure. */
+export function fitTopAnchoredTransformFor(
+  brainCenterX: number,
+  brainTop: number,
+  usable: ViewportSize,
+  zoom: number
+): { x: number; y: number; zoom: number } {
+  return {
+    zoom,
+    x: usable.w / 2 - brainCenterX * zoom,
+    y: 56 - brainTop * zoom,
+  };
+}
+
+/** Fit-all framing: the whole tree inside 56px top / 24px side padding,
+ *  centred on the tree, down to the 0.4 floor. Pure. */
+export function fitAllTransformFor(
+  cards: Placed[],
+  usable: ViewportSize
+): { x: number; y: number; zoom: number } {
+  const box = boxOf(cards);
+  if (!box || usable.w <= 0 || usable.h <= 0) {
+    return { x: 0, y: 0, zoom: FIT_MAX_ZOOM };
+  }
+  const availW = Math.max(1, usable.w - 24 * 2);
+  const availH = Math.max(1, usable.h - 56 - 24);
+  const zoom = Math.min(FIT_MAX_ZOOM, Math.max(FIT_MIN_ZOOM, Math.min(availW / Math.max(1, box.w), availH / Math.max(1, box.h))));
+  const centreX = (box.minX + box.maxX) / 2;
+  return {
+    zoom,
+    x: usable.w / 2 - centreX * zoom,
+    y: 56 - box.minY * zoom,
+  };
+}
+
+/** Live zoom readout: viewport zoom as a whole percent. */
+export function formatZoomPct(zoom: number): string {
+  return `${Math.round(zoom * 100)}%`;
 }
 
 /** Whether the graph already sits entirely inside the free area at the current
@@ -860,73 +906,4 @@ export function graphFitsIn(
     right <= insets.left + usable.w + slop &&
     bottom <= insets.top + usable.h + slop
   );
-}
-
-
-/**
- * Build a layout whose spacing also considers the pane, but only where fit
- * cannot help. Returns tier-default spacing when the viewport says nothing, so
- * a mid-size graph is byte-identical to the pure layout.
- *
- * Pass the pane the layout is being drawn in. The camera frames inside the same
- * pane minus whatever floating panels cover, but spacing deliberately keys off
- * the whole pane: opening a card should not re-space every card in the graph.
- * The fit number this rule reads is the same one the camera applies, so the two
- * can only disagree by the covered area, and only about how much air the graph
- * deserves.
- */
-export function buildAdaptiveTopologyLayout(
-  runtime: WorkforceRuntime,
-  narrow = false,
-  viewport?: ViewportSize
-): TopologyLayout {
-  const base = buildTopologyLayout(runtime, narrow);
-  if (!viewport || viewport.w <= 0 || viewport.h <= 0) return base;
-
-  const bounds = layoutBounds(base);
-  const fit = fitZoomFor(bounds, viewport);
-  const loosest: TopologySpacing = clampSpacing({
-    ...base.spacing,
-    gap: SPACING_LIMITS.maxGap,
-    gutter: SPACING_LIMITS.maxGutter,
-    territoryGap: base.spacing.territoryGap + 24,
-    pad: base.spacing.pad + 16,
-  });
-
-  let spacing: TopologySpacing | undefined;
-  // Case 1: fit is pinned at maxZoom and still leaves the pane half empty.
-  if (fit >= FIT_MAX_ZOOM - 1e-6 && coverageAtMaxZoom(bounds, viewport) < MIN_FILL_COVERAGE) {
-    spacing = loosest;
-  } else if (fit < MIN_FIT_ZOOM) {
-    /* Case 2: cards would be illegible. Tighten toward the floors, but only by
-     * whatever the shortfall actually needs.
-     *
-     * This is a bounded improvement, NOT a rescue, and it is worth knowing why
-     * before trying to make it one. Sweeping 346 generated runtimes, none could
-     * be lifted back over MIN_FIT_ZOOM: the best was 0.258 -> 0.268, and the
-     * ceiling was 0.425 against a 0.45 floor. Card dimensions dominate the
-     * graph extent, and the floors exist precisely to stop horizontal steps
-     * being narrower than the cards they separate, so there is almost nothing
-     * left to take. Going further would mean either overlapping cards or
-     * refusing to fit the whole graph and letting the user pan -- both are
-     * product decisions about navigation, not tuning. The assertions in
-     * scripts/check-selectors.ts are written to match this reality: they check
-     * that a cramped pane is detected, that tightening helps, and that the
-     * floors still prevent overlap. They deliberately do not claim a rescue. */
-    const shortfall = MIN_FIT_ZOOM / Math.max(1e-6, fit);
-    const target = {
-      gap: base.spacing.gap / shortfall,
-      gutter: base.spacing.gutter / shortfall,
-      territoryGap: base.spacing.territoryGap / shortfall,
-      pad: base.spacing.pad / shortfall,
-    };
-    const tightened = clampSpacing(target);
-    // Only adopt it if it actually helps: a graph that stays illegibly small
-    // after tightening is better served by zooming than by overlapping.
-    spacing = fitZoomFor(layoutBounds(buildTopologyLayout(runtime, narrow, tightened)), viewport) > fit
-      ? tightened
-      : undefined;
-  }
-
-  return spacing ? buildTopologyLayout(runtime, narrow, spacing) : base;
 }

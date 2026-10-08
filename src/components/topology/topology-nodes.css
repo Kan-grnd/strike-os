@@ -1,0 +1,124 @@
+/* Position transitions for topology nodes.
+ *
+ * The tidy-tree layout recomputes coordinates when nodes arrive, leave,
+ * expand, collapse, or resize; React Flow applies the new coordinates as an
+ * inline transform on `.react-flow__node`, and this transition eases that
+ * change over about 250ms so the tree visibly settles instead of jumping.
+ * Pan and zoom transform the viewport element, not the nodes, so gestures
+ * stay immediate. The global prefers-reduced-motion guard collapses the
+ * duration, so this needs no separate reduced-motion path.
+ */
+.react-flow__node {
+  transition: transform 250ms ease;
+}
+
+/* Custom node family visibility.
+ *
+ * Connection dots and the Details button hide until hover, selection or
+ * keyboard focus (touch shows them when the node is selected, because tap
+ * selects). React Flow adds .selected to the outer node wrapper; edges keep
+ * working while dots are hidden because opacity never removes the handle.
+ */
+.tnode .t-handle {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.tnode:hover .t-handle,
+.react-flow__node.selected .t-handle,
+.tnode:focus-within .t-handle {
+  opacity: 1;
+}
+.tnode .t-details {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.tnode:hover .t-details,
+.react-flow__node.selected .t-details,
+.tnode:focus-within .t-details {
+  opacity: 1;
+}
+.tnode:focus-visible {
+  outline: 2px solid var(--t-focus);
+  outline-offset: 2px;
+}
+
+/* Two-line clamp for compact node titles. */
+.t-clamp2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Ambient node motion. Every animated bit carries .t-motion so the
+ * reduced-motion guard below kills shimmer, halo pulse and blinking
+ * together. Status is always a word or icon as well, never motion alone. */
+@keyframes t-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(260%);
+  }
+}
+@keyframes t-halo {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+/* Active task dot: the 3px halo breathes out to 6px and back. */
+@keyframes t-halo-spread {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px var(--t-halo);
+  }
+  50% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+@keyframes t-blink {
+  0%,
+  88%,
+  100% {
+    transform: scaleY(1);
+  }
+  93%,
+  97% {
+    transform: scaleY(0.07);
+  }
+}
+
+/* Line traffic: a short bright dash marching along the faint structural
+ * track, exactly the reference's `flow-dot` (dasharray 3 220, 2.6s linear,
+ * offset -223). One moving dot per edge, so an active tree reads as flowing
+ * without the tracks ever competing with the node art. */
+@keyframes t-traffic {
+  to {
+    stroke-dashoffset: -223;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-motion {
+    animation: none !important;
+  }
+  .t-traffic {
+    animation: none !important;
+  }
+}
+
+/* Live event links (delegation, communication, verification) march slowly;
+ * reduced motion stops the march entirely — the color and dash pattern still
+ * carry the meaning. */
+.react-flow__edge.animated path {
+  animation-duration: 1.4s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__edge.animated path {
+    animation: none !important;
+  }
+}
+

@@ -9,6 +9,7 @@ export function EmptyState({
   description,
   cta,
   ctaHref,
+  action,
   className,
 }: {
   icon: LucideIcon;
@@ -16,6 +17,12 @@ export function EmptyState({
   description: string;
   cta?: string;
   ctaHref?: string;
+  /**
+   * A control for when the next step opens something instead of navigating —
+   * a dialog, a form, a retry. `cta`/`ctaHref` stay the link case; this is the
+   * button case, so a caller is not forced to fake a route for a local action.
+   */
+  action?: React.ReactNode;
   className?: string;
 }) {
   return (
@@ -38,6 +45,7 @@ export function EmptyState({
           {cta}
         </Link>
       )}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }

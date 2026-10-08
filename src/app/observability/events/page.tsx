@@ -1,13 +1,26 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import useSWR from "swr";
+import { motion } from "motion/react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Activity, Sparkles, Play, Brain, Zap, Database, Network } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader, EASE } from "@/components/shared/page-header";
 import { cn } from "@/lib/utils";
-import useSWR from "swr";
+import {
+  Search,
+  Activity,
+  Sparkles,
+  Brain,
+  Zap,
+  Database,
+  Network,
+  Radio,
+  X,
+} from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -16,7 +29,8 @@ const eventIcon = (type: string) => {
   if (type.includes("mission")) return <Zap className="h-3.5 w-3.5" />;
   if (type.includes("task")) return <Activity className="h-3.5 w-3.5" />;
   if (type.includes("memory")) return <Database className="h-3.5 w-3.5" />;
-  if (type.includes("mcp") || type.includes("tool")) return <Network className="h-3.5 w-3.5" />;
+  if (type.includes("mcp") || type.includes("tool"))
+    return <Network className="h-3.5 w-3.5" />;
   return <Activity className="h-3.5 w-3.5" />;
 };
 
@@ -33,9 +47,10 @@ export default function EventsPage() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const [events, setEvents] = useState<any[]>([]);
 
-  const { data } = useSWR("/api/events?limit=50", fetcher, { revalidateOnFocus: false });
+  const { data } = useSWR("/api/events?limit=50", fetcher, {
+    revalidateOnFocus: false,
+  });
 
-  // Initialize events from SWR
   useEffect(() => {
     if (data?.events) setEvents(data.events);
   }, [data]);
@@ -47,10 +62,8 @@ export default function EventsPage() {
     eventSourceRef.current = es;
     es.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
-        if (data.type && !filter || data.type.toLowerCase().includes(filter.toLowerCase())) {
-          setEvents((prev) => [data, ...prev].slice(0, 200));
-        }
+        const incoming = JSON.parse(event.data);
+        setEvents((prev) => [incoming, ...prev].slice(0, 200));
       } catch {}
     };
     es.onerror = () => {
@@ -70,71 +83,108 @@ export default function EventsPage() {
     return () => stopStream();
   }, []);
 
+  const visible = events.filter(
+    (e: any) => !filter || e.type.toLowerCase().includes(filter.toLowerCase())
+  );
+
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Events</h1>
-          <p className="text-sm text-muted-foreground">Live event stream from the workforce</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {streaming ? (
-            <Button variant="outline" onClick={() => { /* stopStream() */ }} className="gap-2">
-              <Play className="h-4 w-4" /> Resume
+    <div className="space-y-6">
+      <PageHeader
+        icon={Activity}
+        eyebrow="Observability"
+        title="Events"
+        description="Live event stream from the workforce."
+        actions={
+          streaming ? (
+            <Button variant="outline" onClick={stopStream} className="gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+              </span>
+              Disconnect
             </Button>
           ) : (
             <Button onClick={startStream} className="gap-2">
-              <Sparkles className="h-4 w-4" /> Connect Stream
+              <Sparkles className="h-4 w-4" /> Connect stream
             </Button>
-          )}
-        </div>
+          )
+        }
+      />
+
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+        <Input
+          placeholder="Filter events…"
+          aria-label="Filter events"
+          className="pl-9 pr-9"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+        {filter && (
+          <button
+            type="button"
+            onClick={() => setFilter("")}
+            aria-label="Clear search"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
-          <input
-            placeholder="Filter events..."
-            className="pl-9 h-10 rounded-md border bg-background px-3 text-sm"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <Card className="p-4">
-        <div className="space-y-1 max-h-[600px] overflow-auto">
-          {events
-            .filter((e: any) => !filter || e.type.toLowerCase().includes(filter.toLowerCase()))
-            .map((e: any) => (
-              <div key={e.id} className="flex items-start gap-3 text-sm p-2 hover:bg-muted/30 rounded">
-                <div className={cn("rounded-md p-2 shrink-0", eventColor(e.type))}>
+      {visible.length ? (
+        <Card className="max-h-[640px] overflow-auto p-2">
+          <div className="divide-y">
+            {visible.map((e: any, i: number) => (
+              <motion.div
+                key={e.id ?? `${e.type}-${i}`}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: Math.min(i * 0.02, 0.2), ease: EASE }}
+                className="flex items-start gap-3 p-2"
+              >
+                <div className={cn("shrink-0 rounded-md p-2", eventColor(e.type))}>
                   {eventIcon(e.type)}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs">{e.type}</span>
                     {e.subject && (
-                      <Badge variant="outline" className="text-xs font-normal">{e.subject}</Badge>
+                      <Badge variant="outline" className="text-xs font-normal">
+                        {e.subject}
+                      </Badge>
                     )}
-                    <span className="text-xs text-faint">{new Date(e.timestamp).toLocaleTimeString()}</span>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {new Date(e.timestamp).toLocaleTimeString()}
+                    </span>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                  <div className="mt-0.5 truncate text-xs text-muted-foreground">
                     Source: <span className="font-medium text-foreground">{e.source}</span>
                     {e.agentId && (
-                      <span className="ml-2">Agent: <span className="font-medium text-foreground">{e.agentId}</span></span>
+                      <span className="ml-2">
+                        Agent: <span className="font-medium text-foreground">{e.agentId}</span>
+                      </span>
                     )}
                   </div>
                   {e.payload && e.payload !== "{}" && (
-                    <div className="text-xs text-faint mt-1 bg-muted/50 rounded px-2 py-1 font-mono truncate max-w-xl">
-                      {typeof e.payload === "string" ? e.payload.slice(0, 200) : JSON.stringify(e.payload).slice(0, 200)}
+                    <div className="mt-1 max-w-xl truncate rounded bg-muted/50 px-2 py-1 font-mono text-xs text-muted-foreground">
+                      {typeof e.payload === "string"
+                        ? e.payload.slice(0, 200)
+                        : JSON.stringify(e.payload).slice(0, 200)}
                     </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
             ))}
-        </div>
-      </Card>
+          </div>
+        </Card>
+      ) : (
+        <EmptyState
+          icon={Radio}
+          title="No events yet"
+          description="Connect the stream to watch the workforce emit events live."
+        />
+      )}
     </div>
   );
 }

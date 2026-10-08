@@ -41,6 +41,10 @@ function mix(
   ];
 }
 
+/** Shared color math, also used by the topology node family. */
+export { mix };
+export type RgbTuple = [number, number, number];
+
 function channelToLinear(v: number): number {
   const s = v / 255;
   return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
@@ -50,11 +54,15 @@ function luminance(c: [number, number, number]): number {
   return 0.2126 * channelToLinear(c[0]) + 0.7152 * channelToLinear(c[1]) + 0.0722 * channelToLinear(c[2]);
 }
 
+export { luminance };
+
 function ratio(a: [number, number, number], b: [number, number, number]): number {
   const x = luminance(a);
   const y = luminance(b);
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
+
+export { ratio };
 
 /** Darken `base` against `bg` in 3% steps until it clears 4.5:1 (cap 95%). */
 function safe(
@@ -74,9 +82,13 @@ function rgbString(c: [number, number, number]): string {
   return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
 }
 
+export { rgbString };
+
 function rgba(c: [number, number, number], a: number): string {
   return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${a})`;
 }
+
+export { rgba };
 
 /** Static parser used during SSR / before the DOM is available. */
 function parseStatic(value: string): [number, number, number] | null {
@@ -173,10 +185,11 @@ const SIZE_PX: Record<NonNullable<AvatarOrbProps["size"]>, number> = {
   xl: 220,
 };
 
-/** Content mode is always the brain orb; its diameter is its own value rather
- *  than a reuse of a named size, so it can be tuned against the content stack
- *  (eyes, badge, stats, buttons) without implying a generic "xl". */
-const CONTENT_ORB_PX = 180;
+/** The brain orb's canonical default — its 100% standard. Content mode ignores
+ *  the named size scale entirely, so this constant IS the size: it is the
+ *  promoted baseline. The orb-sphere is 140px inside a 200px ring canvas, or
+ *  30px inset on all sides. Everything downstream measures against it. */
+export const CONTENT_ORB_STANDARD_PX = 140;
 
 export interface AvatarOrbProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "children"> {
   /** Theme token name ("--info"), CSS color, or raw HSL channels. */
@@ -187,8 +200,14 @@ export interface AvatarOrbProps extends Omit<React.HTMLAttributes<HTMLDivElement
   size?: "sm" | "md" | "lg" | "xl";
   /** Eyes blink on a slow loop. Defaults off; the node sets it per status. */
   blink?: boolean;
+  /** Fully computed palette (e.g. the theme-driven core sphere). When
+   *  provided, the internal token observer is skipped. */
+  palette?: OrbPalette | null;
   /** Eyes ease toward the cursor. Defaults on in content mode. */
   followCursor?: boolean;
+  /** Per-state eye geometry in content mode (reference EYE map). Defaults to
+   *  the 10x16 round pair with a 20px gap and 16px below. */
+  eyeGeometry?: { w: number; h: number; radius?: string; gap?: number; marginBottom?: number };
   children?: React.ReactNode;
 }
 
@@ -213,6 +232,8 @@ export function AvatarOrb({
   size = "md",
   blink = false,
   followCursor,
+  palette: providedPalette = null,
+  eyeGeometry,
   children,
   className,
   style,
@@ -221,22 +242,34 @@ export function AvatarOrb({
 }: AvatarOrbProps) {
   const isContent = variant === "content";
   const follow = followCursor ?? isContent;
-  const px = isContent ? CONTENT_ORB_PX : SIZE_PX[size];
-  const eye = isContent ? { w: 10, h: 16, gap: 20 } : { w: 9, h: 14, gap: 15 };
+  const px = isContent ? CONTENT_ORB_STANDARD_PX : SIZE_PX[size];
+  const eye = isContent
+    ? {
+        w: 10,
+        h: 16,
+        radius: "50%",
+        gap: 20,
+        marginBottom: 16,
+        ...eyeGeometry,
+      }
+    : { w: 9, h: 14, radius: "50%", gap: 15, marginBottom: 0 };
 
   const rootRef = React.useRef<HTMLDivElement>(null);
   const outerRef = React.useRef<HTMLDivElement>(null);
   const innerRef = React.useRef<HTMLDivElement>(null);
 
-  const [palette, setPalette] = React.useState<OrbPalette>(() =>
+  const [autoPalette, setAutoPalette] = React.useState<OrbPalette>(() =>
     getOrbPalette(fallbackColor)
   );
+  const palette = providedPalette ?? autoPalette;
 
   /* Re-read the token on mount and whenever the theme class/attribute or the
-   * OS color scheme changes — no remount, no React state on the hot path. */
+   * OS color scheme changes — no remount, no React state on the hot path.
+   * Skipped when the caller injects a fully computed palette. */
   React.useEffect(() => {
+    if (providedPalette) return;
     const compute = () =>
-      setPalette(getOrbPalette(readThemeColor(baseColor) || fallbackColor));
+      setAutoPalette(getOrbPalette(readThemeColor(baseColor) || fallbackColor));
     compute();
     const observer = new MutationObserver(compute);
     observer.observe(document.documentElement, {
@@ -249,7 +282,7 @@ export function AvatarOrb({
       observer.disconnect();
       media.removeEventListener?.("change", compute);
     };
-  }, [baseColor, fallbackColor]);
+  }, [baseColor, fallbackColor, providedPalette]);
 
   /* Eyes ease toward the cursor. Current/target live in refs and the transform
    * is written straight to the node, so pointermove never re-renders React. */
@@ -325,7 +358,7 @@ export function AvatarOrb({
     /* Optical centering: the heavy eyes sit up top and the gradient core is at
      * 42%, so a mathematically centred stack reads high. A small top pad pulls
      * it down to where the eye expects the middle to be. */
-    paddingTop: isContent ? 6 : 0,
+    paddingTop: 0,
     boxSizing: "border-box",
     position: "relative",
     background: palette.gradient,
@@ -348,28 +381,31 @@ export function AvatarOrb({
       {...rest}
     >
       <style>{BLINK_KEYFRAMES}</style>
-      {/* Shine — a small highlight in content mode. */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          pointerEvents: "none",
-          background: isContent
-            ? "radial-gradient(ellipse at 30% 18%, rgba(255,255,255,.4) 0%, transparent 42%)"
-            : "radial-gradient(ellipse at 32% 20%, rgba(255,255,255,.45) 0%, transparent 55%)",
-        }}
-      />
-      {/* Grain / vignette overlay. */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          pointerEvents: "none",
-          background: "radial-gradient(circle at 62% 72%, rgba(0,0,0,.2) 0%, transparent 55%)",
-        }}
-      />
+      {/* Shine + grain overlays for standalone orbs. Content mode (the core
+        // sphere) paints the bare gradient + shadow exactly like the reference:
+        // no extra highlight, no vignette. */}
+      {!isContent && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            background: "radial-gradient(ellipse at 32% 20%, rgba(255,255,255,.45) 0%, transparent 55%)",
+          }}
+        />
+      )}
+      {!isContent && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            background: "radial-gradient(circle at 62% 72%, rgba(0,0,0,.2) 0%, transparent 55%)",
+          }}
+        />
+      )}
       <div
         style={{
           position: "relative",
@@ -379,7 +415,7 @@ export function AvatarOrb({
           alignItems: "center",
         }}
       >
-        <div ref={outerRef} style={{ marginBottom: isContent ? 16 : 0 }}>
+        <div ref={outerRef} style={{ marginBottom: eye.marginBottom, height: isContent ? 16 : undefined, display: "flex", alignItems: "center" }}>
           <div ref={innerRef} style={{ display: "flex", gap: eye.gap }}>
             {[0, 60].map((delay, i) => (
               <span
@@ -388,6 +424,7 @@ export function AvatarOrb({
                 style={{
                   width: eye.w,
                   height: eye.h,
+                  borderRadius: eye.radius,
                   background: palette.eye,
                   animation: blink ? "av-blink 3.6s ease-in-out infinite" : "none",
                   animationDelay: delay ? `${delay}ms` : undefined,
