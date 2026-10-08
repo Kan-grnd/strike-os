@@ -84,13 +84,13 @@ export function ThroughputChart({
             </defs>
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 10, fill: AXIS }}
+              tick={{ fontSize: 11, fill: AXIS }}
               tickLine={false}
               axisLine={false}
               interval={0}
             />
             <YAxis
-              tick={{ fontSize: 10, fill: AXIS }}
+              tick={{ fontSize: 11, fill: AXIS }}
               tickLine={false}
               axisLine={false}
               width={40}
