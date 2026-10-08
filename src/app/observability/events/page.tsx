@@ -133,7 +133,10 @@ export default function EventsPage() {
       </div>
 
       {visible.length ? (
-        <Card className="max-h-[640px] overflow-auto p-2">
+        <Card
+          tabIndex={0}
+          className="max-h-[640px] overflow-auto p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           <div className="divide-y">
             {visible.map((e: any, i: number) => (
               <motion.div

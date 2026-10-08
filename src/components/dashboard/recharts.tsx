@@ -189,7 +189,7 @@ export function FleetStateChart({ agents }: { agents: any[] }) {
       ) : (
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:gap-6">
           <div className="relative h-40 w-40 shrink-0">
-            <div className="h-full w-full">
+            <div className="h-full w-full" aria-hidden="true">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart accessibilityLayer={false}>
                 <Pie
