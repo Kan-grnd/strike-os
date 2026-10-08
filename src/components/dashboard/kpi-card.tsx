@@ -65,8 +65,9 @@ export function KpiCard({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: index * 0.08, ease: [0.16, 1, 0.3, 1] }}
+      className="h-full"
     >
-      <Card className="group relative overflow-hidden p-5 transition-colors hover:border-ring/40">
+      <Card className="group relative flex h-full flex-col overflow-hidden p-5 transition-colors hover:border-ring/40">
         {accent && (
           <div
             aria-hidden
@@ -101,23 +102,25 @@ export function KpiCard({
           </div>
         </div>
 
-        <div className="relative mt-4 flex items-end justify-between gap-3">
+        <div className="relative mt-auto flex items-end justify-between gap-3 pt-4">
           {spark && spark.length > 1 ? (
             <Spark data={spark} className="h-7 flex-1" />
           ) : (
             <span />
           )}
-          <div
-            className={cn(
-              "flex items-center gap-1 font-mono text-[11px] tabular-nums",
-              trend === "up" && "text-success",
-              trend === "down" && "text-destructive",
-              trend === "neutral" && "text-muted-foreground"
-            )}
-          >
-            <TrendIcon className="h-3 w-3" aria-hidden />
-            {trendLabel}
-          </div>
+          {trendLabel ? (
+            <div
+              className={cn(
+                "flex items-center gap-1 font-mono text-[11px] tabular-nums",
+                trend === "up" && "text-success",
+                trend === "down" && "text-destructive",
+                trend === "neutral" && "text-muted-foreground"
+              )}
+            >
+              <TrendIcon className="h-3 w-3" aria-hidden />
+              {trendLabel}
+            </div>
+          ) : null}
         </div>
       </Card>
     </motion.div>

@@ -65,7 +65,7 @@ export function ThroughputChart({
   const peak = Math.max(1, ...buckets);
 
   return (
-    <Card className="p-6">
+    <Card className="h-full p-6">
       <PanelHeader
         title="Event throughput"
         hint={`${total} events · peak ${peak}/5m`}
@@ -197,7 +197,7 @@ export function FleetStateChart({ agents }: { agents: any[] }) {
   });
 
   return (
-    <Card className="p-6">
+    <Card className="h-full p-6">
       <PanelHeader title="Fleet composition" hint={`${total} agents`} />
       {rows.length === 0 ? (
         <p className="py-8 text-center font-mono text-[11px] text-muted-foreground">

@@ -17,6 +17,7 @@ import {
   Layers,
   ArrowUpRight,
   CircleDot,
+  CircleDollarSign,
 } from "lucide-react";
 import { cn, formatRelativeTime, truncate } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -141,7 +142,7 @@ export default function HomePage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: EASE }}
-        className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-card via-card to-muted/40 p-8"
+        className="relative overflow-hidden rounded-lg glass p-8"
       >
         <div
           aria-hidden
@@ -274,7 +275,7 @@ export default function HomePage() {
                 Nothing running right now.
               </p>
             ) : (
-              <div className="space-y-1">
+              <div className="divide-y divide-border/60">
                 {nowTop.map((item, i) => (
                   <ActivityRow key={i} {...item} />
                 ))}
@@ -293,7 +294,7 @@ export default function HomePage() {
               Operational stream
             </h2>
             <ScrollArea className="h-[280px] pr-3">
-              <div className="space-y-3">
+              <div className="divide-y divide-border/60">
                 {streamEvents.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No system events yet.
@@ -382,7 +383,7 @@ function StreamEvent({
   time: string;
 }) {
   return (
-    <div className="flex items-start gap-3">
+    <div className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
       <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/50" />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
@@ -447,7 +448,7 @@ function KpiCost({
   return (
     <Card className="flex h-full items-center gap-4 p-5">
       <div className="rounded-lg bg-muted/70 p-2.5">
-        <Zap className="h-5 w-5 text-muted-foreground" />
+        <CircleDollarSign className="h-5 w-5 text-muted-foreground" />
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
