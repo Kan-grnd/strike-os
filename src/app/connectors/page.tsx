@@ -44,7 +44,7 @@ function Stat({
     <div className="bg-background p-4">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">
+        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em]">
           {label}
         </span>
       </div>
@@ -68,7 +68,7 @@ export default function ConnectorsPage() {
         backHref="/"
         icon={Globe}
         eyebrow="Integrations"
-        title="API connections"
+        title="Connectors"
         description="External API integrations, endpoints, and webhooks."
         actions={
           <Button className="gap-2">

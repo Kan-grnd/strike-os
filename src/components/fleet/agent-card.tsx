@@ -72,7 +72,7 @@ export function AgentCard({
                   <StateDot state={agent.runtimeState} />
                   <h3 className="truncate font-semibold">{agent.name}</h3>
                 </div>
-                <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                <p className="mt-0.5 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
                   {agent.type}
                 </p>
               </div>
@@ -86,25 +86,25 @@ export function AgentCard({
 
           <div className="flex flex-wrap items-center gap-1.5">
             {agent.status && (
-              <Badge variant="outline" className="font-mono text-[10px] uppercase">
+              <Badge variant="outline" className="font-mono text-[11px] uppercase">
                 {agent.status}
               </Badge>
             )}
             {needsAttention && (
               <Badge
                 variant="outline"
-                className="border-warning/40 font-mono text-[10px] text-warning"
+                className="border-warning/40 font-mono text-[11px] text-warning"
               >
                 attention
               </Badge>
             )}
             {caps.slice(0, 2).map((c) => (
-              <Badge key={c} variant="secondary" className="font-mono text-[10px]">
+              <Badge key={c} variant="secondary" className="font-mono text-[11px]">
                 {c}
               </Badge>
             ))}
             {caps.length > 2 && (
-              <Badge variant="secondary" className="font-mono text-[10px]">
+              <Badge variant="secondary" className="font-mono text-[11px]">
                 +{caps.length - 2}
               </Badge>
             )}

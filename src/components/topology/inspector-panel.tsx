@@ -108,7 +108,7 @@ export function InspectorPanel({
           if (e.key === "Escape") onClose();
         }}
         className={cn(
-          "flex flex-col rounded-xl border glass-elevated transition-all motion-reduce:transition-none duration-200 motion-reduce:transition-none",
+          "flex flex-col rounded-xl border glass-elevated transition-[opacity,border-color,box-shadow] duration-200 motion-reduce:transition-none",
           narrow
             ? "fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] w-full rounded-t-2xl border-b-0"
             : "absolute top-20 right-4 z-40 max-h-[calc(100vh-6rem)] w-72"
@@ -148,7 +148,7 @@ export function InspectorPanel({
         if (e.key === "Escape") onClose();
       }}
       className={cn(
-        "flex flex-col rounded-xl border glass-elevated transition-all motion-reduce:transition-none duration-200 motion-reduce:transition-none",
+        "flex flex-col rounded-xl border glass-elevated transition-[opacity,border-color,box-shadow] duration-200 motion-reduce:transition-none",
         narrow
           ? "fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] w-full rounded-t-2xl border-b-0"
           : "absolute top-20 right-4 z-40 max-h-[calc(100vh-6rem)] w-72"

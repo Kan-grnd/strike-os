@@ -54,7 +54,7 @@ function ConnectionRow({
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
       <span className="shrink-0 font-mono text-muted-foreground">{relation}</span>
       <span className="min-w-0 flex-1 truncate">{node?.label ?? "Missing entity"}</span>
-      <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
+      <span className="shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">
         {node?.type ?? "unknown"}
       </span>
     </button>
@@ -181,7 +181,7 @@ function EdgeDetail({
           onClick={() => onSelect({ kind: "node", key: edge.source })}
           className="rounded-md border px-3 py-2 text-left text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
             from · {source?.type ?? "unknown"}
           </span>
           <p className="truncate font-medium">{source?.label ?? edge.source}</p>
@@ -195,7 +195,7 @@ function EdgeDetail({
           onClick={() => onSelect({ kind: "node", key: edge.target })}
           className="rounded-md border px-3 py-2 text-left text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
             to · {target?.type ?? "unknown"}
           </span>
           <p className="truncate font-medium">{target?.label ?? edge.target}</p>

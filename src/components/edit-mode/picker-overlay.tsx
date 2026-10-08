@@ -185,7 +185,7 @@ export function PickerOverlay({ onCapture }: PickerOverlayProps) {
           }}
         >
           <span
-            className="absolute max-w-[260px] truncate rounded bg-cyan-400 px-1.5 py-0.5 text-[10px] font-bold text-black"
+            className="absolute max-w-[260px] truncate rounded bg-cyan-400 px-1.5 py-0.5 text-[11px] font-bold text-black"
             style={{ top: outline.labelTop - outline.top, left: outline.labelLeft - outline.left }}
           >
             &lt;{outline.tag}&gt; · {crumb(currentRef.current?.getAttribute?.("aria-label") ?? "")} · click/Enter

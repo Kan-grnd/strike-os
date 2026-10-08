@@ -31,7 +31,7 @@ function Stat({
     <div className="bg-background p-4">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">
+        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em]">
           {label}
         </span>
       </div>
@@ -58,7 +58,7 @@ export default function McpPage() {
         backHref="/"
         icon={Plug}
         eyebrow="Integrations"
-        title="MCP connections"
+        title="MCP"
         description="Model Context Protocol servers that extend workforce capabilities."
         actions={
           <Button className="gap-2">
@@ -117,7 +117,7 @@ export default function McpPage() {
                     </div>
                     <Badge className={`border ${meta.className}`}>{c.status}</Badge>
                   </div>
-                  <h3 className="mb-1 font-semibold">{c.name}</h3>
+                  <h2 className="mb-1 font-semibold">{c.name}</h2>
                   <p className="mb-3 truncate font-mono text-xs text-muted-foreground">
                     {c.baseUrl}
                   </p>

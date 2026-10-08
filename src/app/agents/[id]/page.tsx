@@ -103,7 +103,7 @@ export default function AgentDetailPage({ params }: { params: { id: string } }) 
         title={
           <span className="flex flex-wrap items-center gap-2">
             {agent.name}
-            <Badge variant="outline" className="font-mono text-[10px] uppercase">
+            <Badge variant="outline" className="font-mono text-[11px] uppercase">
               {agent.type}
             </Badge>
             <StateDot state={agent.runtimeState} />
@@ -270,7 +270,7 @@ export default function AgentDetailPage({ params }: { params: { id: string } }) 
                   <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-muted-foreground/50" />
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <span className="font-mono text-xs">{e.type}</span>
-                    <span className="font-mono text-[10px] text-muted-foreground">
+                    <span className="font-mono text-[11px] text-muted-foreground">
                       {formatRelativeTime(e.timestamp)}
                     </span>
                   </div>

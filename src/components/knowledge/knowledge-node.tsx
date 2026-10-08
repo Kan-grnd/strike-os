@@ -120,13 +120,13 @@ export function KnowledgeNode({ data, selected }: NodeProps) {
               {node.label}
             </span>
             <span
-              className="shrink-0 text-[10px] tabular-nums text-muted-foreground"
+              className="shrink-0 text-[11px] tabular-nums text-muted-foreground"
               title={degreeTitle}
             >
               {node.degree}
             </span>
           </div>
-          <div className="mt-0.5 truncate text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
+          <div className="mt-0.5 truncate text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
             {node.type}
           </div>
         </>

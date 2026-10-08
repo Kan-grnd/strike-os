@@ -22,7 +22,7 @@ function Stat({
     <div className="min-w-0 bg-background p-4">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">
+        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em]">
           {label}
         </span>
       </div>

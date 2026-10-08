@@ -48,7 +48,7 @@ function Stat({
     <div className="bg-background p-4">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">
+        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em]">
           {label}
         </span>
       </div>
@@ -162,7 +162,7 @@ export default function ToolsPage() {
                     </div>
                     <Badge className={sb.className}>{sb.label}</Badge>
                   </div>
-                  <h3 className="mb-1 font-semibold">{t.name}</h3>
+                  <h2 className="mb-1 font-semibold">{t.name}</h2>
                   <p className="mb-3 line-clamp-2 text-xs text-muted-foreground">
                     {t.description || "No description"}
                   </p>
@@ -178,10 +178,10 @@ export default function ToolsPage() {
                   </div>
 
                   <div className="mb-3 flex flex-wrap gap-1">
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-[11px]">
                       Timeout: {t.timeout ? `${t.timeout / 1000}s` : "—"}
                     </Badge>
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-[11px]">
                       Calls: {t.totalCalls || 0}
                     </Badge>
                   </div>

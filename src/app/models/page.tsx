@@ -32,7 +32,7 @@ function Stat({
     <div className="bg-background p-4">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">
+        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em]">
           {label}
         </span>
       </div>
@@ -156,18 +156,18 @@ export default function ModelsPage() {
                     </div>
                     <Badge variant="outline">{m.provider?.name || "Unknown"}</Badge>
                   </div>
-                  <h3 className="font-semibold">{m.name}</h3>
+                  <h2 className="font-semibold">{m.name}</h2>
                   <p className="text-xs text-muted-foreground">
                     {m.contextWindow.toLocaleString()} context window
                   </p>
                   <div className="my-3 flex flex-wrap gap-1">
                     {caps.slice(0, 3).map((c) => (
-                      <Badge key={c} variant="outline" className="text-[10px]">
+                      <Badge key={c} variant="outline" className="text-[11px]">
                         {c}
                       </Badge>
                     ))}
                     {caps.length > 3 && (
-                      <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                      <Badge variant="outline" className="text-[11px] text-muted-foreground">
                         +{caps.length - 3}
                       </Badge>
                     )}

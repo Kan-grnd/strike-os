@@ -76,7 +76,7 @@ export function KpiCard({
         )}
         <div className="relative flex items-start justify-between">
           <div className="space-y-3">
-            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               {label}
             </p>
             <div className="flex items-baseline gap-1">
@@ -109,7 +109,7 @@ export function KpiCard({
           )}
           <div
             className={cn(
-              "flex items-center gap-1 font-mono text-[10px] tabular-nums",
+              "flex items-center gap-1 font-mono text-[11px] tabular-nums",
               trend === "up" && "text-success",
               trend === "down" && "text-destructive",
               trend === "neutral" && "text-muted-foreground"

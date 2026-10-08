@@ -59,7 +59,7 @@ function TaskCard({ t, index }: { t: any; index: number }) {
             </Link>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-2 pt-0.5 font-mono text-[10px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 pt-0.5 font-mono text-[11px] text-muted-foreground">
           {t.createdAt ? <span>{formatRelativeTime(t.createdAt)}</span> : null}
           {t.status === "FAILED" && (
             <span className="text-destructive">
@@ -79,10 +79,10 @@ function TaskLane({ g, tasks }: { g: string; tasks: any[] }) {
     <div className="min-w-0">
       <div className="mb-2 flex items-center gap-2">
         <span className={cn("h-2 w-2 rounded-full", stateDotClass(tone))} />
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground/80">
+        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/80">
           {g}
         </span>
-        <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+        <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
           {tasks.length}
         </span>
       </div>
@@ -242,12 +242,12 @@ function TasksBoard() {
                 <div className="min-w-0">
                   <div className="mb-2 flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
-                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground/80">
+                    <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/80">
                       {new Set(unknownTasks.map((t: any) => t.status)).size === 1
                         ? unknownTasks[0].status
                         : "OTHER"}
                     </span>
-                    <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                    <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
                       {unknownTasks.length}
                     </span>
                   </div>

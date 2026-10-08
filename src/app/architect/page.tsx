@@ -270,7 +270,7 @@ export default function AgentArchitectPage() {
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-muted-foreground" />
           <SectionLabel>Specialist templates</SectionLabel>
-          <Badge variant="secondary" className="font-mono text-[10px]">
+          <Badge variant="secondary" className="font-mono text-[11px]">
             {specialistBundles.length}
           </Badge>
         </div>
@@ -304,7 +304,7 @@ export default function AgentArchitectPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <h3 className="truncate font-semibold">{bundle.label}</h3>
-                        <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                        <p className="mt-0.5 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
                           {bundle.agentType}
                         </p>
                       </div>
@@ -318,7 +318,7 @@ export default function AgentArchitectPage() {
                                 ? "secondary"
                                 : "outline"
                         }
-                        className="shrink-0 font-mono text-[10px]"
+                        className="shrink-0 font-mono text-[11px]"
                       >
                         {state === "none"
                           ? "Not installed"
@@ -334,12 +334,12 @@ export default function AgentArchitectPage() {
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {bundle.capabilities.slice(0, 3).map((c: string) => (
-                        <Badge key={c} variant="secondary" className="font-mono text-[10px]">
+                        <Badge key={c} variant="secondary" className="font-mono text-[11px]">
                           {c}
                         </Badge>
                       ))}
                       {bundle.toolNames.slice(0, 2).map((t: string) => (
-                        <Badge key={t} variant="outline" className="font-mono text-[10px]">
+                        <Badge key={t} variant="outline" className="font-mono text-[11px]">
                           {t}
                         </Badge>
                       ))}
@@ -468,14 +468,14 @@ export default function AgentArchitectPage() {
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-muted-foreground" />
               <h2 className="text-sm font-semibold">Capabilities</h2>
-              <Badge variant="secondary" className="font-mono text-[10px]">
+              <Badge variant="secondary" className="font-mono text-[11px]">
                 {selectedCapabilities.length} selected
               </Badge>
             </div>
             <div className="space-y-4">
               {Object.entries(CAPABILITY_CATALOG).map(([category, caps]) => (
                 <div key={category}>
-                  <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                  <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
                     {category}
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -508,7 +508,7 @@ export default function AgentArchitectPage() {
             <div className="flex items-center gap-2">
               <Wrench className="h-4 w-4 text-muted-foreground" />
               <h2 className="text-sm font-semibold">Tools</h2>
-              <Badge variant="secondary" className="font-mono text-[10px]">
+              <Badge variant="secondary" className="font-mono text-[11px]">
                 {selectedTools.length} selected
               </Badge>
             </div>
@@ -549,7 +549,7 @@ export default function AgentArchitectPage() {
               <p className="mt-2 text-lg font-semibold">
                 {name || "Untitled agent"}
               </p>
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
                 {type}
                 {colonyId
                   ? ` · ${colonies.find((c: any) => c.id === colonyId)?.name ?? ""}`

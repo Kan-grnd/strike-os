@@ -19,7 +19,7 @@ export function SectionLabel({
   return (
     <h2
       className={cn(
-        "font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground",
+        "font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground",
         className
       )}
     >
@@ -72,7 +72,7 @@ export function PageHeader({
           )}
           <div className="min-w-0">
             {eyebrow && (
-              <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="mb-1 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 {eyebrow}
               </p>
             )}

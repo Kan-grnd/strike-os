@@ -107,7 +107,7 @@ const resolveByPath = resolveIndexPath;
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
+    <div className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
       {children}
     </div>
   );
@@ -324,7 +324,7 @@ function ChangeRow({
             </option>
           ))}
         </select>
-        <span className="text-[10px] tabular-nums text-muted-foreground/70">{i + 1}</span>
+        <span className="text-[11px] tabular-nums text-muted-foreground/70">{i + 1}</span>
         <button
           type="button"
           onClick={onRemove}
@@ -941,7 +941,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                   >
                     <span
                       className={cn(
-                        "flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] tabular-nums",
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[11px] tabular-nums",
                         i === step
                           ? "bg-cyan-400/30 text-cyan-200"
                           : i < step
@@ -980,7 +980,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                           >
                             {c.tag}
                             {c.label ? (
-                              <span className="ml-1 normal-case text-[10px] text-muted-foreground">
+                              <span className="ml-1 normal-case text-[11px] text-muted-foreground">
                                 “{c.label.slice(0, 14)}”
                               </span>
                             ) : null}
@@ -1113,7 +1113,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                     <div className="flex items-center justify-between gap-2">
                       <FieldLabel>Intent</FieldLabel>
                       <div className="flex items-center gap-1.5">
-                        <label htmlFor="ticket-priority" className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <label htmlFor="ticket-priority" className="text-[11px] uppercase tracking-wider text-muted-foreground">
                           Priority
                         </label>
                         <select
@@ -1210,7 +1210,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                             </select>
                             {customEndpoint && (
                               <div className="flex items-center gap-1">
-                                <span className="text-[10px] text-muted-foreground">/api/</span>
+                                <span className="text-[11px] text-muted-foreground">/api/</span>
                                 <Input
                                   value={dataContext.endpoint.startsWith("/api/") ? dataContext.endpoint.slice(5) : dataContext.endpoint}
                                   onChange={(e) => {
@@ -1263,7 +1263,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                           />
                           {shapes.length} shape{shapes.length > 1 ? "s" : ""} travel with this ticket
                         </span>
-                        <span className="text-[10px] uppercase tracking-wider">
+                        <span className="text-[11px] uppercase tracking-wider">
                           {shapes.map((s) => s.type).join(" · ")}
                         </span>
                       </div>
@@ -1281,7 +1281,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                       <div className="font-mono break-all text-cyan-400">{target.selectorPath}</div>
                       <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">{capture.route}</div>
                     </div>
-                    <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] uppercase tracking-wider">
+                    <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] uppercase tracking-wider">
                       <span className="rounded border border-border px-1.5 py-0.5 text-muted-foreground">{kind}</span>
                       <span className="rounded border border-border px-1.5 py-0.5 text-muted-foreground">{scope}</span>
                       <span className="rounded border border-border px-1.5 py-0.5 text-muted-foreground">{priority}</span>

@@ -14,7 +14,7 @@ import { PageHeader, SectionLabel } from "@/components/shared/page-header";
 function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="bg-background p-3">
-      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+      <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </p>
       <p className="mt-1 font-mono text-xl font-bold tabular-nums">{value}</p>
@@ -86,11 +86,11 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
         eyebrow="Execution"
         title={
           <span className="flex flex-wrap items-center gap-2">
-            Task
+            <span className="truncate">{task.description || "Task"}</span>
             <Badge className={TASK_STATUS_COLOR[task.status]}>{task.status}</Badge>
           </span>
         }
-        description={task.description}
+        description={`Task ${params.id.slice(0, 8)}`}
         actions={
           task.status === "FAILED" ? (
             <Button onClick={handleRetry} disabled={retrying} className="gap-2">

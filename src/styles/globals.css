@@ -39,14 +39,14 @@
     --muted-foreground: 0 0% 42%;
     --accent: 0 0% 92%;
     --accent-foreground: 0 0% 12%;
-    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
-    --destructive-foreground: 0 0% 10%;
-    --success: 158 64% 52%; /* #34d399 ok (immutable) */
-    --success-foreground: 0 0% 10%;
-    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
-    --warning-foreground: 0 0% 10%;
+    --destructive: 0 91% 38%; /* hue immutable; lightness darkened for WCAG AA */
+    --destructive-foreground: 0 0% 100%;
+    --success: 158 64% 26%; /* hue immutable; lightness darkened for WCAG AA */
+    --success-foreground: 0 0% 100%;
+    --warning: 43 96% 24%; /* hue immutable; lightness darkened for WCAG AA */
+    --warning-foreground: 0 0% 100%;
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 210 80% 42%;
+    --info: 210 80% 38%;
     --info-foreground: 0 0% 100%;
     --border: 0 0% 88%;
     --input: 0 0% 90%;
@@ -104,17 +104,17 @@
     --secondary: 46.66666666666671 12.328767123287673% 85.68627450980392%;
     --secondary-foreground: 45 6% 28%;
     --muted: 45 13% 91%;
-    --muted-foreground: 45 6% 45%;
+    --muted-foreground: 45 6% 40%;
     --accent: 45 12% 87%;
     --accent-foreground: 45 8% 18%;
-    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
-    --destructive-foreground: 0 0% 10%;
-    --success: 158 64% 52%; /* #34d399 ok (immutable) */
-    --success-foreground: 0 0% 10%;
-    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
-    --warning-foreground: 0 0% 10%;
+    --destructive: 0 91% 38%; /* hue immutable; lightness darkened for WCAG AA */
+    --destructive-foreground: 0 0% 100%;
+    --success: 158 64% 26%; /* hue immutable; lightness darkened for WCAG AA */
+    --success-foreground: 0 0% 100%;
+    --warning: 43 96% 24%; /* hue immutable; lightness darkened for WCAG AA */
+    --warning-foreground: 0 0% 100%;
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 45 40% 40%;
+    --info: 45 40% 30%;
     --info-foreground: 0 0% 100%;
     --border: 45 12% 80%;
     --input: 45 12% 90%;
@@ -138,12 +138,12 @@
     --muted-foreground: 0 0% 25%;
     --accent: 0 0% 88%;
     --accent-foreground: 0 0% 0%;
-    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
-    --destructive-foreground: 0 0% 10%;
-    --success: 158 64% 52%; /* #34d399 ok (immutable) */
-    --success-foreground: 0 0% 10%;
-    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
-    --warning-foreground: 0 0% 10%;
+    --destructive: 0 91% 38%; /* hue immutable; lightness darkened for WCAG AA */
+    --destructive-foreground: 0 0% 100%;
+    --success: 158 64% 26%; /* hue immutable; lightness darkened for WCAG AA */
+    --success-foreground: 0 0% 100%;
+    --warning: 43 96% 24%; /* hue immutable; lightness darkened for WCAG AA */
+    --warning-foreground: 0 0% 100%;
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
     --info: 0 0% 0%;
     --info-foreground: 0 0% 100%;
@@ -630,14 +630,17 @@ body > div.h-screen.flex.bg-background {
   }
 }
 
-/* Reduced motion */
+/* Reduced motion: compress durations instead of killing feedback.
+   Loops end immediately (iteration-count 1); state changes stay perceivable
+   as a ~100ms cross-fade; scroll jumps instead of gliding. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 100ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

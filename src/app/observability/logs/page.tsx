@@ -96,7 +96,7 @@ export default function LogsPage() {
               >
                 <Badge
                   variant="outline"
-                  className={`shrink-0 text-[10px] ${levelColor[l.level] || ""}`}
+                  className={`shrink-0 text-[11px] ${levelColor[l.level] || ""}`}
                 >
                   {l.level}
                 </Badge>

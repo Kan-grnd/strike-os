@@ -254,7 +254,7 @@ export default function ColoniesPage() {
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl border bg-card">
                         <Boxes className="h-5 w-5 text-muted-foreground" />
                       </div>
-                      <Badge variant="outline" className="font-mono text-[10px]">
+                      <Badge variant="outline" className="font-mono text-[11px]">
                         {colony.agents.length} agents
                       </Badge>
                     </div>

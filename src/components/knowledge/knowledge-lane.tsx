@@ -26,12 +26,12 @@ export function KnowledgeLane({ data }: NodeProps) {
           aria-hidden
         />
         <span
-          className="text-[10px] font-semibold uppercase tracking-[0.14em]"
+          className="text-[11px] font-semibold uppercase tracking-[0.14em]"
           style={{ color: tone }}
         >
           {lane.label}
         </span>
-        <span className="text-[10px] tabular-nums text-muted-foreground">
+        <span className="text-[11px] tabular-nums text-muted-foreground">
           {lane.count}
         </span>
       </div>

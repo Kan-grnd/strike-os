@@ -154,7 +154,7 @@ export default function HomePage() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
               </span>
-              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                 System online · live
               </span>
             </div>
@@ -253,7 +253,7 @@ export default function HomePage() {
         >
           <Card className="flex h-full flex-col p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Happening now
               </h2>
               <Badge variant="outline" className="gap-1.5">
@@ -289,7 +289,7 @@ export default function HomePage() {
           transition={{ duration: 0.5, delay: 0.28, ease: EASE }}
         >
           <Card className="flex h-full flex-col p-6">
-            <h2 className="mb-4 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <h2 className="mb-4 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Operational stream
             </h2>
             <ScrollArea className="h-[280px] pr-3">
@@ -314,7 +314,7 @@ export default function HomePage() {
           label="Automations"
           value={String(automations.filter((a: any) => a.status === "ACTIVE").length)}
           caption={`${automations.length} configured`}
-          href="/automations"
+          href="/work?type=automations"
         />
         <KpiCost totalCost={totalCost} dims={costs?.dimensions} />
         <MiniStat
@@ -322,7 +322,7 @@ export default function HomePage() {
           label="Fleet success · 7d"
           value={successRate != null ? `${successRate}%` : "—"}
           caption={`${performance.completedTasks} completed / ${performance.failedTasks} failed`}
-          href="/performance"
+          href="/observability/performance"
         />
       </section>
     </div>
@@ -355,7 +355,7 @@ function ActivityRow({
         <p className="truncate text-sm font-medium">{title}</p>
         <p className="truncate text-xs text-muted-foreground">{description}</p>
       </div>
-      <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
         {time}
       </span>
     </div>
@@ -387,7 +387,7 @@ function StreamEvent({
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
           <span className="truncate font-mono text-[11px] font-medium">{event}</span>
-          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
+          <span className="shrink-0 font-mono text-[11px] text-muted-foreground/70">
             {time}
           </span>
         </div>
@@ -418,7 +418,7 @@ function MiniStat({
         <Icon className="h-5 w-5 text-muted-foreground" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {label}
         </p>
         <p className="font-mono text-2xl font-bold tabular-nums">{value}</p>
@@ -450,7 +450,7 @@ function KpiCost({
         <Zap className="h-5 w-5 text-muted-foreground" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Observed cost · 7d
         </p>
         <p className="font-mono text-2xl font-bold tabular-nums">

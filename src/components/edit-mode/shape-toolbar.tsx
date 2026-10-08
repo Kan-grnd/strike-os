@@ -130,7 +130,7 @@ export function ShapeToolbar() {
         {moreOpen && (
           <div className="absolute top-full right-0 z-10 mt-1.5 w-[168px] space-y-2.5 rounded-lg border border-border bg-background p-2 shadow-xl">
             <div>
-              <div className="mb-1 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
+              <div className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
                 Line
               </div>
               <button
@@ -156,7 +156,7 @@ export function ShapeToolbar() {
             </div>
 
             <div>
-              <div className="mb-1 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
+              <div className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
                 Stroke
               </div>
               <div className="grid grid-cols-4 gap-1">
@@ -185,7 +185,7 @@ export function ShapeToolbar() {
             </div>
 
             <div>
-              <div className="mb-1 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
+              <div className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
                 Colour
               </div>
               <div className="grid grid-cols-4 gap-1.5">
@@ -250,7 +250,7 @@ export function ShapeToolbar() {
       </button>
 
       {shapes.length > 0 && (
-        <span className="flex items-center gap-1 pl-0.5 text-[10px] whitespace-nowrap text-muted-foreground">
+        <span className="flex items-center gap-1 pl-0.5 text-[11px] whitespace-nowrap text-muted-foreground">
           {shapes.length}
           {selectedId ? " · 1 selected" : ""}
         </span>

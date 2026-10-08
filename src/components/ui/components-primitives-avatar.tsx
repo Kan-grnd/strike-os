@@ -363,7 +363,7 @@ export function AvatarOrb({
     position: "relative",
     background: palette.gradient,
     boxShadow: palette.glow,
-    transition: "transform .8s cubic-bezier(.34,1.56,.64,1)",
+    transition: "transform .8s cubic-bezier(0.22, 1, 0.36, 1)",
     "--orb-badge-text": palette.badgeText,
     ...style,
   } as React.CSSProperties;

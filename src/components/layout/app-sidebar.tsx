@@ -86,7 +86,7 @@ export function AppSidebar({
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [hydrated, setHydrated] = React.useState(false);
   const railRefs = React.useRef(new Map<string, HTMLButtonElement>());
-  const panelHeadingRef = React.useRef<HTMLHeadingElement>(null);
+  const panelHeadingRef = React.useRef<HTMLSpanElement>(null);
   const status = useSidebarStatus();
 
   // Restore after mount so SSR and the first client render agree; the saved

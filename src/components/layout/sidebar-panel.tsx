@@ -21,7 +21,7 @@ export function ContextHeader({
   brandLine,
 }: {
   domain: NavigationDomain;
-  headingRef?: React.Ref<HTMLHeadingElement>;
+  headingRef?: React.Ref<HTMLSpanElement>;
   brandLine?: React.ReactNode;
 }) {
   const Icon = domain.icon;
@@ -30,13 +30,13 @@ export function ContextHeader({
       {brandLine}
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-        <h2
+        <span
           ref={headingRef}
           tabIndex={-1}
           className="truncate text-sm font-semibold focus-visible:outline-none"
         >
           {domain.label}
-        </h2>
+        </span>
       </div>
     </div>
   );
@@ -137,7 +137,7 @@ export function SidebarPanel({
   domain: NavigationDomain;
   activeHref: string | null;
   footer: React.ReactNode;
-  headingRef?: React.Ref<HTMLHeadingElement>;
+  headingRef?: React.Ref<HTMLSpanElement>;
   onNavigate?: () => void;
   className?: string;
 }) {

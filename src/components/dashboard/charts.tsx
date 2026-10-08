@@ -24,10 +24,10 @@ export function isAgentActiveLive(a: any): boolean {
 function ChartHeader({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="mb-3 flex items-baseline justify-between gap-2">
-      <h3 className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <h3 className="font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         {title}
       </h3>
-      {hint && <span className="font-mono text-[10px] text-muted-foreground/70">{hint}</span>}
+      {hint && <span className="font-mono text-[11px] text-muted-foreground/70">{hint}</span>}
     </div>
   );
 }
@@ -189,11 +189,11 @@ export function Sparkline({ events }: { events: { timestamp?: string }[] }) {
           />
         )}
       </svg>
-      <div className="mt-1.5 flex justify-between font-mono text-[10px] text-muted-foreground/70">
+      <div className="mt-1.5 flex justify-between font-mono text-[11px] text-muted-foreground/70">
         <span>-2h</span>
         <span>now</span>
       </div>
-      <div className="mt-1 text-[10px] font-mono text-muted-foreground/50">
+      <div className="mt-1 text-[11px] font-mono text-muted-foreground/50">
         peak {peak} events / 5m bucket
       </div>
     </Card>
@@ -270,7 +270,7 @@ export function OutcomeDonut({
             <span className="ml-auto font-mono text-sm tabular-nums">{failed}</span>
           </div>
           {total === 0 && (
-            <p className="pt-1 font-mono text-[10px] text-muted-foreground">No outcomes yet</p>
+            <p className="pt-1 font-mono text-[11px] text-muted-foreground">No outcomes yet</p>
           )}
         </div>
       </div>

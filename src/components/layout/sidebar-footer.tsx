@@ -282,9 +282,7 @@ export function SidebarFooter({ status, className }: { status: SidebarStatus; cl
             aria-hidden="true"
             className={cn(
               "h-1.5 w-1.5 shrink-0 rounded-full",
-              status.online
-                ? "bg-success animate-pulse motion-reduce:animate-none"
-                : "bg-muted-foreground"
+              status.online ? "bg-success" : "bg-muted-foreground"
             )}
           />
           <span className="truncate" title={status.online ? "Online" : status.status}>
@@ -323,9 +321,7 @@ export function SidebarStatusDot({ status, className }: { status: SidebarStatus;
             aria-hidden="true"
             className={cn(
               "h-2 w-2 rounded-full",
-              status.online
-                ? "bg-success animate-pulse motion-reduce:animate-none"
-                : "bg-muted-foreground"
+              status.online ? "bg-success" : "bg-muted-foreground"
             )}
           />
         </span>

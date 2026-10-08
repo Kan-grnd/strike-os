@@ -97,7 +97,7 @@ export function CommandBar() {
             className="flex h-10 w-full items-center justify-between rounded-full bg-background/80 pl-5 pr-3 text-sm text-muted-foreground shadow-[0_0_2px_hsl(var(--foreground)/0.12),0_0_20px_-8px_hsl(var(--foreground)/0.18)] transition-shadow hover:shadow-[0_0_3px_hsl(var(--foreground)/0.2),0_0_26px_-6px_hsl(var(--foreground)/0.28)]"
           >
             <span>What would you like Strike OS to do?…</span>
-            <div className="flex items-center gap-1.5 rounded-full border bg-muted/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 rounded-full border bg-muted/60 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider">
               <span>⌘</span>
               <span>K</span>
             </div>

@@ -22,11 +22,11 @@ function PanelHeader({
 }) {
   return (
     <div className="mb-4 flex items-baseline justify-between gap-2">
-      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+      <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         {title}
       </h2>
       {hint != null && (
-        <span className="font-mono text-[10px] text-muted-foreground/70">{hint}</span>
+        <span className="font-mono text-[11px] text-muted-foreground/70">{hint}</span>
       )}
     </div>
   );
@@ -231,8 +231,8 @@ export function FleetStateChart({ agents }: { agents: any[] }) {
               </svg>
             </div>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <span className="font-mono text-2xl font-bold tabular-nums">{total}</span>
-              <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+              <span className="pointer-events-auto font-mono text-2xl font-bold tabular-nums">{total}</span>
+              <span className="pointer-events-auto font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
                 agents
               </span>
             </div>
@@ -244,10 +244,10 @@ export function FleetStateChart({ agents }: { agents: any[] }) {
                   className="h-2 w-2 shrink-0 rounded-[2px]"
                   style={{ backgroundColor: stateHex(r.state) }}
                 />
-                <span className="font-mono text-[10px] text-muted-foreground">
+                <span className="font-mono text-[11px] text-muted-foreground">
                   {r.state}
                 </span>
-                <span className="ml-auto font-mono text-[10px] tabular-nums">
+                <span className="ml-auto font-mono text-[11px] tabular-nums">
                   {r.count}
                 </span>
               </div>
