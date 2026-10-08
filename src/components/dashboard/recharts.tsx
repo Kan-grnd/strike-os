@@ -4,9 +4,6 @@ import * as React from "react";
 import {
   Area,
   AreaChart,
-  Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -179,6 +176,26 @@ export function FleetStateChart({ agents }: { agents: any[] }) {
 
   const total = rows.reduce((s, r) => s + r.count, 0);
 
+  /* Decorative donut: R=58 with a 24px stroke reads the same as the old
+   * recharts pie (inner 46 / outer 70) but stays out of the accessibility
+   * tree — recharts' sectors emitted role="img" without a name. */
+  const R = 58;
+  const C = 2 * Math.PI * R;
+  let acc = 0;
+  const segments = rows.map((r) => {
+    const len = total > 0 ? (r.count / total) * C : 0;
+    const dash = Math.max(len - 2, 0.5);
+    const seg = {
+      key: r.state,
+      color: stateHex(r.state),
+      dash,
+      space: C - dash,
+      offset: acc,
+    };
+    acc += len;
+    return seg;
+  });
+
   return (
     <Card className="p-6">
       <PanelHeader title="Fleet composition" hint={`${total} agents`} />
@@ -190,31 +207,28 @@ export function FleetStateChart({ agents }: { agents: any[] }) {
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:gap-6">
           <div className="relative h-40 w-40 shrink-0">
             <div className="h-full w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                <Pie
-                  data={rows}
-                  dataKey="count"
-                  nameKey="state"
-                  innerRadius={46}
-                  outerRadius={70}
-                  paddingAngle={2}
-                  stroke="none"
-                >
-                  {rows.map((r) => (
-                    <Cell key={r.state} fill={stateHex(r.state)} />
+              <svg
+                viewBox="0 0 160 160"
+                className="h-full w-full"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <g transform="rotate(-90 80 80)">
+                  {segments.map((s) => (
+                    <circle
+                      key={s.key}
+                      cx={80}
+                      cy={80}
+                      r={R}
+                      fill="none"
+                      stroke={s.color}
+                      strokeWidth={24}
+                      strokeDasharray={`${s.dash} ${s.space}`}
+                      strokeDashoffset={-s.offset}
+                    />
                   ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: "hsl(var(--popover))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                />
-</PieChart>
-              </ResponsiveContainer>
+                </g>
+              </svg>
             </div>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
               <span className="font-mono text-2xl font-bold tabular-nums">{total}</span>
