@@ -7,18 +7,24 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const range = searchParams.get("range") || "7d";
-    
+
+    // The dashboard range control speaks in window labels; translate once so
+    // the query window actually follows the selected range instead of being
+    // pinned to seven days.
+    const rangeDays = range === "24h" ? 1 : range === "30d" ? 30 : 7;
+    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+
     // Fetch traces for performance metrics
     const traces = await prisma.trace.findMany({
-      where: { createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+      where: { createdAt: { gte: since } },
       orderBy: { createdAt: "desc" },
-      take: 100,
+      take: 500,
     });
-    
+
     const tasks = await prisma.task.findMany({
-      where: { createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+      where: { createdAt: { gte: since } },
       orderBy: { createdAt: "desc" },
-      take: 200,
+      take: 1000,
     });
     
     // Calculate performance metrics

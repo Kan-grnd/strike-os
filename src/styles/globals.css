@@ -239,6 +239,45 @@
     --ring: 21 90% 48%;
     --primary-foreground: 0 0% 100%;
   }
+  /* Chart tokens — Bklit UI consumes these directly as colours. Every value is
+     derived from the active pack's tokens (or the accent override) so all six
+     packs and accent variants theme charts with no new hue and no hardcoded
+     hex. Series follow the immutable semantic palette; surfaces, axes and
+     tooltips follow card / border / muted-foreground. Because :root and the
+     pack classes sit on the same <html> element, var() here resolves against
+     whichever pack won the cascade. */
+  :root {
+    --chart-1: hsl(var(--primary));
+    --chart-2: hsl(var(--info));
+    --chart-3: hsl(var(--success));
+    --chart-4: hsl(var(--warning));
+    --chart-5: hsl(var(--destructive));
+
+    --chart-background: hsl(var(--card));
+    --chart-foreground: hsl(var(--foreground));
+    --chart-foreground-muted: hsl(var(--muted-foreground));
+    --chart-line-primary: var(--chart-1);
+    --chart-line-secondary: var(--chart-2);
+    --chart-crosshair: hsl(var(--primary));
+    --chart-grid: hsl(var(--border));
+    --chart-brush-border: var(--chart-grid);
+
+    --chart-tooltip-background: hsl(var(--popover));
+    --chart-tooltip-foreground: hsl(var(--popover-foreground));
+    --chart-tooltip-muted: hsl(var(--muted-foreground));
+
+    --chart-marker-background: hsl(var(--card));
+    --chart-marker-border: hsl(var(--border));
+    --chart-marker-foreground: hsl(var(--foreground));
+    --chart-label: hsl(var(--muted-foreground));
+
+    --chart-scale-01: color-mix(in oklab, hsl(var(--primary)) 12%, hsl(var(--card)));
+    --chart-scale-02: color-mix(in oklab, hsl(var(--primary)) 32%, hsl(var(--card)));
+    --chart-scale-03: color-mix(in oklab, hsl(var(--primary)) 52%, hsl(var(--card)));
+    --chart-scale-04: color-mix(in oklab, hsl(var(--primary)) 72%, hsl(var(--card)));
+    --chart-scale-05: color-mix(in oklab, hsl(var(--primary)) 92%, hsl(var(--card)));
+    --chart-scale-pattern-color: hsl(var(--card));
+  }
 }
 
 /* ─── Glass material system ──────────────────────────────────────

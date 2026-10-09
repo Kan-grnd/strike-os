@@ -5,7 +5,6 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Brain,
@@ -32,30 +31,59 @@ import {
 } from "@/hooks/useApi";
 import { isAgentActiveLive } from "@/components/dashboard/charts";
 import { KpiCard } from "@/components/dashboard/kpi-card";
-import { ThroughputChart, FleetStateChart } from "@/components/dashboard/recharts";
 import { CommandDeckHalo } from "@/components/dashboard/command-deck-halo";
+import {
+  AgentRadar,
+  CompletionHeatmap,
+  EventThroughput,
+  FleetCapacityRing,
+  FleetCompositionPie,
+  MissionOutcomesRing,
+  RangeControl,
+  SuccessGauge,
+  TaskFunnel,
+  TaskOutputBar,
+} from "@/components/dashboard/bklit";
+import {
+  bucketEventsByTime,
+  outcomeTotals,
+  rangeStart,
+  type RangeKey,
+  successRate,
+  taskOutcomeSeries,
+} from "@/components/dashboard/bklit/chart-data";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 export default function HomePage() {
-  const { data: agentsData } = useAgents();
-  const { data: tasksData } = useTasks({ status: "RUNNING" });
-  const { data: missionsData } = useMissions();
+  const [range, setRange] = React.useState<RangeKey>("7d");
+
+  const since = React.useMemo(() => rangeStart(range).toISOString(), [range]);
+
+  const { data: agentsData } = useAgents(undefined, { poll: true });
+  const { data: tasksData } = useTasks(undefined, { poll: true });
+  const { data: missionsData } = useMissions({ poll: true });
   const { data: automationsData } = useAutomations();
-  const { data: eventsData } = useEvents({});
-  const { data: performanceData } = usePerformance();
-  const { data: costsData } = useCosts();
+  const { data: eventsData } = useEvents({ since, limit: "200" });
+  const { data: performanceData } = usePerformance(range);
+  const { data: costsData } = useCosts("7d");
 
   const agents = agentsData?.agents || [];
-  const runningTasks = tasksData?.tasks || [];
+  const allTasks = tasksData?.tasks || [];
   const missions = missionsData?.missions || [];
   const automations = automationsData?.automations || [];
   const events = eventsData?.events || [];
-  const performance = performanceData || { completedTasks: 0, failedTasks: 0 };
-  const costs = costsData && costsData.totalCost > 0 ? costsData : undefined;
 
+  const tasksLoading = tasksData === undefined;
+  const missionsLoading = missionsData === undefined;
+  const agentsLoading = agentsData === undefined;
+  const performanceLoading = performanceData === undefined;
+  const eventsLoading = eventsData === undefined;
+
+  const runningTasks = allTasks.filter((t: any) => t.status === "RUNNING");
   const activeMissions = missions.filter((m: any) => m.status === "RUNNING");
   const activeAgents = agents.filter((a: any) => isAgentActiveLive(a));
+
   const completedToday = missions.filter(
     (m: any) =>
       m.status === "COMPLETED" &&
@@ -63,22 +91,26 @@ export default function HomePage() {
   ).length;
   const activeAutomations = automations.filter((a: any) => a.status === "ACTIVE").length;
 
-  // Trailing event series (12 buckets over 2h) — real data only, used for
-  // the KPI sparkline so the visual is never decorative fiction.
-  const eventSpark = React.useMemo(() => {
-    const BUCKET = 10 * 60_000;
-    const N = 12;
-    const now = Date.now();
-    const start = now - N * BUCKET;
-    const arr = new Array<number>(N).fill(0);
-    for (const e of events) {
-      const t = Date.parse((e as any)?.timestamp ?? "");
-      if (Number.isNaN(t) || t < start || t > now) continue;
-      const i = Math.min(N - 1, Math.max(0, Math.floor((t - start) / BUCKET)));
-      arr[i]++;
-    }
-    return arr;
-  }, [events]);
+  const totalCost = costsData && costsData.totalCost > 0 ? costsData.totalCost : 0;
+  const costDims = costsData && costsData.totalCost > 0 ? costsData.dimensions : undefined;
+
+  // Window outcome series drives both the output bar and the success gauge so
+  // the two never disagree about how many tasks ran through the window.
+  const outcomeSeries = React.useMemo(
+    () => taskOutcomeSeries(allTasks, range),
+    [allTasks, range],
+  );
+  const { completed: windowCompleted, failed: windowFailed } = React.useMemo(
+    () => outcomeTotals(outcomeSeries),
+    [outcomeSeries],
+  );
+  const successValue = successRate(windowCompleted, windowFailed);
+
+  const eventSeries = React.useMemo(
+    () => bucketEventsByTime(events, range).map((p) => p.events),
+    [events, range],
+  );
+  const eventsInWindow = eventSeries.reduce((s, v) => s + v, 0);
 
   const nowItems: {
     title: string;
@@ -125,16 +157,6 @@ export default function HomePage() {
       time: formatRelativeTime(e.timestamp),
     };
   });
-
-  const totalCost = costs?.totalCost ?? 0;
-  const successRate =
-    performance.completedTasks + performance.failedTasks > 0
-      ? Math.round(
-          (performance.completedTasks /
-            (performance.completedTasks + performance.failedTasks)) *
-            100
-        )
-      : null;
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
@@ -200,7 +222,7 @@ export default function HomePage() {
           icon={ListTodo}
           label="Running tasks"
           value={runningTasks.length}
-          caption={`${performance.completedTasks} completed · 7d`}
+          caption={`${windowCompleted} completed · ${range}`}
           accent="hsl(var(--primary) / 0.4)"
         />
         <KpiCard
@@ -213,35 +235,78 @@ export default function HomePage() {
         <KpiCard
           index={3}
           icon={Activity}
-          label="Events · 2h"
-          value={eventSpark.reduce((s, v) => s + v, 0)}
+          label={`Events · ${range}`}
+          value={eventsInWindow}
           caption={
-            successRate != null ? `${successRate}% task success` : "No outcomes yet"
+            successValue != null ? `${successValue}% task success` : "No outcomes yet"
           }
-          spark={eventSpark}
+          spark={eventSeries}
           accent="hsl(var(--success) / 0.4)"
         />
       </section>
 
-      {/* ── Charts ───────────────────────────────────────────────────── */}
-      <section className="grid gap-4 lg:grid-cols-5">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1, ease: EASE }}
-          className="lg:col-span-3"
-        >
-          <ThroughputChart events={events} />
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.16, ease: EASE }}
-          className="lg:col-span-2"
-        >
-          <FleetStateChart agents={agents} />
-        </motion.div>
-      </section>
+      {/* ── Fleet telemetry ──────────────────────────────────────────── */}
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1, ease: EASE }}
+        className="space-y-4"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Fleet telemetry
+          </h2>
+          <div className="flex items-center gap-3">
+            <span className="hidden font-mono text-[11px] text-muted-foreground/70 sm:inline">
+              Throughput · output · success
+            </span>
+            <RangeControl value={range} onChange={setRange} />
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-5">
+          <div className="lg:col-span-3">
+            <EventThroughput events={events} range={range} loading={eventsLoading} />
+          </div>
+          <div className="lg:col-span-2">
+            <SuccessGauge
+              value={successValue}
+              completed={windowCompleted}
+              failed={windowFailed}
+              loading={performanceLoading || tasksLoading}
+            />
+          </div>
+
+          <div className="lg:col-span-3">
+            <TaskOutputBar tasks={allTasks} range={range} loading={tasksLoading} />
+          </div>
+          <div className="lg:col-span-2">
+            <TaskFunnel tasks={allTasks} />
+          </div>
+
+          <div className="grid gap-4 lg:col-span-5 lg:grid-cols-3">
+            <FleetCompositionPie agents={agents} />
+            <MissionOutcomesRing missions={missions} />
+            <FleetCapacityRing total={agents.length} active={activeAgents.length} />
+          </div>
+
+          <div className="lg:col-span-3">
+            <CompletionHeatmap tasks={allTasks} />
+          </div>
+          <div className="lg:col-span-2">
+            <AgentRadar
+              agents={agents}
+              tasks={allTasks}
+              performance={performanceData}
+            />
+          </div>
+        </div>
+
+        {/* Keep loading states reachable so the rail honest-empties. */}
+        <span className="sr-only">
+          {agentsLoading && missionsLoading ? "Loading fleet data" : "Fleet data ready"}
+        </span>
+      </motion.section>
 
       {/* ── Activity ─────────────────────────────────────────────────── */}
       <section className="grid gap-4 lg:grid-cols-2">
@@ -311,16 +376,16 @@ export default function HomePage() {
         <MiniStat
           icon={Zap}
           label="Automations"
-          value={String(automations.filter((a: any) => a.status === "ACTIVE").length)}
+          value={String(activeAutomations)}
           caption={`${automations.length} configured`}
           href="/work?type=automations"
         />
-        <KpiCost totalCost={totalCost} dims={costs?.dimensions} />
+        <KpiCost totalCost={totalCost} dims={costDims} />
         <MiniStat
           icon={ListTodo}
-          label="Fleet success · 7d"
-          value={successRate != null ? `${successRate}%` : "—"}
-          caption={`${performance.completedTasks} completed / ${performance.failedTasks} failed`}
+          label={`Fleet success · ${range}`}
+          value={successValue != null ? `${successValue}%` : "—"}
+          caption={`${windowCompleted} completed / ${windowFailed} failed`}
           href="/observability/performance"
         />
       </section>

@@ -67,13 +67,17 @@ export async function setAutomationsGlobal(paused: boolean) {
   }).then((r) => r.json());
 }
 
-export function useAgents(filters?: Record<string, string>) {
+/* `options.poll` opts a list view into the ambient refresh cadence. Default
+ * off so detail/picker call sites keep their current one-shot behaviour; the
+ * command center turns it on so its charts read as live. */
+export function useAgents(filters?: Record<string, string>, options?: { poll?: boolean }) {
   const params = new URLSearchParams();
   if (filters?.status) params.set("status", filters.status);
   if (filters?.type) params.set("type", filters.type);
   if (filters?.colonyId) params.set("colonyId", filters.colonyId);
   const key = `/api/agents${params.toString() ? `?${params}` : ""}`;
-  return useSWR<{ agents: any[] }>(key, fetcher);
+  const rate = useRefreshRate();
+  return useSWR<{ agents: any[] }>(key, fetcher, options?.poll ? pollOptions(rate) : undefined);
 }
 
 /* Single-item execution views. All three poll at the same `live` rate so a
@@ -95,8 +99,9 @@ export function useColonies() {
   return useSWR<{ colonies: any[] }>("/api/colonies", fetcher);
 }
 
-export function useMissions() {
-  return useSWR<{ missions: any[] }>("/api/missions", fetcher);
+export function useMissions(options?: { poll?: boolean }) {
+  const rate = useRefreshRate();
+  return useSWR<{ missions: any[] }>("/api/missions", fetcher, options?.poll ? pollOptions(rate) : undefined);
 }
 
 export function useApprovals() {
@@ -214,6 +219,8 @@ export function useTrace(id?: string) {
 export function useEvents(filters?: Record<string, string>) {
   const params = new URLSearchParams();
   if (filters?.type) params.set("type", filters.type);
+  if (filters?.limit) params.set("limit", filters.limit);
+  if (filters?.since) params.set("since", filters.since);
   const key = `/api/events${params.toString() ? `?${params}` : ""}`;
   const rate = useRefreshRate();
   return useSWR<{ events: any[] }>(key, fetcher, pollOptions(rate));
@@ -276,13 +283,14 @@ export async function createMission(data: {
   }).then((r) => r.json());
 }
 
-export function useTasks(filters?: Record<string, string>) {
+export function useTasks(filters?: Record<string, string>, options?: { poll?: boolean }) {
   const params = new URLSearchParams();
   if (filters?.status) params.set("status", filters.status);
   if (filters?.missionId) params.set("missionId", filters.missionId);
   if (filters?.agentId) params.set("agentId", filters.agentId);
   const key = `/api/tasks${params.toString() ? `?${params}` : ""}`;
-  return useSWR<{ tasks: any[] }>(key, fetcher);
+  const rate = useRefreshRate();
+  return useSWR<{ tasks: any[] }>(key, fetcher, options?.poll ? pollOptions(rate) : undefined);
 }
 
 export async function createColony(data: { name: string; description?: string }) {
