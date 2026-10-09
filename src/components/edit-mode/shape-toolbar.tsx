@@ -16,7 +16,6 @@ import {
   Eraser,
   Undo2,
   Copy,
-  X,
   Trash2,
   SlidersHorizontal,
   BringToFront,
@@ -56,13 +55,12 @@ const TOOLS: { id: ToolId; title: string; icon: typeof Square }[] = [
   { id: "eraser", title: "Eraser — tap a shape to delete it", icon: Eraser },
 ];
 
-const BTN = "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors";
+const BTN = "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors";
 const DIVIDER = "mx-0.5 h-5 w-px bg-border";
 
 /**
- * Renders the tool row inside EditBadge's panel — it is intentionally not
- * `fixed` itself, so the status row and the tools can never drift apart or
- * wrap over each other.
+ * The toolbar inside the edit panel. Tools sit on the first row, actions on a
+ * shorter second row, so the panel stays compact instead of one long bar.
  */
 export function ShapeToolbar() {
   const {
@@ -137,267 +135,275 @@ export function ShapeToolbar() {
   };
 
   return (
-    <div className="relative flex flex-wrap items-center justify-center gap-1">
-      {TOOLS.map((t, i) => {
-        const active = activeTool === t.id;
-        // Group draw/list tools from the select tool and the action cluster.
-        const dividerBefore = i === 1 || i === TOOLS.length - 1;
-        return (
-          <span key={t.id} className="flex items-center">
-            {dividerBefore && <span className={DIVIDER} />}
-            <button
-              type="button"
-              onClick={() => setTool(t.id)}
-              title={t.title}
-              aria-label={t.title}
-              aria-pressed={active}
-              className={cn(
-                BTN,
-                active
-                  ? "bg-cyan-400/20 text-cyan-300"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}
-            >
-              <t.icon className="h-4 w-4" />
-            </button>
-          </span>
-        );
-      })}
-
-      <span className={DIVIDER} />
-
-      <div className="relative" ref={moreRef}>
-        <button
-          type="button"
-          onClick={() => setMoreOpen(!moreOpen)}
-          title="Stroke, opacity, fill and arrange"
-          aria-label="Stroke, opacity, fill and arrange"
-          aria-expanded={moreOpen}
-          aria-pressed={moreOpen}
-          className={cn(
-            BTN,
-            moreOpen
-              ? "bg-cyan-400/20 text-cyan-300"
-              : "text-muted-foreground hover:bg-accent hover:text-foreground"
-          )}
-        >
-          <SlidersHorizontal className="h-4 w-4" />
-        </button>
-
-        {moreOpen && (
-          <div className="absolute top-full right-0 z-10 mt-1.5 w-[180px] space-y-2.5 rounded-lg border border-border bg-background p-2 shadow-xl">
-            <div>
-              <div className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-                Stroke
-              </div>
-              <div className="grid grid-cols-4 gap-1">
-                {WIDTHS.map((w) => (
-                  <button
-                    key={w}
-                    type="button"
-                    title={`Stroke ${w}px`}
-                    aria-label={`Stroke ${w}px`}
-                    aria-pressed={strokeWidth === w}
-                    onClick={() => setStrokeWidth(w)}
-                    className={cn(
-                      "flex h-9 items-center justify-center rounded-md border transition-colors",
-                      strokeWidth === w
-                        ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
-                        : "border-border text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <span
-                      className="block rounded-full"
-                      style={{ width: 12, height: Math.max(2, w), backgroundColor: "currentColor" }}
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div className="mb-1 flex items-center justify-between text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-                <span>Opacity</span>
-                <span className="tabular-nums">{Math.round(opacity * 100)}%</span>
-              </div>
-              <input
-                type="range"
-                min={10}
-                max={100}
-                step={5}
-                value={Math.round(opacity * 100)}
-                onChange={(e) => applyOpacity(Number(e.target.value) / 100)}
-                aria-label="Opacity"
-                className="h-1.5 w-full cursor-pointer accent-cyan-400"
-              />
-            </div>
-
-            <div>
-              <div className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-                Fill
-              </div>
+    <div className="flex flex-col items-center gap-1">
+      <div className="flex flex-wrap items-center justify-center gap-1">
+        {TOOLS.map((t, i) => {
+          const active = activeTool === t.id;
+          const dividerBefore = i === 1;
+          return (
+            <span key={t.id} className="flex items-center">
+              {dividerBefore && <span className={DIVIDER} />}
               <button
                 type="button"
-                onClick={() => applyFill(!fill)}
-                aria-pressed={fill}
-                title="Fill interior (rectangle / ellipse)"
+                onClick={() => setTool(t.id)}
+                title={t.title}
+                aria-label={t.title}
+                aria-pressed={active}
                 className={cn(
-                  "flex h-9 w-full items-center justify-center gap-2 rounded-md border text-xs transition-colors",
-                  fill
-                    ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
-                    : "border-border text-muted-foreground hover:text-foreground"
+                  BTN,
+                  active
+                    ? "bg-cyan-400/20 text-cyan-300"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
               >
-                <Square className={cn("h-4 w-4", fill && "fill-current")} />
-                {fill ? "Filled" : "Outline"}
+                <t.icon className="h-4 w-4" />
               </button>
-            </div>
-
-            <div>
-              <div className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-                Arrange
-              </div>
-              <div className="grid grid-cols-2 gap-1">
-                <button
-                  type="button"
-                  onClick={() => selectedId && bringForward(selectedId)}
-                  disabled={!selectedId}
-                  title="Bring forward"
-                  aria-label="Bring forward"
-                  className={cn(
-                    "flex h-9 items-center justify-center gap-1.5 rounded-md border text-xs transition-colors",
-                    "border-border text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  )}
-                >
-                  <BringToFront className="h-4 w-4" />
-                  Up
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectedId && sendBackward(selectedId)}
-                  disabled={!selectedId}
-                  title="Send backward"
-                  aria-label="Send backward"
-                  className={cn(
-                    "flex h-9 items-center justify-center gap-1.5 rounded-md border text-xs transition-colors",
-                    "border-border text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  )}
-                >
-                  <SendToBack className="h-4 w-4" />
-                  Down
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <div className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-                Colour
-              </div>
-              <div className="grid grid-cols-4 gap-1.5">
-                {COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => {
-                      if (selectedId) updateShape(selectedId, { color: c });
-                      else setActiveColor(c);
-                    }}
-                    title={c}
-                    aria-label={`Colour ${c}`}
-                    aria-pressed={activeColor === c}
-                    className={cn(
-                      "h-6 w-6 rounded-full border transition-transform",
-                      activeColor === c ? "scale-110 border-white" : "border-border hover:scale-110"
-                    )}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-                <label className="relative flex h-6 w-6 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-border text-muted-foreground">
-                  <span
-                    className="block h-4 w-4 rounded-full border border-white/30"
-                    style={{ backgroundColor: activeColor }}
-                  />
-                  <input
-                    type="color"
-                    value={/^#[0-9a-f]{6}$/i.test(activeColor) ? activeColor : "#ef4444"}
-                    onChange={(e) => {
-                      if (selectedId) updateShape(selectedId, { color: e.target.value });
-                      else setActiveColor(e.target.value);
-                    }}
-                    aria-label="Custom colour"
-                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                  />
-                </label>
-              </div>
-            </div>
-          </div>
-        )}
+            </span>
+          );
+        })}
       </div>
 
-      <span className={DIVIDER} />
+      <div className="flex flex-wrap items-center justify-center gap-1">
+        <button
+          type="button"
+          onClick={undoShape}
+          title="Undo last"
+          aria-label="Undo last"
+          className={cn(BTN, "text-muted-foreground hover:bg-accent hover:text-foreground")}
+        >
+          <Undo2 className="h-4 w-4" />
+        </button>
 
-      <button
-        type="button"
-        onClick={undoShape}
-        disabled={shapes.length === 0}
-        title={shapes.length === 0 ? "Nothing to undo" : "Undo last"}
-        aria-label="Undo last"
-        className={cn(BTN, "text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30")}
-      >
-        <Undo2 className="h-4 w-4" />
-      </button>
+        <button
+          type="button"
+          onClick={() => selectedId && duplicateShape(selectedId)}
+          disabled={!selectedId}
+          title="Duplicate selected"
+          aria-label="Duplicate selected"
+          className={cn(
+            BTN,
+            "text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
+          )}
+        >
+          <Copy className="h-4 w-4" />
+        </button>
 
-      <button
-        type="button"
-        onClick={() => selectedId && duplicateShape(selectedId)}
-        disabled={!selectedId}
-        title={selectedId ? "Duplicate selected" : "Select a shape to duplicate"}
-        aria-label="Duplicate selected"
-        className={cn(BTN, "text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30")}
-      >
-        <Copy className="h-4 w-4" />
-      </button>
+        <button
+          type="button"
+          onClick={() => selectedId && removeShape(selectedId)}
+          disabled={!selectedId}
+          title="Delete selected"
+          aria-label="Delete selected"
+          className={cn(
+            BTN,
+            "text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-30"
+          )}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
 
-      <button
-        type="button"
-        onClick={() => selectedId && removeShape(selectedId)}
-        disabled={!selectedId}
-        title={selectedId ? "Delete selected" : "Select a shape to delete"}
-        aria-label="Delete selected"
-        className={cn(BTN, "text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-30")}
-      >
-        <X className="h-4 w-4" />
-      </button>
+        <span className={DIVIDER} />
 
-      <button
-        type="button"
-        onClick={onClear}
-        disabled={shapes.length === 0}
-        title={
-          shapes.length === 0
-            ? "No drawings on this page"
-            : clearArmed
-              ? "Tap again to clear"
-              : "Clear page (tap twice)"
-        }
-        aria-label={clearArmed ? "Confirm clear page" : "Clear page"}
-        className={cn(
-          BTN,
-          clearArmed
-            ? "bg-destructive/20 text-destructive"
-            : "text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-30"
+        <div className="relative" ref={moreRef}>
+          <button
+            type="button"
+            onClick={() => setMoreOpen(!moreOpen)}
+            title="Stroke, opacity, fill and arrange"
+            aria-label="Stroke, opacity, fill and arrange"
+            aria-expanded={moreOpen}
+            aria-pressed={moreOpen}
+            className={cn(
+              BTN,
+              moreOpen
+                ? "bg-cyan-400/20 text-cyan-300"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+            )}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+          </button>
+
+          {moreOpen && (
+            <div className="absolute top-full right-0 z-10 mt-1.5 w-[184px] space-y-2.5 rounded-lg border border-border bg-background p-2 shadow-xl">
+              <div>
+                <div className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                  Stroke
+                </div>
+                <div className="grid grid-cols-4 gap-1">
+                  {WIDTHS.map((w) => (
+                    <button
+                      key={w}
+                      type="button"
+                      title={`Stroke ${w}px`}
+                      aria-label={`Stroke ${w}px`}
+                      aria-pressed={strokeWidth === w}
+                      onClick={() => setStrokeWidth(w)}
+                      className={cn(
+                        "flex h-8 items-center justify-center rounded-md border transition-colors",
+                        strokeWidth === w
+                          ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <span
+                        className="block rounded-full"
+                        style={{ width: 12, height: Math.max(2, w), backgroundColor: "currentColor" }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-1 flex items-center justify-between text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                  <span>Opacity</span>
+                  <span className="tabular-nums">{Math.round(opacity * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={10}
+                  max={100}
+                  step={5}
+                  value={Math.round(opacity * 100)}
+                  onChange={(e) => applyOpacity(Number(e.target.value) / 100)}
+                  aria-label="Opacity"
+                  className="h-1.5 w-full cursor-pointer accent-cyan-400"
+                />
+              </div>
+
+              <div>
+                <div className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                  Fill
+                </div>
+                <button
+                  type="button"
+                  onClick={() => applyFill(!fill)}
+                  aria-pressed={fill}
+                  title="Fill interior (rectangle / ellipse)"
+                  className={cn(
+                    "flex h-8 w-full items-center justify-center gap-2 rounded-md border text-xs transition-colors",
+                    fill
+                      ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Square className={cn("h-4 w-4", fill && "fill-current")} />
+                  {fill ? "Filled" : "Outline"}
+                </button>
+              </div>
+
+              <div>
+                <div className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                  Arrange
+                </div>
+                <div className="grid grid-cols-2 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => selectedId && bringForward(selectedId)}
+                    disabled={!selectedId}
+                    title="Bring forward"
+                    aria-label="Bring forward"
+                    className={cn(
+                      "flex h-8 items-center justify-center gap-1.5 rounded-md border text-xs transition-colors",
+                      "border-border text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    )}
+                  >
+                    <BringToFront className="h-4 w-4" />
+                    Up
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => selectedId && sendBackward(selectedId)}
+                    disabled={!selectedId}
+                    title="Send backward"
+                    aria-label="Send backward"
+                    className={cn(
+                      "flex h-8 items-center justify-center gap-1.5 rounded-md border text-xs transition-colors",
+                      "border-border text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    )}
+                  >
+                    <SendToBack className="h-4 w-4" />
+                    Down
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                  Colour
+                </div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => {
+                        if (selectedId) updateShape(selectedId, { color: c });
+                        else setActiveColor(c);
+                      }}
+                      title={c}
+                      aria-label={`Colour ${c}`}
+                      aria-pressed={activeColor === c}
+                      className={cn(
+                        "h-6 w-6 rounded-full border transition-transform",
+                        activeColor === c ? "scale-110 border-white" : "border-border hover:scale-110"
+                      )}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                  <label className="relative flex h-6 w-6 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-border text-muted-foreground">
+                    <span
+                      className="block h-4 w-4 rounded-full border border-white/30"
+                      style={{ backgroundColor: activeColor }}
+                    />
+                    <input
+                      type="color"
+                      value={activeColor}
+                      onChange={(e) => {
+                        if (selectedId) updateShape(selectedId, { color: e.target.value });
+                        else setActiveColor(e.target.value);
+                      }}
+                      aria-label="Custom colour"
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="border-t border-border pt-2.5">
+                <button
+                  type="button"
+                  onClick={onClear}
+                  disabled={shapes.length === 0}
+                  title={
+                    shapes.length === 0
+                      ? "No drawings on this page"
+                      : clearArmed
+                        ? "Tap again to clear the whole page"
+                        : "Clear all drawings on this page (tap twice)"
+                  }
+                  aria-label={clearArmed ? "Confirm clear page" : "Clear page"}
+                  className={cn(
+                    "flex h-8 w-full items-center justify-center gap-2 rounded-md border text-xs transition-colors",
+                    clearArmed
+                      ? "border-destructive/50 bg-destructive/15 text-destructive"
+                      : "border-border text-muted-foreground hover:border-destructive/40 hover:text-destructive disabled:opacity-30"
+                  )}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {clearArmed ? "Tap again to clear" : "Clear page"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {shapes.length > 0 && (
+          <span className="flex items-center gap-1 pl-0.5 text-[11px] whitespace-nowrap text-muted-foreground tabular-nums">
+            {shapes.length}
+            {selectedId ? " · 1 selected" : ""}
+          </span>
         )}
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
-
-      {shapes.length > 0 && (
-        <span className="flex items-center gap-1 pl-0.5 text-[11px] whitespace-nowrap text-muted-foreground">
-          {shapes.length}
-          {selectedId ? " · 1 selected" : ""}
-          {clearArmed ? <span className="text-destructive">· tap again</span> : null}
-        </span>
-      )}
+      </div>
     </div>
   );
 }

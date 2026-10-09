@@ -211,6 +211,14 @@ export function ShapeOverlay() {
       if (e.button !== 0) return;
       // A pending text label owns the pointer until it is sent or cancelled.
       if (textDraftRef.current) return;
+      // Capture the pointer so every move/up of this gesture comes back to the
+      // SVG even when it ends over the panel, the header or off the window —
+      // without this a stroke released over UI is silently dropped.
+      try {
+        svg.setPointerCapture(e.pointerId);
+      } catch {
+        /* capture unsupported — fall back to plain listeners */
+      }
       const pos = getPos(e);
 
       if (isEraser) {
@@ -304,6 +312,11 @@ export function ShapeOverlay() {
     };
 
     const onUp = (e: PointerEvent) => {
+      try {
+        svg.releasePointerCapture(e.pointerId);
+      } catch {
+        /* pointer already gone */
+      }
       if (isEraser) return;
       if (isSelect) {
         dragRef.current = null;
@@ -378,13 +391,32 @@ export function ShapeOverlay() {
       rerender();
     };
 
+    // A cancelled or lost pointer must drop the in-progress gesture instead of
+    // leaving a stranded stroke that never commits.
+    const onCancel = (e: PointerEvent) => {
+      try {
+        svg.releasePointerCapture(e.pointerId);
+      } catch {
+        /* pointer already gone */
+      }
+      drawingRef.current = false;
+      startRef.current = null;
+      currentRef.current = null;
+      penRef.current = [];
+      dragRef.current = null;
+      resizeRef.current = null;
+      rerender();
+    };
+
     svg.addEventListener("pointerdown", onDown);
     svg.addEventListener("pointermove", onMove);
     svg.addEventListener("pointerup", onUp);
+    svg.addEventListener("pointercancel", onCancel);
     return () => {
       svg.removeEventListener("pointerdown", onDown);
       svg.removeEventListener("pointermove", onMove);
       svg.removeEventListener("pointerup", onUp);
+      svg.removeEventListener("pointercancel", onCancel);
     };
   }, [
     isSelect,
@@ -463,6 +495,12 @@ export function ShapeOverlay() {
     const top = Math.min(s.y, s.y2);
     const b = bbox(s);
     const op = s.opacity ?? 1;
+    // A deliberate but tiny drag must still leave a visible mark — never a
+    // sub-pixel box the user reads as "nothing happened".
+    const rw = Math.max(w, 6);
+    const rh = Math.max(h, 6);
+    const rleft = w >= 6 ? left : left - (6 - w) / 2;
+    const rtop = h >= 6 ? top : top - (6 - h) / 2;
 
     const selectedRing = selectedId === s.id ? (
       <>
@@ -498,10 +536,10 @@ export function ShapeOverlay() {
       return (
         <Fragment key={s.id}>
           <rect
-            x={left}
-            y={top}
-            width={w}
-            height={h}
+            x={rleft}
+            y={rtop}
+            width={rw}
+            height={rh}
             fill={s.fill ? s.color : "none"}
             fillOpacity={s.fill ? 0.2 : undefined}
             stroke={s.color}
@@ -519,10 +557,10 @@ export function ShapeOverlay() {
       return (
         <Fragment key={s.id}>
           <ellipse
-            cx={left + w / 2}
-            cy={top + h / 2}
-            rx={w / 2}
-            ry={h / 2}
+            cx={rleft + rw / 2}
+            cy={rtop + rh / 2}
+            rx={rw / 2}
+            ry={rh / 2}
             fill={s.fill ? s.color : "none"}
             fillOpacity={s.fill ? 0.2 : undefined}
             stroke={s.color}
@@ -598,16 +636,33 @@ export function ShapeOverlay() {
     if (s.type === "redact") {
       return (
         <Fragment key={s.id}>
-          <rect x={left} y={top} width={w} height={h} fill={s.color} opacity={op} />
+          <rect x={rleft} y={rtop} width={rw} height={rh} fill={s.color} rx={3} opacity={op} />
           {selectedRing}
         </Fragment>
       );
     }
 
     if (s.type === "blur") {
-      // The visual blur is painted by the HTML layer; only the selection ring
-      // lives in the SVG so it stays crisp and interactive.
-      return <Fragment key={s.id}>{selectedRing}</Fragment>;
+      // The blur itself is painted by the HTML backdrop layer. A faint outline
+      // lives in the SVG so the region is discoverable even on a flat surface
+      // where backdrop-filter has nothing to blur.
+      return (
+        <Fragment key={s.id}>
+          <rect
+            x={rleft}
+            y={rtop}
+            width={rw}
+            height={rh}
+            rx={4}
+            fill="none"
+            stroke="rgba(148,163,184,0.55)"
+            strokeWidth={1}
+            strokeDasharray="4 3"
+            opacity={op}
+          />
+          {selectedRing}
+        </Fragment>
+      );
     }
 
     if (s.type === "pin") {
@@ -793,11 +848,11 @@ export function ShapeOverlay() {
                 position: "absolute",
                 left: Math.min(s.x, s.x2),
                 top: Math.min(s.y, s.y2),
-                width: Math.abs(s.x2 - s.x),
-                height: Math.abs(s.y2 - s.y),
+                width: Math.max(6, Math.abs(s.x2 - s.x)),
+                height: Math.max(6, Math.abs(s.y2 - s.y)),
                 backdropFilter: "blur(10px)",
                 WebkitBackdropFilter: "blur(10px)",
-                background: "rgba(255,255,255,0.02)",
+                background: "rgba(148,163,184,0.10)",
                 opacity: s.opacity ?? 1,
               }}
             />
@@ -811,6 +866,8 @@ export function ShapeOverlay() {
         style={{
           pointerEvents: isShapeTool || isSelect || isEraser ? "auto" : "none",
           cursor,
+          touchAction: "none",
+          userSelect: "none",
           width: "100vw",
           height: "100vh",
         }}

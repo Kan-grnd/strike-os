@@ -141,6 +141,8 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
     setPending(null);
     setMoreOpen(false);
     setClearArmed(false);
+    setActiveOpacity(1);
+    setActiveFill(false);
     try {
       const raw = window.localStorage.getItem(shapesKey(pathname));
       setShapes(raw ? (JSON.parse(raw) as Shape[]) : []);
