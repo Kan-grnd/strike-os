@@ -33,6 +33,7 @@ import {
 import { isAgentActiveLive } from "@/components/dashboard/charts";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { ThroughputChart, FleetStateChart } from "@/components/dashboard/recharts";
+import { CommandDeckHalo } from "@/components/dashboard/command-deck-halo";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -144,15 +145,12 @@ export default function HomePage() {
         transition={{ duration: 0.5, ease: EASE }}
         className="relative overflow-hidden rounded-lg glass p-8"
       >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary/10 blur-3xl"
-        />
+        <CommandDeckHalo />
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60 motion-reduce:animate-none" />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
               </span>
               <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
