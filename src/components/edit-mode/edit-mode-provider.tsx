@@ -14,9 +14,16 @@ export type ShapeTool =
   | "arrow"
   | "pen"
   | "line"
+  | "highlighter"
   | "pin"
-  | "text";
+  | "text"
+  | "blur"
+  | "redact"
+  | "eraser";
 export type ActiveTool = ShapeTool | "select" | null;
+
+/** Tools that paint a stroke the user can see and pick; not `eraser`. */
+export type DrawTool = Exclude<ShapeTool, "eraser">;
 
 export interface Shape {
   id: string;
@@ -29,6 +36,10 @@ export interface Shape {
   strokeWidth: number;
   points?: { x: number; y: number }[];
   label?: string;
+  /** 0–1; absent means fully opaque so pre-existing drawings keep working. */
+  opacity?: number;
+  /** Rect/ellipse only: paint a translucent interior instead of none. */
+  fill?: boolean;
 }
 
 interface EditModeContextValue {
@@ -39,6 +50,9 @@ interface EditModeContextValue {
   addShape: (shape: Shape) => void;
   updateShape: (id: string, patch: Partial<Shape>) => void;
   removeShape: (id: string) => void;
+  duplicateShape: (id: string) => void;
+  bringForward: (id: string) => void;
+  sendBackward: (id: string) => void;
   undoShape: () => void;
   clearShapes: () => void;
   activeTool: ActiveTool;
@@ -47,11 +61,20 @@ interface EditModeContextValue {
   setActiveColor: (color: string) => void;
   strokeWidth: number;
   setStrokeWidth: (width: number) => void;
+  /** Default opacity applied to newly drawn shapes; 0–1. */
+  activeOpacity: number;
+  setActiveOpacity: (opacity: number) => void;
+  /** Default fill applied to newly drawn rect/ellipse shapes. */
+  activeFill: boolean;
+  setActiveFill: (fill: boolean) => void;
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
   /** The toolbar's "More" popover. Owned here so Escape has one owner. */
   moreOpen: boolean;
   setMoreOpen: (open: boolean) => void;
+  /** Clear-page is armed after the first tap and waits for a confirming tap. */
+  clearArmed: boolean;
+  setClearArmed: (armed: boolean) => void;
 }
 
 const EditModeContext = createContext<EditModeContextValue>({
@@ -61,6 +84,9 @@ const EditModeContext = createContext<EditModeContextValue>({
   addShape: () => {},
   updateShape: () => {},
   removeShape: () => {},
+  duplicateShape: () => {},
+  bringForward: () => {},
+  sendBackward: () => {},
   undoShape: () => {},
   clearShapes: () => {},
   activeTool: null,
@@ -69,10 +95,16 @@ const EditModeContext = createContext<EditModeContextValue>({
   setActiveColor: () => {},
   strokeWidth: 2,
   setStrokeWidth: () => {},
+  activeOpacity: 1,
+  setActiveOpacity: () => {},
+  activeFill: false,
+  setActiveFill: () => {},
   selectedId: null,
   setSelectedId: () => {},
   moreOpen: false,
   setMoreOpen: () => {},
+  clearArmed: false,
+  setClearArmed: () => {},
 });
 
 export function useEditMode() {
@@ -91,8 +123,11 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
   const [activeTool, setActiveTool] = useState<ActiveTool>(null);
   const [activeColor, setActiveColor] = useState(DEFAULT_COLOR);
   const [strokeWidth, setStrokeWidth] = useState(DEFAULT_WIDTH);
+  const [activeOpacity, setActiveOpacity] = useState(1);
+  const [activeFill, setActiveFill] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [clearArmed, setClearArmed] = useState(false);
   const pathname = usePathname();
 
   // Shapes are per-route: load what was saved for this page on mount and on
@@ -105,6 +140,7 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
     setActiveTool(null);
     setPending(null);
     setMoreOpen(false);
+    setClearArmed(false);
     try {
       const raw = window.localStorage.getItem(shapesKey(pathname));
       setShapes(raw ? (JSON.parse(raw) as Shape[]) : []);
@@ -132,6 +168,7 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
     setActiveTool(null);
     setSelectedId(null);
     setMoreOpen(false);
+    setClearArmed(false);
     if (!value) setPending(null);
   }, []);
 
@@ -142,6 +179,7 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
     setActiveTool(null);
     setSelectedId(null);
     setMoreOpen(false);
+    setClearArmed(false);
   }, []);
 
   const clearPending = useCallback(() => setPending(null), []);
@@ -156,13 +194,14 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
       if (pending) clearPending();
       else if (active) {
         if (moreOpen) setMoreOpen(false);
+        else if (clearArmed) setClearArmed(false);
         else if (activeTool !== null) setActiveTool(null);
         else setActive(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [pending, active, moreOpen, activeTool, clearPending]);
+  }, [pending, active, moreOpen, activeTool, clearArmed, clearPending]);
 
   const addShape = useCallback((shape: Shape) => {
     setShapes((prev) => [...prev, shape]);
@@ -177,6 +216,48 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
     setShapes((prev) => prev.filter((s) => s.id !== id));
   }, []);
 
+  // Duplicate offsets a copy down-right and selects it, so the clone is
+  // immediately draggable with the select tool.
+  const duplicateShape = useCallback((id: string) => {
+    const copyId = `shape-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const offset = 14;
+    setShapes((prev) => {
+      const src = prev.find((s) => s.id === id);
+      if (!src) return prev;
+      const copy: Shape = {
+        ...src,
+        id: copyId,
+        x: src.x + offset,
+        y: src.y + offset,
+        x2: src.x2 + offset,
+        y2: src.y2 + offset,
+        points: src.points?.map((p) => ({ x: p.x + offset, y: p.y + offset })),
+      };
+      return [...prev, copy];
+    });
+    setSelectedId(copyId);
+  }, []);
+
+  const bringForward = useCallback((id: string) => {
+    setShapes((prev) => {
+      const i = prev.findIndex((s) => s.id === id);
+      if (i < 0 || i === prev.length - 1) return prev;
+      const next = [...prev];
+      [next[i], next[i + 1]] = [next[i + 1], next[i]];
+      return next;
+    });
+  }, []);
+
+  const sendBackward = useCallback((id: string) => {
+    setShapes((prev) => {
+      const i = prev.findIndex((s) => s.id === id);
+      if (i <= 0) return prev;
+      const next = [...prev];
+      [next[i], next[i - 1]] = [next[i - 1], next[i]];
+      return next;
+    });
+  }, []);
+
   const undoShape = useCallback(() => {
     // Selection is cleared in its own update — never inside another updater.
     setSelectedId(null);
@@ -186,6 +267,7 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
   const clearShapes = useCallback(() => {
     setShapes([]);
     setSelectedId(null);
+    setClearArmed(false);
   }, []);
 
   // The ticket box owns the screen while it is open: no chrome, no drawing
@@ -201,6 +283,9 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
         addShape,
         updateShape,
         removeShape,
+        duplicateShape,
+        bringForward,
+        sendBackward,
         undoShape,
         clearShapes,
         activeTool,
@@ -209,10 +294,16 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
         setActiveColor,
         strokeWidth,
         setStrokeWidth,
+        activeOpacity,
+        setActiveOpacity,
+        activeFill,
+        setActiveFill,
         selectedId,
         setSelectedId,
         moreOpen,
         setMoreOpen,
+        clearArmed,
+        setClearArmed,
       }}
     >
       {children}
