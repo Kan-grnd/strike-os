@@ -42,11 +42,11 @@ export function Hero({
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 right-0 hidden w-[42%] md:block motion-safe:animate-[cc-orb-breathe_7s_ease-in-out_infinite_alternate]"
+        className="pointer-events-none absolute inset-0 hidden md:block motion-safe:animate-[cc-orb-breathe_7s_ease-in-out_infinite_alternate]"
       >
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_55%_at_62%_50%,color-mix(in_oklab,hsl(var(--primary))_30%,transparent),transparent)] blur-2xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_50%_50%,color-mix(in_oklab,hsl(var(--primary))_22%,transparent),transparent)] blur-2xl" />
       </div>
-      <DotSphere className="pointer-events-none absolute inset-y-0 right-0 h-full w-[42%] hidden md:block [mask-image:linear-gradient(to_right,transparent,black_45%)]" followMouse />
+      <DotSphere className="pointer-events-none absolute inset-0 h-full w-full hidden md:block [mask-image:linear-gradient(to_right,transparent,black_45%)]" followMouse />
       <div className="relative z-10">
         <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
           <span className={cn("size-2 rounded-full", dotClass, pulse)} aria-hidden />
