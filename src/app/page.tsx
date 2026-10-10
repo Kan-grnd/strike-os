@@ -15,7 +15,6 @@ import { DASHBOARD_SAMPLE_HEALTHY, DASHBOARD_SAMPLE_PROBLEM } from "@/components
 import { EventsChart } from "@/components/dashboard/command-center/events-chart";
 import { FleetDonut } from "@/components/dashboard/command-center/fleet-donut";
 import { Actions } from "@/components/dashboard/command-center/actions";
-import { ThemeAmbient } from "@/components/dashboard/command-center/theme-ambient";
 
 function isoFrom(date: Date) {
   return date.toISOString();
@@ -94,7 +93,6 @@ export default function DashboardPage() {
     const s = scenario === "healthy" ? DASHBOARD_SAMPLE_HEALTHY : DASHBOARD_SAMPLE_PROBLEM;
     return (
       <main className="relative mx-auto grid w-full max-w-[1240px] gap-6">
-        <ThemeAmbient />
         <Hero
           isStreaming={s.isStreaming}
           stale={s.stale}
@@ -184,7 +182,6 @@ export default function DashboardPage() {
 
   return (
     <main className="relative mx-auto grid w-full max-w-[1240px] gap-6">
-      <ThemeAmbient />
       <Hero
         isStreaming={streaming}
         stale={stale}

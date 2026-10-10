@@ -50,7 +50,7 @@ export function EventsChart({ trend, totalEvents, totalProblems }: EventsChartPr
             <AreaChart data={data} xDataKey="date" className="h-full w-full" margin={{ top: 10, right: 60, bottom: 20, left: 60 }}>
               <Grid horizontal />
               <Area dataKey="events" fill="var(--chart-1)" stroke="var(--chart-1)" fillOpacity={0.35} strokeWidth={2.5} />
-              <Area dataKey="problems" yAxisId="right" fillOpacity={0} stroke="var(--chart-2)" strokeWidth={2} />
+              <Area dataKey="problems" yAxisId="right" fillOpacity={0} stroke="hsl(var(--secondary))" strokeWidth={2} />
               <XAxis numTicks={5} />
               <ChartTooltip />
               <YTicksLeft count={4} />
@@ -65,7 +65,7 @@ export function EventsChart({ trend, totalEvents, totalProblems }: EventsChartPr
           <span>Events (left axis)</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="size-2 rounded-full bg-foreground" aria-hidden />
+          <span className="size-2 rounded-full bg-secondary" aria-hidden />
           <span>Problems (right axis)</span>
         </div>
       </footer>

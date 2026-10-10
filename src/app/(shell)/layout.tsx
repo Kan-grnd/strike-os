@@ -9,6 +9,7 @@ import { EditModeToggle } from "@/components/edit-mode/edit-mode-toggle";
 import { CommandBar } from "@/components/shell/command-bar";
 import { useSettings } from "@/hooks/useApi";
 import { cn } from "@/lib/utils";
+import { ThemeAmbient } from "@/components/dashboard/command-center/theme-ambient";
 
 export default function GlobalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -88,6 +89,7 @@ export default function GlobalShell({ children }: { children: React.ReactNode })
             </div>
           </header>
           <div className={cn(fullBleed ? "flex h-[calc(100dvh-3.5rem)] flex-col" : "p-6")}>
+            <ThemeAmbient />
             {children}
           </div>
         </EditModeProvider>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Rocket, Network } from "lucide-react";
 import Link from "next/link";
-import { SphereCanvas } from "./sphere-canvas";
+import { DotSphere } from "@/components/ui/dot-sphere";
 
 interface HeroProps {
   isStreaming: boolean;
@@ -46,7 +46,7 @@ export function Hero({
       >
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_55%_at_62%_50%,color-mix(in_oklab,hsl(var(--primary))_30%,transparent),transparent)] blur-2xl" />
       </div>
-      <SphereCanvas className="pointer-events-none absolute inset-y-0 right-0 h-full w-[42%] hidden md:block [mask-image:linear-gradient(to_right,transparent,black_45%)]" />
+      <DotSphere className="pointer-events-none absolute inset-y-0 right-0 h-full w-[42%] hidden md:block [mask-image:linear-gradient(to_right,transparent,black_45%)]" followMouse />
       <div className="relative z-10">
         <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
           <span className={cn("size-2 rounded-full", dotClass, pulse)} aria-hidden />
