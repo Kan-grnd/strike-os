@@ -2,10 +2,43 @@
 
 import { useEffect, useRef } from "react";
 
-function getCssVar(name: string, fallback: string) {
+/**
+ * Resolve a theme token to a canvas-usable color.
+ *
+ * Tokens like `--primary` are stored as bare HSL channels (e.g. `0 0% 9%`),
+ * meant for `hsl(var(--x))` in CSS — assigning the raw value to
+ * `ctx.fillStyle` is an invalid color (canvas keeps default black, invisible
+ * on dark packs). A probe element + computed style always yields `rgb(...)`,
+ * which canvas accepts everywhere. Resolved at draw time so theme switches
+ * apply with no remount.
+ */
+let probeEl: HTMLDivElement | null = null;
+const SENTINEL = "rgb(1, 2, 3)";
+function resolveToken(name: string, fallback: string) {
   if (typeof window === "undefined") return fallback;
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return v || fallback;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  if (!raw) return fallback;
+  if (!probeEl) {
+    probeEl = document.createElement("div");
+    probeEl.style.position = "absolute";
+    probeEl.style.visibility = "hidden";
+    probeEl.style.pointerEvents = "none";
+    document.body.appendChild(probeEl);
+  }
+  // Try 1: raw value as a full color (hex, oklch, ...).
+  probeEl.style.color = SENTINEL;
+  probeEl.style.color = raw;
+  let resolved = getComputedStyle(probeEl).color;
+  if (resolved !== SENTINEL) return resolved;
+  // Try 2: bare HSL channels (e.g. `0 0% 9%`) wrapped in hsl().
+  probeEl.style.color = SENTINEL;
+  probeEl.style.color = `hsl(${raw})`;
+  resolved = getComputedStyle(probeEl).color;
+  return resolved !== SENTINEL ? resolved : fallback;
+}
+
+function getCssVar(name: string, fallback: string) {
+  return resolveToken(name, fallback);
 }
 
 export function SphereCanvas({ className = "" }: { className?: string }) {

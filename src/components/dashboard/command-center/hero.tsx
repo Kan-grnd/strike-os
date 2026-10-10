@@ -38,13 +38,13 @@ export function Hero({
     <Card className="relative z-10 overflow-hidden p-6 md:p-8 rounded-2xl border-border bg-card shadow-none">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-0 w-[45%] bg-[linear-gradient(to_right,color-mix(in_oklab,var(--secondary)_38%,transparent)_0%,transparent_100%)]"
+        className="pointer-events-none absolute inset-y-0 left-0 w-[45%] bg-[linear-gradient(to_right,color-mix(in_oklab,var(--secondary)_55%,transparent)_0%,transparent_100%)]"
       />
       <div
         aria-hidden
         className="pointer-events-none absolute inset-y-0 right-0 hidden w-[42%] md:block motion-safe:animate-[cc-orb-breathe_7s_ease-in-out_infinite_alternate]"
       >
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_55%_at_62%_50%,color-mix(in_oklab,var(--primary)_18%,transparent),transparent)] blur-2xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_55%_at_62%_50%,color-mix(in_oklab,var(--primary)_30%,transparent),transparent)] blur-2xl" />
       </div>
       <SphereCanvas className="pointer-events-none absolute inset-y-0 right-0 h-full w-[42%] hidden md:block [mask-image:linear-gradient(to_right,transparent,black_45%)]" />
       <div className="relative z-10">
