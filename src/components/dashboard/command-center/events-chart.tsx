@@ -46,7 +46,7 @@ export function EventsChart({ trend, totalEvents, totalProblems }: EventsChartPr
         </div>
       ) : (
         <ChartErrorBoundary>
-          <div className="relative h-full min-h-64 w-full flex-1">
+          <div className="relative h-full min-h-64 w-full flex-1 drop-shadow-[0_0_14px_color-mix(in_oklab,var(--chart-1)_30%,transparent)]">
             <AreaChart data={data} xDataKey="date" className="h-full w-full" margin={{ top: 10, right: 60, bottom: 20, left: 60 }}>
               <Grid horizontal />
               <Area dataKey="events" fill="var(--chart-1)" stroke="var(--chart-1)" fillOpacity={0.35} strokeWidth={2.5} />

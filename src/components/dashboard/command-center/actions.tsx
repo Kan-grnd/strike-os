@@ -35,7 +35,7 @@ export function Actions({ actions }: ActionsProps) {
   }
 
   return (
-    <section aria-label="Recommended actions">
+    <section aria-label="Recommended actions" className="relative z-10">
       <header className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Sparkles className="size-5 text-muted-foreground" aria-hidden />

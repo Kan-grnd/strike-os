@@ -15,6 +15,7 @@ import { DASHBOARD_SAMPLE_HEALTHY, DASHBOARD_SAMPLE_PROBLEM } from "@/components
 import { EventsChart } from "@/components/dashboard/command-center/events-chart";
 import { FleetDonut } from "@/components/dashboard/command-center/fleet-donut";
 import { Actions } from "@/components/dashboard/command-center/actions";
+import { ThemeAmbient } from "@/components/dashboard/command-center/theme-ambient";
 
 function isoFrom(date: Date) {
   return date.toISOString();
@@ -92,7 +93,8 @@ export default function DashboardPage() {
   if (useSample) {
     const s = scenario === "healthy" ? DASHBOARD_SAMPLE_HEALTHY : DASHBOARD_SAMPLE_PROBLEM;
     return (
-      <main className="mx-auto grid w-full max-w-[1240px] gap-6">
+      <main className="relative mx-auto grid w-full max-w-[1240px] gap-6">
+        <ThemeAmbient />
         <Hero
           isStreaming={s.isStreaming}
           stale={s.stale}
@@ -102,12 +104,12 @@ export default function DashboardPage() {
           needsYou={s.actions.length}
           actionsCount={s.actions.length}
         />
-        <section aria-label="Key numbers" className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+        <section aria-label="Key numbers" className="relative z-10 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
           {s.kpis.map((k) => (
             <KpiCard key={k.id} item={k} />
           ))}
         </section>
-        <section aria-label="Trends" className="grid gap-4 xl:grid-cols-12">
+        <section aria-label="Trends" className="relative z-10 grid gap-4 xl:grid-cols-12">
           <EventsChart trend={s.trend} totalEvents={s.trend["7d"].reduce((a, b) => a + b.events, 0)} totalProblems={s.trend["7d"].reduce((a, b) => a + b.problems, 0)} />
           <FleetDonut fleet={s.fleet} />
         </section>
@@ -181,7 +183,8 @@ export default function DashboardPage() {
   };
 
   return (
-    <main className="mx-auto grid w-full max-w-[1240px] gap-6">
+    <main className="relative mx-auto grid w-full max-w-[1240px] gap-6">
+      <ThemeAmbient />
       <Hero
         isStreaming={streaming}
         stale={stale}
@@ -191,12 +194,12 @@ export default function DashboardPage() {
         needsYou={actions.length}
         actionsCount={actions.length}
       />
-      <section aria-label="Key numbers" className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+      <section aria-label="Key numbers" className="relative z-10 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
         {kpis.map((k) => (
           <KpiCard key={k.id} item={k} />
         ))}
       </section>
-      <section aria-label="Trends" className="grid gap-4 xl:grid-cols-12">
+      <section aria-label="Trends" className="relative z-10 grid gap-4 xl:grid-cols-12">
         <EventsChart trend={trend} totalEvents={events24} totalProblems={0} />
         <FleetDonut fleet={fleet} />
       </section>
