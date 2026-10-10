@@ -1,531 +1,206 @@
 "use client";
 
-import * as React from "react";
-import Link from "next/link";
-import { motion } from "motion/react";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Brain,
-  Zap,
-  Users,
-  ListTodo,
-  Activity,
-  Rocket,
-  Layers,
-  ArrowUpRight,
-  CircleDot,
-  CircleDollarSign,
-} from "lucide-react";
-import { cn, formatRelativeTime, truncate } from "@/lib/utils";
-import { EmptyState } from "@/components/ui/empty-state";
-import {
-  useAgents,
-  useTasks,
-  useMissions,
-  useAutomations,
-  useEvents,
-  usePerformance,
-  useCosts,
-} from "@/hooks/useApi";
-import { isAgentActiveLive } from "@/components/dashboard/charts";
-import { KpiCard } from "@/components/dashboard/kpi-card";
-import { CommandDeckHalo } from "@/components/dashboard/command-deck-halo";
-import {
-  AgentRadar,
-  CompletionHeatmap,
-  EventThroughput,
-  FleetCapacityRing,
-  FleetCompositionPie,
-  MissionOutcomesRing,
-  RangeControl,
-  SuccessGauge,
-  TaskFunnel,
-  TaskOutputBar,
-} from "@/components/dashboard/bklit";
-import {
-  bucketEventsByTime,
-  outcomeTotals,
-  rangeStart,
-  type RangeKey,
-  successRate,
-  taskOutcomeSeries,
-} from "@/components/dashboard/bklit/chart-data";
+import { useMemo } from "react";
+import { useAgents } from "@/hooks/useAgents";
+import { useMissions } from "@/hooks/useMissions";
+import { useTasks } from "@/hooks/useTasks";
+import { useApprovals } from "@/hooks/useApprovals";
+import { useEvents } from "@/hooks/useEvents";
+import { useStreaming } from "@/components/dashboard/command-center/use-streaming";
+import { parseDateRange, type DateRangeKey } from "@/lib/range";
+import { Hero } from "@/components/dashboard/command-center/hero";
+import { KpiCard } from "@/components/dashboard/command-center/kpi-card";
+import type { DashboardState, ActionItem } from "@/components/dashboard/command-center/adapter";
+import { DASHBOARD_SAMPLE_HEALTHY, DASHBOARD_SAMPLE_PROBLEM } from "@/components/dashboard/command-center/sample";
+import { EventsChart } from "@/components/dashboard/command-center/events-chart";
+import { FleetDonut } from "@/components/dashboard/command-center/fleet-donut";
+import { Actions } from "@/components/dashboard/command-center/actions";
 
-const EASE = [0.16, 1, 0.3, 1] as const;
+function isoFrom(date: Date) {
+  return date.toISOString();
+}
 
-export default function HomePage() {
-  const [range, setRange] = React.useState<RangeKey>("7d");
+function addDays(d: Date, n: number) {
+  const x = new Date(d.getTime());
+  x.setDate(x.getDate() + n);
+  return x;
+}
 
-  const since = React.useMemo(() => rangeStart(range).toISOString(), [range]);
+function groupByDay(points: Array<{ timestamp: string; type?: string }>, days: number): Record<string, { events: number; problems: number }> {
+  const map: Record<string, { events: number; problems: number }> = {};
+  const start = addDays(new Date(), -days);
+  for (const p of points) {
+    const t = Date.parse(p.timestamp);
+    if (!Number.isFinite(t)) continue;
+    if (t < start.getTime()) continue;
+    const d = new Date(t);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    if (!map[key]) map[key] = { events: 0, problems: 0 };
+    map[key].events += 1;
+    const typ = (p.type || "").toLowerCase();
+    if (typ.includes("fail") || typ.includes("block")) map[key].problems += 1;
+  }
+  return map;
+}
 
-  const { data: agentsData } = useAgents(undefined, { poll: true });
-  const { data: tasksData } = useTasks(undefined, { poll: true });
-  const { data: missionsData } = useMissions({ poll: true });
-  const { data: automationsData } = useAutomations();
-  const { data: eventsData } = useEvents({ since, limit: "200" });
-  const { data: performanceData } = usePerformance(range);
-  const { data: costsData } = useCosts("7d");
+function groupByHour(points: Array<{ timestamp: string; type?: string }>): Record<string, { events: number; problems: number }> {
+  const map: Record<string, { events: number; problems: number }> = {};
+  const start = addDays(new Date(), -1);
+  for (const p of points) {
+    const t = Date.parse(p.timestamp);
+    if (!Number.isFinite(t)) continue;
+    if (t < start.getTime()) continue;
+    const d = new Date(t);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}-${String(d.getHours()).padStart(2, "0")}`;
+    if (!map[key]) map[key] = { events: 0, problems: 0 };
+    map[key].events += 1;
+    const typ = (p.type || "").toLowerCase();
+    if (typ.includes("fail") || typ.includes("block")) map[key].problems += 1;
+  }
+  return map;
+}
 
-  const agents = agentsData?.agents || [];
-  const allTasks = tasksData?.tasks || [];
-  const missions = missionsData?.missions || [];
-  const automations = automationsData?.automations || [];
-  const events = eventsData?.events || [];
+function toDaySeries(map: Record<string, { events: number; problems: number }>, days: number) {
+  const out: Array<{ date: Date; events: number; problems: number }> = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = addDays(new Date(), -i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    out.push({ date: d, events: map[key]?.events || 0, problems: map[key]?.problems || 0 });
+  }
+  return out;
+}
 
-  const tasksLoading = tasksData === undefined;
-  const missionsLoading = missionsData === undefined;
-  const agentsLoading = agentsData === undefined;
-  const performanceLoading = performanceData === undefined;
-  const eventsLoading = eventsData === undefined;
+function toHourSeries(map: Record<string, { events: number; problems: number }>) {
+  const out: Array<{ date: Date; events: number; problems: number }> = [];
+  for (let i = 23; i >= 0; i--) {
+    const d = addDays(new Date(), -1);
+    d.setHours(d.getHours() + (i - 23)); // rough
+  }
+  const start = addDays(new Date(), -1);
+  for (let i = 0; i < 24; i++) {
+    const d = new Date(start.getTime());
+    d.setHours(start.getHours() + i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}-${String(d.getHours()).padStart(2, "0")}`;
+    out.push({ date: d, events: map[key]?.events || 0, problems: map[key]?.problems || 0 });
+  }
+  return out;
+}
 
-  const runningTasks = allTasks.filter((t: any) => t.status === "RUNNING");
-  const activeMissions = missions.filter((m: any) => m.status === "RUNNING");
-  const activeAgents = agents.filter((a: any) => isAgentActiveLive(a));
+export default function DashboardPage() {
+  const scenario = process.env.NEXT_PUBLIC_DASHBOARD_SAMPLE;
+  const useSample = scenario === "healthy" || scenario === "problem";
+  if (useSample) {
+    const s = scenario === "healthy" ? DASHBOARD_SAMPLE_HEALTHY : DASHBOARD_SAMPLE_PROBLEM;
+    return (
+      <main className="mx-auto grid w-full max-w-[1240px] gap-6">
+        <Hero
+          isStreaming={s.isStreaming}
+          stale={s.stale}
+          lastEventAgo={s.lastEventAgo}
+          activeAgents={s.agents.active}
+          activeMissions={s.missions.active}
+          needsYou={s.actions.length}
+          actionsCount={s.actions.length}
+        />
+        <section aria-label="Key numbers" className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+          {s.kpis.map((k) => (
+            <KpiCard key={k.id} item={k} />
+          ))}
+        </section>
+        <section aria-label="Trends" className="grid gap-4 xl:grid-cols-12">
+          <EventsChart trend={s.trend} totalEvents={s.trend["7d"].reduce((a, b) => a + b.events, 0)} totalProblems={s.trend["7d"].reduce((a, b) => a + b.problems, 0)} />
+          <FleetDonut fleet={s.fleet} />
+        </section>
+        <Actions actions={s.actions} />
+      </main>
+    );
+  }
 
-  const completedToday = missions.filter(
-    (m: any) =>
-      m.status === "COMPLETED" &&
-      new Date(m.updatedAt || m.createdAt).toDateString() === new Date().toDateString()
-  ).length;
-  const activeAutomations = automations.filter((a: any) => a.status === "ACTIVE").length;
+  const { data: agents } = useAgents();
+  const { data: missions } = useMissions();
+  const { data: tasks } = useTasks();
+  const { data: approvals } = useApprovals();
+  const { data: events } = useEvents({ since: isoFrom(addDays(new Date(), -90)), limit: "2000" });
+  const evList = (events?.events || []) as Array<{ timestamp: string; type?: string }>;
+  const { streaming, lastEventAt } = useStreaming(evList, 15000);
+  const stale = !streaming;
+  const lastEventAgo = lastEventAt ? "recent" : "NO EVENTS YET";
 
-  const totalCost = costsData && costsData.totalCost > 0 ? costsData.totalCost : 0;
-  const costDims = costsData && costsData.totalCost > 0 ? costsData.dimensions : undefined;
+  const activeAgents = (agents?.agents || []).filter((a: any) => /executing|planning|thinking|delegating|initializing|retrying|running/i.test(a.status || "")).length;
+  const totalAgents = agents?.agents?.length || 0;
+  const activeMissions = (missions?.missions || []).filter((m: any) => m.status !== "completed" && m.status !== "cancelled").length;
+  const runningTasks = (tasks?.tasks || []).filter((t: any) => (t.status || "").toLowerCase() === "running").length;
+  const completed = (tasks?.tasks || []).filter((t: any) => (t.status || "").toLowerCase() === "completed").length;
+  const totalTasks = tasks?.tasks?.length || 0;
+  const successPct = totalTasks === 0 ? "—" : `${Math.round((completed / totalTasks) * 100)}%`;
+  const events24 = evList.filter((e) => Date.parse(e.timestamp) > addDays(new Date(), -1).getTime()).length;
+  const missionsTotal = missions?.missions?.length || 0;
+  const needsYou = (approvals?.approvals || []).length + runningTasks; // rough
 
-  // Window outcome series drives both the output bar and the success gauge so
-  // the two never disagree about how many tasks ran through the window.
-  const outcomeSeries = React.useMemo(
-    () => taskOutcomeSeries(allTasks, range),
-    [allTasks, range],
-  );
-  const { completed: windowCompleted, failed: windowFailed } = React.useMemo(
-    () => outcomeTotals(outcomeSeries),
-    [outcomeSeries],
-  );
-  const successValue = successRate(windowCompleted, windowFailed);
-
-  const eventSeries = React.useMemo(
-    () => bucketEventsByTime(events, range).map((p) => p.events),
-    [events, range],
-  );
-  const eventsInWindow = eventSeries.reduce((s, v) => s + v, 0);
-
-  const nowItems: {
-    title: string;
-    description: string;
-    status: "running" | "waiting" | "completed";
-    time: string;
-    href?: string;
-  }[] = [];
-  activeMissions.forEach((m: any) => {
-    nowItems.push({
-      title: truncate(m.goal, 52),
-      description: `${m.tasks?.length || 0} tasks · ${activeAgents.length} agents active`,
-      status: "running",
-      time: formatRelativeTime(m.createdAt),
-      href: `/missions/${m.id}`,
+  const actions: ActionItem[] = [];
+  for (const a of (approvals?.approvals || [])) {
+    actions.push({
+      id: `ap-${a.id}`,
+      kind: "waiting",
+      title: "Approval required",
+      impact: "Needs your decision",
+      impactTone: "bad",
+      reason: "Waiting on you",
+      priority: "Medium",
+      actionLabel: "Review",
+      href: "/work",
+      detail: { hint: "Approval requested", since: "recent" },
     });
-  });
-  runningTasks.slice(0, 3).forEach((t: any) => {
-    nowItems.push({
-      title: truncate(t.description, 52),
-      description: `Task ${t.status?.toLowerCase() || "queued"} · ${t.agentName || "unassigned"}`,
-      status: "waiting",
-      time: formatRelativeTime(t.createdAt),
-      href: `/tasks`,
-    });
-  });
-  const nowTop = nowItems.slice(0, 4);
+  }
 
-  const streamEvents = events.slice(0, 8).map((e: any) => {
-    let payload: Record<string, unknown> = {};
-    try {
-      payload = typeof e.payload === "string" ? JSON.parse(e.payload) : e.payload || {};
-    } catch {
-      payload = {};
-    }
-    return {
-      event: e.type || "event",
-      description:
-        (typeof payload.description === "string" && payload.description) ||
-        (typeof payload.message === "string" && payload.message) ||
-        e.subject ||
-        e.source ||
-        "",
-      time: formatRelativeTime(e.timestamp),
-    };
-  });
+  const kpis = [
+    { id: "agents" as const, label: "Agents", value: totalAgents, prev: totalAgents },
+    { id: "tasks" as const, label: "Running tasks", value: runningTasks, prev: runningTasks },
+    { id: "success" as const, label: "Success rate", value: successPct, prev: successPct },
+    { id: "events" as const, label: "Events (24h)", value: events24, prev: events24 },
+    { id: "missions" as const, label: "Missions", value: missionsTotal, prev: missionsTotal },
+  ];
+
+  const hmap = groupByHour(evList);
+  const d7 = groupByDay(evList, 7);
+  const d30 = groupByDay(evList, 30);
+  const d90 = groupByDay(evList, 90);
+  const trend: Record<DateRangeKey, Array<{ date: Date; events: number; problems: number }>> = {
+    "24h": toHourSeries(hmap),
+    "7d": toDaySeries(d7, 7),
+    "30d": toDaySeries(d30, 30),
+    "90d": toDaySeries(d90, 90),
+  };
+
+  const fleet = {
+    executing: (tasks?.tasks || []).filter((t: any) => (t.status || "").toLowerCase() === "running").length,
+    planning: 0,
+    waiting: (tasks?.tasks || []).filter((t: any) => (t.status || "").toLowerCase() === "waiting").length,
+    blocked: 0,
+    idle: Math.max(0, totalAgents - activeAgents),
+  };
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6">
-      {/* ── Command deck ─────────────────────────────────────────────── */}
-      <motion.section
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: EASE }}
-        className="relative overflow-hidden rounded-lg glass p-8"
-      >
-        <CommandDeckHalo />
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60 motion-reduce:animate-none" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
-              </span>
-              <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                System online · live
-              </span>
-            </div>
-            <h1 className="max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">
-              Your AI workforce, at a glance
-            </h1>
-            <p className="max-w-xl text-sm text-muted-foreground">
-              {activeAgents.length > 0
-                ? `${activeAgents.length} agents active across ${activeMissions.length} running mission${activeMissions.length === 1 ? "" : "s"}.`
-                : "Dispatch a mission and watch the fleet work in real time."}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href="/architect"
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:scale-[1.02]"
-            >
-              <Rocket className="h-4 w-4" />
-              Start a mission
-            </Link>
-            <Link
-              href="/topology"
-              className="inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-accent"
-            >
-              <Layers className="h-4 w-4" />
-              Live topology
-            </Link>
-          </div>
-        </div>
-      </motion.section>
-
-      {/* ── KPI rail ─────────────────────────────────────────────────── */}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          index={0}
-          icon={Users}
-          label="Active agents"
-          value={activeAgents.length}
-          caption={`${agents.length} in the fleet`}
-          accent="hsl(var(--info) / 0.5)"
-        />
-        <KpiCard
-          index={1}
-          icon={ListTodo}
-          label="Running tasks"
-          value={runningTasks.length}
-          caption={`${windowCompleted} completed · ${range}`}
-          accent="hsl(var(--primary) / 0.4)"
-        />
-        <KpiCard
-          index={2}
-          icon={Brain}
-          label="Active missions"
-          value={activeMissions.length}
-          caption={`${completedToday} completed today`}
-        />
-        <KpiCard
-          index={3}
-          icon={Activity}
-          label={`Events · ${range}`}
-          value={eventsInWindow}
-          caption={
-            successValue != null ? `${successValue}% task success` : "No outcomes yet"
-          }
-          spark={eventSeries}
-          accent="hsl(var(--success) / 0.4)"
-        />
+    <main className="mx-auto grid w-full max-w-[1240px] gap-6">
+      <Hero
+        isStreaming={streaming}
+        stale={stale}
+        lastEventAgo={lastEventAgo}
+        activeAgents={activeAgents}
+        activeMissions={activeMissions}
+        needsYou={actions.length}
+        actionsCount={actions.length}
+      />
+      <section aria-label="Key numbers" className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+        {kpis.map((k) => (
+          <KpiCard key={k.id} item={k} />
+        ))}
       </section>
-
-      {/* ── Fleet telemetry ──────────────────────────────────────────── */}
-      <motion.section
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1, ease: EASE }}
-        className="space-y-4"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Fleet telemetry
-          </h2>
-          <div className="flex items-center gap-3">
-            <span className="hidden font-mono text-[11px] text-muted-foreground/70 sm:inline">
-              Throughput · output · success
-            </span>
-            <RangeControl value={range} onChange={setRange} />
-          </div>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-5">
-          <div className="lg:col-span-3">
-            <EventThroughput events={events} range={range} loading={eventsLoading} />
-          </div>
-          <div className="lg:col-span-2">
-            <SuccessGauge
-              value={successValue}
-              completed={windowCompleted}
-              failed={windowFailed}
-              loading={performanceLoading || tasksLoading}
-            />
-          </div>
-
-          <div className="lg:col-span-3">
-            <TaskOutputBar tasks={allTasks} range={range} loading={tasksLoading} />
-          </div>
-          <div className="lg:col-span-2">
-            <TaskFunnel tasks={allTasks} />
-          </div>
-
-          <div className="grid gap-4 lg:col-span-5 lg:grid-cols-3">
-            <FleetCompositionPie agents={agents} />
-            <MissionOutcomesRing missions={missions} />
-            <FleetCapacityRing total={agents.length} active={activeAgents.length} />
-          </div>
-
-          <div className="lg:col-span-3">
-            <CompletionHeatmap tasks={allTasks} />
-          </div>
-          <div className="lg:col-span-2">
-            <AgentRadar
-              agents={agents}
-              tasks={allTasks}
-              performance={performanceData}
-            />
-          </div>
-        </div>
-
-        {/* Keep loading states reachable so the rail honest-empties. */}
-        <span className="sr-only">
-          {agentsLoading && missionsLoading ? "Loading fleet data" : "Fleet data ready"}
-        </span>
-      </motion.section>
-
-      {/* ── Activity ─────────────────────────────────────────────────── */}
-      <section className="grid gap-4 lg:grid-cols-2">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.22, ease: EASE }}
-        >
-          <Card className="flex h-full flex-col p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Happening now
-              </h2>
-              <Badge variant="outline" className="gap-1.5">
-                <CircleDot className="h-3 w-3 text-success" />
-                Live
-              </Badge>
-            </div>
-            {agents.length === 0 && missions.length === 0 ? (
-              <EmptyState
-                icon={Rocket}
-                title="No activity yet"
-                description="Create your first agent to start building your workforce."
-                cta="Create your first agent"
-                ctaHref="/architect"
-              />
-            ) : nowTop.length === 0 ? (
-              <p className="py-6 text-sm text-muted-foreground">
-                Nothing running right now.
-              </p>
-            ) : (
-              <div className="divide-y divide-border/60">
-                {nowTop.map((item, i) => (
-                  <ActivityRow key={i} {...item} />
-                ))}
-              </div>
-            )}
-          </Card>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.28, ease: EASE }}
-        >
-          <Card className="flex h-full flex-col p-6">
-            <h2 className="mb-4 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Operational stream
-            </h2>
-            <ScrollArea className="h-[280px] pr-3">
-              <div className="divide-y divide-border/60">
-                {streamEvents.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No system events yet.
-                  </p>
-                ) : (
-                  streamEvents.map((ev, i) => <StreamEvent key={i} {...ev} />)
-                )}
-              </div>
-            </ScrollArea>
-          </Card>
-        </motion.div>
+      <section aria-label="Trends" className="grid gap-4 xl:grid-cols-12">
+        <EventsChart trend={trend} totalEvents={events24} totalProblems={0} />
+        <FleetDonut fleet={fleet} />
       </section>
-
-      {/* ── Secondary signals ────────────────────────────────────────── */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <MiniStat
-          icon={Zap}
-          label="Automations"
-          value={String(activeAutomations)}
-          caption={`${automations.length} configured`}
-          href="/work?type=automations"
-        />
-        <KpiCost totalCost={totalCost} dims={costDims} />
-        <MiniStat
-          icon={ListTodo}
-          label={`Fleet success · ${range}`}
-          value={successValue != null ? `${successValue}%` : "—"}
-          caption={`${windowCompleted} completed / ${windowFailed} failed`}
-          href="/observability/performance"
-        />
-      </section>
-    </div>
-  );
-}
-
-function ActivityRow({
-  title,
-  description,
-  status,
-  time,
-  href,
-}: {
-  title: string;
-  description: string;
-  status: "running" | "waiting" | "completed";
-  time: string;
-  href?: string;
-}) {
-  const dot =
-    status === "running"
-      ? "bg-primary"
-      : status === "completed"
-        ? "bg-success"
-        : "bg-warning";
-  const body = (
-    <div className="flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/50">
-      <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", dot)} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{title}</p>
-        <p className="truncate text-xs text-muted-foreground">{description}</p>
-      </div>
-      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
-        {time}
-      </span>
-    </div>
-  );
-  return href ? (
-    <Link href={href} className="group block">
-      <div className="flex items-center">
-        <div className="min-w-0 flex-1">{body}</div>
-        <ArrowUpRight className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-      </div>
-    </Link>
-  ) : (
-    body
-  );
-}
-
-function StreamEvent({
-  event,
-  description,
-  time,
-}: {
-  event: string;
-  description: string;
-  time: string;
-}) {
-  return (
-    <div className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/50" />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate font-mono text-[11px] font-medium">{event}</span>
-          <span className="shrink-0 font-mono text-[11px] text-muted-foreground/70">
-            {time}
-          </span>
-        </div>
-        {description && (
-          <p className="truncate text-xs text-muted-foreground">{description}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function MiniStat({
-  icon: Icon,
-  label,
-  value,
-  caption,
-  href,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  caption: string;
-  href?: string;
-}) {
-  const inner = (
-    <Card className="flex h-full items-center gap-4 p-5 transition-colors hover:border-ring/40">
-      <div className="rounded-lg bg-muted/70 p-2.5">
-        <Icon className="h-5 w-5 text-muted-foreground" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          {label}
-        </p>
-        <p className="font-mono text-2xl font-bold tabular-nums">{value}</p>
-        <p className="truncate text-xs text-muted-foreground">{caption}</p>
-      </div>
-    </Card>
-  );
-  return href ? (
-    <Link href={href} className="block h-full">
-      {inner}
-    </Link>
-  ) : (
-    inner
-  );
-}
-
-function KpiCost({
-  totalCost,
-  dims,
-}: {
-  totalCost: number;
-  dims?: Record<string, number>;
-}) {
-  const entries = Object.entries(dims || {}).sort((a, b) => b[1] - a[1]);
-  const [topName, topValue] = entries[0] || [null, null];
-  return (
-    <Card className="flex h-full items-center gap-4 p-5">
-      <div className="rounded-lg bg-muted/70 p-2.5">
-        <CircleDollarSign className="h-5 w-5 text-muted-foreground" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Observed cost · 7d
-        </p>
-        <p className="font-mono text-2xl font-bold tabular-nums">
-          ${totalCost.toFixed(2)}
-        </p>
-        <p className="truncate text-xs text-muted-foreground">
-          {topName != null
-            ? `most in ${topName}: $${Number(topValue).toFixed(2)}`
-            : "No metered spend yet"}
-        </p>
-      </div>
-    </Card>
+      <Actions actions={actions} />
+    </main>
   );
 }
