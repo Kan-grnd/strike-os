@@ -10,8 +10,8 @@ import { useEffect, useRef } from "react";
  * - dot color defaults to the live `--primary` theme token (explicit
  *   `dotColor` prop overrides), re-resolved when the pack switches;
  * - `followMouse` tracks the pointer over the parent panel via its own
- *   listeners (the canvas itself is pointer-events-none); on leave it
- *   resumes ambient drift;
+ *   listeners (the canvas itself is pointer-events-none); the slow
+ *   serpentine drift resumes after 4s idle or on leave;
  * - reduced-motion renders a single static frame.
  */
 
@@ -20,54 +20,13 @@ interface DotSphereProps {
   /** Absolute sphere radius in px. Defaults to 42% of the box's short side. */
   sphereRadius?: number;
   dotRadiusMax?: number;
+  /** Sway rate multiplier (1 = default pace, one full sweep ≈ 60s). */
   speed?: number;
   /** Explicit dot color. Defaults to the live `--primary` token. */
   dotColor?: string;
   dotToken?: string;
   followMouse?: boolean;
   className?: string;
-}
-
-class Ease {
-  value: number;
-  begin: number;
-  end: number;
-  pow: number;
-  maxDuration: number;
-  time: number;
-  duration: number;
-
-  constructor(value: number, pow: number, duration: number, timeBegin: number) {
-    this.value = this.begin = this.end = value;
-    this.pow = pow;
-    this.maxDuration = duration;
-    this.time = timeBegin;
-    this.duration = 0;
-    this.init();
-  }
-
-  init() {
-    this.begin = this.end;
-    this.end = Math.random();
-    this.time = 0;
-    this.duration = Math.sqrt(Math.abs(this.end - this.begin)) * this.maxDuration;
-  }
-
-  update(timeChange = 1) {
-    let timeRatio = this.time / this.duration;
-
-    if (timeRatio < 0.5) {
-      timeRatio = 0.5 * Math.pow(timeRatio * 2, this.pow);
-    } else {
-      timeRatio = 1 - 0.5 * Math.pow((1 - timeRatio) * 2, this.pow);
-    }
-
-    this.value = this.begin + timeRatio * (this.end - this.begin);
-    this.time += timeChange;
-    if (this.time > this.duration) {
-      this.init();
-    }
-  }
 }
 
 /* Resolve a theme token to a canvas-usable color. Tokens are bare HSL
@@ -132,8 +91,9 @@ export function DotSphere({
     let centerY = 0;
     let hasMouse = false;
     let dot = propsRef.current.dotColor ?? resolveToken(propsRef.current.dotToken, "white");
-    const easeX = new Ease(0.5, 2, 60, 0);
-    const easeY = new Ease(0.5, 2, 60, 0);
+    // Serpentine phase: incommensurate x/y weave, one full sweep ≈ 60s.
+    let phase = Math.random() * Math.PI * 2;
+    let lastMove = 0;
 
     function measure() {
       const p = propsRef.current;
@@ -183,16 +143,16 @@ export function DotSphere({
       g.globalAlpha = 1;
     }
 
-    function drift() {
+    function sway() {
       const p = propsRef.current;
-      easeX.update(p.speed);
-      easeY.update(p.speed);
-      centerX = easeX.value * w;
-      centerY = easeY.value * h;
+      phase += 0.0016 * (p.speed / 0.35);
+      centerX = w * (0.5 + 0.42 * Math.sin(phase));
+      centerY = h * (0.5 + 0.38 * Math.sin(phase * 2 + 1.3));
     }
 
     function frame() {
-      if (!hasMouse) drift();
+      const idle = performance.now() - lastMove;
+      if (!hasMouse || idle > 4000) sway();
       drawDots();
       raf = requestAnimationFrame(frame);
     }
@@ -204,6 +164,7 @@ export function DotSphere({
       centerX = e.clientX - rect.left;
       centerY = e.clientY - rect.top;
       hasMouse = true;
+      lastMove = performance.now();
     };
     const onMouseLeave = () => {
       hasMouse = false;

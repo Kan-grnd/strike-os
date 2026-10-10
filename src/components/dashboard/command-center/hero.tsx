@@ -26,11 +26,9 @@ export function Hero({
   needsYou,
   actionsCount,
 }: HeroProps) {
-  const dotClass = stale
-    ? "bg-destructive"
-    : actionsCount > 0
-    ? "bg-warning"
-    : "bg-success";
+  // Connectivity signal: green when online, red only when stale/offline.
+  // Pending actions surface in the Actions panel, not the dot.
+  const dotClass = stale ? "bg-destructive" : "bg-success";
   const pulse = isStreaming ? "motion-safe:animate-pulse" : "";
   const statusText = lastEventAgo ? `System online · ${lastEventAgo}` : "System online · LIVE";
 
