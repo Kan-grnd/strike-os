@@ -40,9 +40,9 @@ export function KpiCard({ item }: { item: KPIItem }) {
   const hasChange = !hasFlag && item.change;
 
   return (
-    <Card className="p-5 rounded-2xl border-border bg-card shadow-[0_0_20px_-8px_color-mix(in_oklab,var(--primary)_18%,transparent)] transition-shadow duration-300 hover:border-primary/40 hover:shadow-[0_0_28px_-6px_color-mix(in_oklab,var(--primary)_35%,transparent)]">
+    <Card className="p-5 rounded-2xl border-border bg-card shadow-[0_0_20px_-8px_color-mix(in_oklab,hsl(var(--primary))_18%,transparent)] transition-shadow duration-300 hover:border-primary/40 hover:shadow-[0_0_28px_-6px_color-mix(in_oklab,hsl(var(--primary))_35%,transparent)]">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex size-8 items-center justify-center rounded-lg border border-border bg-[color-mix(in_oklab,var(--primary)_16%,transparent)]">
+        <div className="flex size-8 items-center justify-center rounded-lg border border-border bg-[color-mix(in_oklab,hsl(var(--primary))_16%,transparent)]">
           <Icon className="size-4" aria-hidden />
         </div>
         {hasFlag ? (

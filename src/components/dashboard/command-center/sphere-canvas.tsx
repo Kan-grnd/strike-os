@@ -73,9 +73,11 @@ export function SphereCanvas({ className = "" }: { className?: string }) {
     const dprCap = 2;
 
     function resize() {
-      const rect = canvas.parentElement?.getBoundingClientRect();
-      const w = rect?.width ?? canvas.clientWidth;
-      const h = rect?.height ?? canvas.clientHeight;
+      // Size from the canvas's own laid-out box (e.g. w-[42%]) — never the
+      // parent's, which would stomp the CSS width and recenter the sphere.
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width || canvas.clientWidth;
+      const h = rect.height || canvas.clientHeight;
       const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
       canvas.width = Math.floor(w * dpr);
       canvas.height = Math.floor(h * dpr);
