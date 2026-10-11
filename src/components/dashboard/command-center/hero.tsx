@@ -40,9 +40,9 @@ export function Hero({
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 hidden md:block motion-safe:animate-[cc-orb-breathe_7s_ease-in-out_infinite_alternate]"
+        className="pointer-events-none absolute inset-y-0 left-0 hidden w-[45%] md:block motion-safe:animate-[cc-orb-breathe_7s_ease-in-out_infinite_alternate]"
       >
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_50%_50%,color-mix(in_oklab,hsl(var(--primary))_22%,transparent),transparent)] blur-2xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_55%_at_38%_50%,color-mix(in_oklab,hsl(var(--primary))_22%,transparent),transparent)] blur-2xl" />
       </div>
       <DotSphere className="pointer-events-none absolute inset-0 h-full w-full hidden md:block [mask-image:linear-gradient(to_right,transparent,black_45%)]" followMouse />
       <div className="relative z-10">
