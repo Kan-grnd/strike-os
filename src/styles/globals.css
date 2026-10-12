@@ -325,6 +325,12 @@
     --glass-border-strong-alpha: 0.18;
     --glass-highlight-alpha: 0.035;
 
+    --cmdbar-alpha: 0.72;
+    --cmdbar-alpha-elevated: 0.86;
+    --cmdbar-border-alpha: 0.14;
+    --cmdbar-border-hover-alpha: 0.28;
+    --cmdbar-sheen-alpha: 0.05;
+
     --glass-shadow-control:
       0 2px 8px hsl(0 0% 0% / 0.06),
       0 1px 2px hsl(0 0% 0% / 0.05);
@@ -353,6 +359,12 @@
     --glass-border-alpha: 0.14;
     --glass-border-strong-alpha: 0.24;
     --glass-highlight-alpha: 0.04;
+
+    --cmdbar-alpha: 0.6;
+    --cmdbar-alpha-elevated: 0.76;
+    --cmdbar-border-alpha: 0.16;
+    --cmdbar-border-hover-alpha: 0.32;
+    --cmdbar-sheen-alpha: 0.07;
 
     /* Shadows are black, never the pack's foreground. Deriving them from
        --foreground meant every dark pack painted a WHITE halo - the glow
@@ -389,6 +401,24 @@
     --glass-border: hsl(var(--foreground) / var(--glass-border-alpha));
     --glass-border-strong: hsl(var(--foreground) / var(--glass-border-strong-alpha));
     --glass-highlight: inset 0 1px 0 hsl(var(--foreground) / var(--glass-highlight-alpha));
+
+    /* Dispatch pill material. Same alpha-per-mode trick as glass; the blur
+       and saturate are pill-specific (22px / 1.7 per the command-bar spec),
+       so they live here rather than on the shared glass tokens. */
+    --cmdbar-blur: 22px;
+    --cmdbar-blur-lg: 26px;
+    --cmdbar-saturate: 1.7;
+    --cmdbar-bg: hsl(var(--card) / var(--cmdbar-alpha));
+    --cmdbar-bg-elevated: hsl(var(--popover) / var(--cmdbar-alpha-elevated));
+    --cmdbar-border: hsl(var(--foreground) / var(--cmdbar-border-alpha));
+    --cmdbar-shadow:
+      0 8px 28px -12px hsl(0 0% 0% / 0.28),
+      0 1px 2px hsl(0 0% 0% / 0.12);
+    --cmdbar-shadow-elevated:
+      0 16px 48px -12px hsl(0 0% 0% / 0.4),
+      0 2px 8px hsl(0 0% 0% / 0.2);
+    --cmdbar-ring: 0 0 0 4px hsl(var(--primary) / 0.22);
+    --cmdbar-glow: 0 0 24px -6px hsl(var(--primary) / 0.45);
   }
 
   /* Bold asks for a flat, unambiguous interface. Same palette,
@@ -414,6 +444,12 @@
     --glass-shadow-control: none;
     --glass-shadow: none;
     --glass-shadow-elevated: none;
+
+    --cmdbar-alpha: 1;
+    --cmdbar-alpha-elevated: 1;
+    --cmdbar-blur: 0px;
+    --cmdbar-blur-lg: 0px;
+    --cmdbar-saturate: 1;
   }
 
   /* No backdrop-filter means no depth cue at all, so the material falls
@@ -435,6 +471,29 @@
       --glass-alpha-recessed: 1;
       --glass-alpha-node: 1;
       --glass-alpha-node-strong: 1;
+      --cmdbar-alpha: 1;
+      --cmdbar-alpha-elevated: 1;
+    }
+  }
+
+  /* prefers-reduced-transparency: the pill and panel fall back to fully
+     opaque with no blur, mirroring the no-backdrop-filter fallback above. */
+  @media (prefers-reduced-transparency: reduce) {
+    :root,
+    .clean,
+    .calm,
+    .bold,
+    .dark,
+    .graphite,
+    .void,
+    .signal {
+      --cmdbar-alpha: 1;
+      --cmdbar-alpha-elevated: 1;
+    }
+    .cmdbar-pill,
+    .cmdbar-panel {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
     }
   }
 }
@@ -483,8 +542,36 @@
     backdrop-filter: blur(var(--glass-blur-md)) saturate(var(--glass-saturate));
   }
 
+  /* Dispatch pill - the command bar. Translucent shell-chrome material with
+     a faint top sheen (layered into the background so it never sits over
+     the text), 1px border, top inner highlight, soft drop shadow. */
+  .cmdbar-pill {
+    background:
+      linear-gradient(to bottom, hsl(var(--foreground) / var(--cmdbar-sheen-alpha)), transparent 45%),
+      var(--cmdbar-bg);
+    border: 1px solid var(--cmdbar-border);
+    box-shadow: var(--cmdbar-shadow), var(--glass-highlight);
+    -webkit-backdrop-filter: blur(var(--cmdbar-blur)) saturate(var(--cmdbar-saturate));
+    backdrop-filter: blur(var(--cmdbar-blur)) saturate(var(--cmdbar-saturate));
+  }
+  .cmdbar-pill:hover {
+    border-color: hsl(var(--foreground) / var(--cmdbar-border-hover-alpha));
+  }
+  .cmdbar-pill:focus-within {
+    border-color: hsl(var(--primary) / 0.65);
+    box-shadow: var(--cmdbar-ring), var(--cmdbar-glow), var(--glass-highlight);
+  }
+
+  /* Dispatch panel - same glass, stronger blur, opens under the pill. */
+  .cmdbar-panel {
+    background: var(--cmdbar-bg-elevated);
+    border: 1px solid var(--cmdbar-border);
+    box-shadow: var(--cmdbar-shadow-elevated), var(--glass-highlight);
+    -webkit-backdrop-filter: blur(var(--cmdbar-blur-lg)) saturate(var(--cmdbar-saturate));
+    backdrop-filter: blur(var(--cmdbar-blur-lg)) saturate(var(--cmdbar-saturate));
+  }
   /* Recessed - inputs read as a well cut into the surface rather than a
-     card resting on it. The inset shadow is what carries that read. */
+      card resting on it. The inset shadow is what carries that read. */
   .glass-recessed {
     background: hsl(var(--background) / var(--glass-alpha-recessed));
     border-color: hsl(var(--foreground) / 0.12);

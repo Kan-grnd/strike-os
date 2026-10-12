@@ -1,191 +1,607 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { mutate } from "swr";
+import { formatDistanceToNow } from "date-fns";
 import {
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from "@/components/ui/command";
-import { StrikeMark } from "@/components/ui/logo";
-import {
-  Brain,
-  Zap,
-  Users,
-  ListTodo,
-  Activity,
-  Layers,
-  Settings,
   BookOpen,
+  Check,
+  ListTodo,
+  MessageCircle,
   Network,
-  Bot,
-  Sparkles,
+  Plus,
   Rocket,
-  Compass,
-  BarChart3,
+  Settings,
+  TriangleAlert,
+  Users,
+  Workflow,
+  Zap,
+  type LucideIcon,
 } from "lucide-react";
+import { StrikeMark } from "@/components/ui/logo";
+import { createMission, useAgents, useEvents, useMissions } from "@/hooks/useApi";
+import { cn } from "@/lib/utils";
 
-const navItems = [
-  {
-    group: "Actions",
-    items: [
-      { title: "Start a mission", icon: Rocket, href: "/missions/new" },
-      { title: "Observatory", icon: BarChart3, href: "/observability/events" },
-      { title: "Work", icon: Compass, href: "/work" },
-    ],
-  },
-  {
-    group: "Workforce",
-    items: [
-      { title: "Agents", icon: Users, href: "/agents" },
-      { title: "Missions", icon: ListTodo, href: "/missions" },
-      { title: "Tasks", icon: Zap, href: "/tasks" },
-    ],
-  },
-  {
-    group: "Intelligence",
-    items: [
-      { title: "Topology", icon: Layers, href: "/topology" },
-      { title: "Knowledge", icon: BookOpen, href: "/knowledge" },
-      { title: "Memory", icon: Brain, href: "/memory" },
-      { title: "Workflows", icon: Network, href: "/workflows" },
-      { title: "Decisions", icon: Sparkles, href: "/decisions" },
-    ],
-  },
-  {
-    group: "System",
-    items: [
-      { title: "Settings", icon: Settings, href: "/settings" },
-      { title: "Performance", icon: Activity, href: "/observability/performance" },
-      { title: "Routing", icon: Network, href: "/routing" },
-      { title: "Models", icon: Bot, href: "/models" },
-    ],
-  },
+/* Dispatch control: type a goal and send it to start work, or jump to a page.
+ * Pill layout left to right: [Ctrl+K hint] [input] [logo hit button]. */
+
+type SendState = "ready" | "sending" | "success" | "error";
+
+interface FleetAgent {
+  status?: string | null;
+}
+interface RecentMission {
+  id: string;
+  goal: string;
+  status: string;
+  updatedAt: string;
+}
+interface PanelEvent {
+  timestamp: string;
+}
+
+const STALL_AFTER_MS = 60000;
+const SUCCESS_HOLD_MS = 6000;
+const CHECK_HOLD_MS = 1500;
+const IDLE_RESUME_MS = 4000;
+
+const OFFLINE_RE = /offline|error|failed|dead|stale/i;
+
+const PAGE_LINKS: Array<{ title: string; href: string; Icon: LucideIcon }> = [
+  { title: "Agents", href: "/agents", Icon: Users },
+  { title: "Missions", href: "/missions", Icon: ListTodo },
+  { title: "Tasks", href: "/tasks", Icon: Zap },
+  { title: "Live topology", href: "/topology", Icon: Network },
+  { title: "Knowledge", href: "/knowledge", Icon: BookOpen },
+  { title: "Workflows", href: "/workflows", Icon: Workflow },
+  { title: "Settings", href: "/settings", Icon: Settings },
 ];
 
-/** Display title for a stored recent slug; falls back to the slug itself. */
-function titleFor(slug: string) {
-  if (slug === "Home") return "Home";
-  for (const g of navItems) {
-    const hit = g.items.find((i) => i.href === `/${slug}`);
-    if (hit) return hit.title;
-  }
-  return slug.replace(/-/g, " ");
+type RowKind = "start" | "ask" | "action" | "mission" | "page";
+interface Row {
+  key: string;
+  kind: RowKind;
+  title: string;
+  hint?: string;
+  dotClass?: string;
+  Icon?: LucideIcon;
+  run: () => void;
+}
+
+function missionDot(status: string) {
+  if (/complete/i.test(status)) return "bg-success";
+  if (/fail|cancel/i.test(status)) return "bg-destructive";
+  if (/run|execut|progress|plan|think|delegat|retry|initial/i.test(status)) return "bg-primary";
+  return "bg-warning";
 }
 
 export function CommandBar() {
-  const [open, setOpen] = useState(false);
-  const [recent, setRecent] = useState<string[]>([]);
   const router = useRouter();
+  const listId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const timers = useRef<number[]>([]);
+  const lastAction = useRef<"mission" | "chat">("mission");
+  const sendStateRef = useRef<SendState>("ready");
 
+  const [text, setText] = useState("");
+  const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [sendState, setSendState] = useState<SendState>("ready");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [success, setSuccess] = useState<{ id: string; title: string } | null>(null);
+  const [showCheck, setShowCheck] = useState(false);
+  const [shakeKey, setShakeKey] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [mounted, setMounted] = useState(false);
+  const [isMac, setIsMac] = useState(false);
+
+  const { data: agentsData, error: agentsError } = useAgents({}, { poll: true });
+  const { data: missionsData } = useMissions();
+  const { data: eventsData } = useEvents({ limit: "1" });
+
+  const setSend = (s: SendState) => {
+    sendStateRef.current = s;
+    setSendState(s);
+  };
+  const later = (fn: () => void, ms: number) => {
+    timers.current.push(window.setTimeout(fn, ms));
+  };
+  useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
+
+  // Platform for the keycap hint, detected after mount (no hydration mismatch).
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("cc:recents");
-      if (raw) {
-        const parsed: unknown = JSON.parse(raw);
-        setRecent(
-          Array.isArray(parsed)
-            ? parsed.filter((x): x is string => typeof x === "string").slice(0, 6)
-            : [],
-        );
-      }
-    } catch {}
-    const down = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen((open) => !open);
-      }
-    };
-
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
+    setMounted(true);
+    const plat = navigator.platform || navigator.userAgent || "";
+    setIsMac(/mac|iphone|ipad|ipod|darwin/i.test(plat));
   }, []);
 
-  const runCommand = (href: string) => {
-    const name = href === "/" ? "Home" : href.slice(1).replace(/-/g, " ");
-    try {
-      const next = [name, ...recent.filter((r)=>r!==name)].slice(0,6);
-      localStorage.setItem("cc:recents", JSON.stringify(next));
-      setRecent(next);
-    } catch {}
-    router.push(href);
-    setOpen(false);
+  const focusInput = () => {
+    inputRef.current?.focus();
+    setOpen(true);
   };
 
+  const resetSend = () => {
+    timers.current.forEach((t) => window.clearTimeout(t));
+    timers.current = [];
+    setSend("ready");
+    setErrorMsg(null);
+    setSuccess(null);
+    setShowCheck(false);
+  };
+
+  const closePanel = () => {
+    setOpen(false);
+    setActiveIndex(0);
+    if (sendStateRef.current !== "sending") resetSend();
+  };
+
+  const go = (href: string) => {
+    setText("");
+    setOpen(false);
+    setActiveIndex(0);
+    resetSend();
+    inputRef.current?.blur();
+    router.push(href);
+  };
+
+  async function submitMission() {
+    const goal = text.trim();
+    if (!goal || sendStateRef.current === "sending" || sendStateRef.current === "success") return;
+    lastAction.current = "mission";
+    timers.current.forEach((t) => window.clearTimeout(t));
+    timers.current = [];
+    setErrorMsg(null);
+    setSuccess(null);
+    setSend("sending");
+    try {
+      const res: any = await createMission({ goal });
+      if (!res || res.error || !res.mission?.id) {
+        throw new Error(typeof res?.error === "string" ? res.error : "Mission failed to start");
+      }
+      setSuccess({ id: res.mission.id, title: res.mission.goal || goal });
+      setText("");
+      setActiveIndex(0);
+      setSend("success");
+      setShowCheck(true);
+      mutate("/api/missions");
+      later(() => setShowCheck(false), CHECK_HOLD_MS);
+      later(() => {
+        resetSend();
+        setOpen(false);
+      }, SUCCESS_HOLD_MS);
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : "Mission failed to start");
+      setShakeKey((k) => k + 1);
+      setSend("error");
+    }
+  }
+
+  async function askChat() {
+    const content = text.trim();
+    if (!content || sendStateRef.current === "sending" || sendStateRef.current === "success") return;
+    lastAction.current = "chat";
+    timers.current.forEach((t) => window.clearTimeout(t));
+    timers.current = [];
+    setErrorMsg(null);
+    setSuccess(null);
+    setSend("sending");
+    try {
+      const created: any = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: content.length > 48 ? content.slice(0, 48) + "…" : content }),
+      }).then((r) => r.json());
+      const id = created?.conversation?.id;
+      if (!id) throw new Error(typeof created?.error === "string" ? created.error : "Chat failed to start");
+      const sent: any = await fetch(`/api/chat/${id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      }).then((r) => r.json());
+      if (sent?.error) throw new Error(typeof sent.error === "string" ? sent.error : "Chat failed to start");
+      setSend("ready");
+      go(`/chat?c=${id}`);
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : "Chat failed to start");
+      setShakeKey((k) => k + 1);
+      setSend("error");
+    }
+  }
+
+  const retry = () => {
+    if (lastAction.current === "chat") askChat();
+    else submitMission();
+  };
+
+  // Ctrl/Cmd+K focuses the input and opens the panel. No clash: the only
+  // other modifier shortcut is the sidebar's Ctrl/Cmd+B.
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        inputRef.current?.focus();
+        setOpen(true);
+      }
+    };
+    window.addEventListener("keydown", down);
+    return () => window.removeEventListener("keydown", down);
+  }, []);
+
+  // Click outside closes.
+  useEffect(() => {
+    if (!open) return;
+    const out = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) closePanel();
+    };
+    document.addEventListener("pointerdown", out);
+    return () => document.removeEventListener("pointerdown", out);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open ]);
+
+  // Fleet availability.
+  const agents = useMemo(() => (agentsData?.agents ?? []) as FleetAgent[], [agentsData]);
+  const fleetLoading = !agentsData && !agentsError;
+  const fleetFailed = !!agentsError;
+  const totalAgents = agents.length;
+  const availAgents = agents.filter((a) => !OFFLINE_RE.test(String(a.status ?? "IDLE"))).length;
+  const lastEventAt = useMemo(() => {
+    const list = ((eventsData?.events ?? []) as PanelEvent[])
+      .map((e) => Date.parse(e.timestamp))
+      .filter((n) => !Number.isNaN(n));
+    return list.length ? Math.max(...list) : null;
+  }, [eventsData]);
+  const stalled = availAgents > 0 && lastEventAt !== null && Date.now() - lastEventAt > STALL_AFTER_MS;
+
+  // Recent missions (latest 3 by update).
+  const recentMissions = useMemo(() => {
+    const list = ((missionsData?.missions ?? []) as RecentMission[]).slice();
+    list.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    return list.slice(0, 3);
+  }, [missionsData]);
+
+  const q = text.trim();
+
+  const groups = useMemo(() => {
+    const out: Array<{ label: string | null; rows: Row[] }> = [];
+    if (!q) {
+      out.push({
+        label: null,
+        rows: [
+          { key: "new-mission", kind: "action", title: "Start a mission", Icon: Rocket, run: focusInput },
+          { key: "topology", kind: "action", title: "Open live topology", Icon: Network, run: () => go("/topology") },
+          { key: "new-chat", kind: "action", title: "New AI chat", Icon: Plus, run: () => go("/chat") },
+        ],
+      });
+      if (recentMissions.length > 0) {
+        out.push({
+          label: "Recent missions",
+          rows: recentMissions.map((m) => ({
+            key: `mission-${m.id}`,
+            kind: "mission" as const,
+            title: m.goal,
+            hint: formatDistanceToNow(new Date(m.updatedAt), { addSuffix: true }),
+            dotClass: missionDot(m.status),
+            run: () => go(`/missions/${m.id}`),
+          })),
+        });
+      }
+      out.push({
+        label: "Pages",
+        rows: PAGE_LINKS.map((p) => ({
+          key: `page-${p.href}`,
+          kind: "page" as const,
+          title: p.title,
+          Icon: p.Icon,
+          run: () => go(p.href),
+        })),
+      });
+      return out;
+    }
+    const needle = q.toLowerCase();
+    const rows: Row[] = [
+      {
+        key: "start-text",
+        kind: "start",
+        title: `Start mission: "${q}"`,
+        hint: availAgents === 0 && !fleetLoading ? "will wait in the queue" : undefined,
+        Icon: Rocket,
+        run: submitMission,
+      },
+      { key: "ask-text", kind: "ask", title: `Ask AI Chat: "${q}"`, Icon: MessageCircle, run: askChat },
+    ];
+    out.push({ label: null, rows });
+    const matched = recentMissions.filter((m) => m.goal.toLowerCase().includes(needle));
+    if (matched.length > 0) {
+      out.push({
+        label: "Missions",
+        rows: matched.map((m) => ({
+          key: `mission-${m.id}`,
+          kind: "mission" as const,
+          title: m.goal,
+          hint: formatDistanceToNow(new Date(m.updatedAt), { addSuffix: true }),
+          dotClass: missionDot(m.status),
+          run: () => go(`/missions/${m.id}`),
+        })),
+      });
+    }
+    const pages = PAGE_LINKS.filter((p) => p.title.toLowerCase().includes(needle));
+    if (pages.length > 0) {
+      out.push({
+        label: "Pages",
+        rows: pages.map((p) => ({
+          key: `page-${p.href}`,
+          kind: "page" as const,
+          title: p.title,
+          Icon: p.Icon,
+          run: () => go(p.href),
+        })),
+      });
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, recentMissions, availAgents, fleetLoading]);
+
+  const flat = useMemo(() => groups.flatMap((g) => g.rows), [groups]);
+  useEffect(() => {
+    setActiveIndex((i) => Math.min(i, Math.max(0, flat.length - 1)));
+  }, [flat.length ]);
+
+  const onInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setOpen(true);
+      setActiveIndex((i) => (flat.length ? (i + 1) % flat.length : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setOpen(true);
+      setActiveIndex((i) => (flat.length ? (i - 1 + flat.length) % flat.length : 0));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setActiveIndex(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setActiveIndex(Math.max(0, flat.length - 1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (sendStateRef.current === "error") retry();
+      else flat[activeIndex]?.run();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      if (text) {
+        setText("");
+        setActiveIndex(0);
+      } else {
+        closePanel();
+        inputRef.current?.blur();
+      }
+    }
+  };
+
+  const hasText = q.length > 0;
+  const sending = sendState === "sending";
+  const succeeded = sendState === "success";
+  const failed = sendState === "error";
+
+  const buttonLabel = sending
+    ? "Starting mission"
+    : succeeded
+      ? "Mission started"
+      : failed
+        ? "Retry sending"
+        : hasText
+          ? "Send to Strike OS"
+          : "Focus the command bar";
+
+  const onButtonClick = () => {
+    if (sending || succeeded) return;
+    if (failed) retry();
+    else if (hasText) submitMission();
+    else focusInput();
+  };
+
+  const activeId = flat.length ? `${listId}-opt-${activeIndex}` : undefined;
+  let optionCursor = -1;
+
   return (
-    <>
-      <div className="mx-auto max-w-xl flex-1 px-4">
-        <div className="relative hidden md:block">
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="flex h-10 w-full items-center justify-between rounded-full bg-background/80 pl-5 pr-3 text-sm text-muted-foreground shadow-[0_0_2px_hsl(var(--foreground)/0.12),0_0_20px_-8px_hsl(var(--foreground)/0.18)] transition-shadow hover:shadow-[0_0_3px_hsl(var(--foreground)/0.2),0_0_26px_-6px_hsl(var(--foreground)/0.28)]"
-          >
-            <span>What would you like Strike OS to do?</span>
-            <div className="flex items-center gap-1.5 rounded-full border bg-muted/60 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider">
-              <span>⌘</span>
-              <span>K</span>
-            </div>
-          </button>
-        </div>
+    <div ref={rootRef} className="relative mx-auto w-full min-w-0 max-w-xl flex-1 px-4">
+      <div className="cmdbar-pill group relative flex h-11 w-full items-center rounded-full">
+        <span
+          aria-hidden
+          className={cn(
+            "flex w-12 shrink-0 items-center pl-3 font-mono text-[11px] text-muted-foreground transition-opacity",
+            focused || hasText ? "opacity-0" : "opacity-45 group-hover:opacity-70",
+          )}
+        >
+          {mounted ? (isMac ? "⌘ K" : "Ctrl K") : ""}
+        </span>
+        <input
+          ref={inputRef}
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            setActiveIndex(0);
+            if (sendStateRef.current === "error") {
+              setSend("ready");
+              setErrorMsg(null);
+            }
+          }}
+          onFocus={() => {
+            setFocused(true);
+            setOpen(true);
+          }}
+          onBlur={() => setFocused(false)}
+          onKeyDown={onInputKeyDown}
+          readOnly={sending || succeeded}
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listId}
+          aria-activedescendant={activeId}
+          aria-autocomplete="list"
+          aria-label="Command bar"
+          placeholder="What would you like Strike OS to do?"
+          className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        />
         <button
           type="button"
-          onClick={() => setOpen(true)}
-          aria-label="Run command"
-          className="md:hidden mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-transparent text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          onClick={onButtonClick}
+          disabled={sending || succeeded}
+          aria-label={buttonLabel}
+          className={cn(
+            "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
+            sending || (hasText && !succeeded)
+              ? "bg-primary text-primary-foreground shadow-[0_0_12px_2px_hsl(var(--primary)/0.5)] hover:brightness-110"
+              : succeeded || showCheck
+                ? "bg-success text-white"
+                : failed
+                  ? "border-2 border-destructive text-destructive"
+                  : "border border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
+          )}
         >
-          <StrikeMark className="h-4 w-4" />
+          {sending ? (
+            <>
+              <StrikeMark className="h-4 w-4" />
+              <span
+                aria-hidden
+                className="absolute inset-0 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground motion-safe:animate-spin"
+              />
+            </>
+          ) : succeeded || showCheck ? (
+            <Check className="h-4 w-4" aria-hidden />
+          ) : (
+            <span key={shakeKey} className={cn("flex", failed && "motion-safe:animate-cmd-shake")}>
+              <StrikeMark className="h-4 w-4" />
+            </span>
+          )}
         </button>
       </div>
-      <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder="Type a command or search..." />
-        <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
-          {navItems.map((group) => (
-            <CommandGroup key={group.group} heading={group.group}>
-              {group.items.map((item) => (
-                <CommandItem
-                  key={item.href + item.title}
-                  value={item.title}
-                  onSelect={() => runCommand(item.href)}
-                >
-                  <item.icon className="mr-2 h-4 w-4" />
-                  {item.title}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          ))}
-          {recent.length > 0 && (
+
+      {open && (
+        <div className="cmdbar-panel absolute left-4 right-4 top-[calc(100%+8px)] z-50 rounded-2xl p-2">
+          {sending ? (
+            <div className="flex items-center gap-3 px-3 py-4" role="status">
+              <span
+                aria-hidden
+                className="h-4 w-4 shrink-0 rounded-full border-2 border-primary/30 border-t-primary motion-safe:animate-spin"
+              />
+              <p className="text-sm">
+                Starting mission…
+                {availAgents === 0 && !fleetLoading && (
+                  <span className="text-muted-foreground"> No agents free — it will wait in the queue.</span>
+                )}
+              </p>
+            </div>
+          ) : succeeded && success ? (
+            <div className="px-3 py-4" role="status">
+              <div className="flex items-center gap-2 text-sm font-medium text-success">
+                <Check className="h-4 w-4" aria-hidden />
+                Mission started
+              </div>
+              <p className="mt-1 truncate text-sm text-muted-foreground">{success.title}</p>
+              <Link
+                href={`/missions/${success.id}`}
+                onClick={() => closePanel()}
+                className="mt-2 inline-block text-sm font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Open mission
+              </Link>
+            </div>
+          ) : failed ? (
+            <div className="px-3 py-4" role="alert">
+              <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+                <TriangleAlert className="h-4 w-4" aria-hidden />
+                Couldn&apos;t start that
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">{errorMsg ?? "Something went wrong."}</p>
+              <button
+                type="button"
+                onClick={retry}
+                className="mt-2 rounded-full border border-border px-3 py-1 text-xs font-medium hover:border-primary/40 hover:text-foreground"
+              >
+                Try again
+              </button>
+            </div>
+          ) : (
             <>
-              <CommandSeparator />
-              <CommandGroup heading="Recents">
-                {recent.map((r) => (
-                  <CommandItem
-                    key={r}
-                    value={`recent:${r}`}
-                    onSelect={() => runCommand(r === "Home" ? "/" : `/${r.toLowerCase().replace(/\s+/g, "-")}`)}
-                  >
-                    <Activity className="mr-2 h-4 w-4" />
-                    {titleFor(r)}
-                  </CommandItem>
+              <div className="flex items-center gap-2 px-3 pb-2 pt-1 text-xs" role="status">
+                {fleetLoading ? (
+                  <>
+                    <span aria-hidden className="size-2 rounded-full bg-muted-foreground motion-safe:animate-pulse" />
+                    <span className="text-muted-foreground">Checking fleet…</span>
+                  </>
+                ) : fleetFailed ? (
+                  <>
+                    <span aria-hidden className="size-2 rounded-full bg-muted-foreground" />
+                    <span className="text-muted-foreground">Fleet status unavailable.</span>
+                  </>
+                ) : totalAgents === 0 || availAgents === 0 ? (
+                  <>
+                    <span aria-hidden className="size-2 rounded-full bg-destructive" />
+                    <span className="text-destructive">No agents available. Work will wait in the queue.</span>
+                  </>
+                ) : stalled ? (
+                  <>
+                    <span aria-hidden className="size-2 rounded-full bg-warning" />
+                    <span className="text-warning">
+                      Possible stall · last event{" "}
+                      {lastEventAt ? formatDistanceToNow(new Date(lastEventAt), { addSuffix: true }) : "unknown"}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span aria-hidden className="size-2 rounded-full bg-success" />
+                    <span className="text-success">
+                      {availAgents} of {totalAgents} agents available
+                    </span>
+                  </>
+                )}
+              </div>
+              <ul role="listbox" id={listId} aria-label="Commands" className="max-h-[min(24rem,60vh)] overflow-auto">
+                {groups.map((g) => (
+                  <div key={g.label ?? "top"}>
+                    {g.label && (
+                      <li aria-hidden className="px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                        {g.label}
+                      </li>
+                    )}
+                    {g.rows.map((row) => {
+                      optionCursor += 1;
+                      const idx = optionCursor;
+                      const id = `${listId}-opt-${idx}`;
+                      const Icon = row.Icon;
+                      return (
+                        <li
+                          key={row.key}
+                          id={id}
+                          role="option"
+                          aria-selected={idx === activeIndex}
+                          onMouseEnter={() => setActiveIndex(idx)}
+                          onClick={() => row.run()}
+                          className={cn(
+                            "flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-sm",
+                            idx === activeIndex ? "bg-accent text-accent-foreground" : "text-foreground",
+                          )}
+                        >
+                          {row.dotClass ? (
+                            <span aria-hidden className={cn("size-2 shrink-0 rounded-full", row.dotClass)} />
+                          ) : Icon ? (
+                            <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                          ) : null}
+                          <span className="min-w-0 flex-1 truncate">{row.title}</span>
+                          {row.hint && <span className="shrink-0 text-xs text-muted-foreground">{row.hint}</span>}
+                        </li>
+                      );
+                    })}
+                  </div>
                 ))}
-              </CommandGroup>
+              </ul>
             </>
           )}
-        </CommandList>
-        <div className="flex items-center gap-4 border-t px-4 py-2.5 text-[11px] text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <kbd className="rounded border bg-muted px-1 font-mono">↑↓</kbd> to navigate
-          </span>
-          <span className="flex items-center gap-1.5">
-            <kbd className="rounded border bg-muted px-1 font-mono">esc</kbd> to close
-          </span>
         </div>
-      </CommandDialog>
-    </>
+      )}
+    </div>
   );
 }
