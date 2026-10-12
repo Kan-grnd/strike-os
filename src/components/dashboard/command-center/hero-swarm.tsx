@@ -54,9 +54,9 @@ export function HeroSwarm() {
   return (
     <DotSwarm
       shape="layer-stack"
-      count={900}
+      count={1100}
       color={color}
-      spread={1.15}
+      spread={1.3}
       interactive={false}
       paused={prefersReduced === true}
       reducedMotion={prefersReduced === true}
