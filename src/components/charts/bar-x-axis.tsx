@@ -13,6 +13,11 @@ export interface BarXAxisProps {
   showAllLabels?: boolean;
   /** Maximum number of labels to show. Default: 12 */
   maxLabels?: number;
+  /**
+   * Minimum px between labels before density is reduced to fit the plot width.
+   * Default: 52
+   */
+  minLabelSpacing?: number;
 }
 
 interface BarXAxisLabelProps {
@@ -21,6 +26,8 @@ interface BarXAxisLabelProps {
   crosshairX: number | null;
   isHovering: boolean;
   tickerHalfWidth: number;
+  /** Clamp the label inside the plot at the first/last tick. */
+  edge?: "start" | "end";
 }
 
 function BarXAxisLabel({
@@ -29,6 +36,7 @@ function BarXAxisLabel({
   crosshairX,
   isHovering,
   tickerHalfWidth,
+  edge,
 }: BarXAxisLabelProps) {
   const fadeBuffer = 20;
   const fadeRadius = tickerHalfWidth + fadeBuffer;
@@ -52,7 +60,12 @@ function BarXAxisLabel({
         bottom: 12,
         width: 0,
         display: "flex",
-        justifyContent: "center",
+        justifyContent:
+          edge === "start"
+            ? "flex-start"
+            : edge === "end"
+              ? "flex-end"
+              : "center",
       }}
     >
       <motion.span
@@ -91,10 +104,16 @@ const BarXAxisInner = memo(function BarXAxisInner({
   tickerHalfWidth = 50,
   showAllLabels = false,
   maxLabels = 12,
+  minLabelSpacing = 52,
   container,
 }: BarXAxisProps & { container: HTMLDivElement }) {
   const { margin, tooltipData, barScale, bandWidth, barXAccessor, data } =
     useChart();
+
+  // Shrink the label budget when the plot is narrow so labels never collide.
+  const plotWidth = Math.max(container.clientWidth - margin.left - margin.right, 0);
+  const densityCap = Math.max(2, Math.floor(plotWidth / minLabelSpacing));
+  const effectiveMaxLabels = Math.min(maxLabels, densityCap);
 
   // Generate labels for each bar
   const labelsToShow = useMemo(() => {
@@ -111,12 +130,12 @@ const BarXAxisInner = memo(function BarXAxisInner({
     });
 
     // If showAllLabels is true or we have fewer than maxLabels, show all
-    if (showAllLabels || allLabels.length <= maxLabels) {
+    if (showAllLabels || allLabels.length <= effectiveMaxLabels) {
       return allLabels;
     }
 
     // Otherwise, skip some labels to avoid crowding
-    const step = Math.ceil(allLabels.length / maxLabels);
+    const step = Math.ceil(allLabels.length / effectiveMaxLabels);
     return allLabels.filter((_, i) => i % step === 0);
   }, [
     barScale,
@@ -125,17 +144,24 @@ const BarXAxisInner = memo(function BarXAxisInner({
     data,
     margin.left,
     showAllLabels,
-    maxLabels,
+    effectiveMaxLabels,
   ]);
 
   const isHovering = tooltipData !== null;
   const crosshairX = tooltipData ? tooltipData.x + margin.left : null;
 
   return createPortal(
-    <div className="pointer-events-none absolute inset-0">
-      {labelsToShow.map((item) => (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {labelsToShow.map((item, i) => (
         <BarXAxisLabel
           crosshairX={crosshairX}
+          edge={
+            i === 0
+              ? "start"
+              : i === labelsToShow.length - 1
+                ? "end"
+                : undefined
+          }
           isHovering={isHovering}
           key={`${item.label}-${item.x}`}
           label={item.label}

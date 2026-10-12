@@ -144,14 +144,27 @@ export function resolveHeatmapWeekRange(
   };
 }
 
-/** Month label anchor for a week column — prefers the 1st, else the 1st of the first bin's month. */
+/**
+ * Month label anchor for a week column — prefers the 1st, else the 1st of the
+ * first bin's month.
+ *
+ * The fallback only makes sense for a leading partial week: otherwise a column
+ * like Sep 21–27 would claim "Sep" one column before the column containing Oct
+ * 1 claims "Oct", putting two month labels in adjacent columns where they
+ * overlap. Pass `allowFallback` only for the first column.
+ */
 export function getHeatmapColumnMonthAnchor(
-  column: HeatmapColumn
+  column: HeatmapColumn,
+  allowFallback = true
 ): Date | null {
   for (const bin of column.bins) {
     if (bin.date && bin.date.getDate() === 1) {
       return bin.date;
     }
+  }
+
+  if (!allowFallback) {
+    return null;
   }
 
   const firstDate = column.bins[0]?.date;

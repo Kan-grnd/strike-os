@@ -3,6 +3,7 @@ export { CompletionHeatmap } from "./completion-heatmap";
 export { EventThroughput } from "./event-throughput";
 export { FleetCapacityRing } from "./fleet-capacity-ring";
 export { FleetCompositionPie } from "./fleet-composition-pie";
+export { FleetMix } from "./fleet-mix";
 export { MissionOutcomesRing } from "./mission-outcomes-ring";
 export { RangeControl } from "./range-control";
 export { SuccessGauge } from "./success-gauge";

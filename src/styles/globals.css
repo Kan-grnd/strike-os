@@ -723,3 +723,43 @@ body > div.h-screen.flex.bg-background {
 .react-flow__handle-right {
   right: 0;
 }
+
+/* ── Fleet telemetry grid (container-aware) ──────────────────────────────
+   The dashboard's chart grid must react to the width actually available to it,
+   not the viewport: opening the Level-2 sidebar panel pushes 192px in front of
+   the content without ever changing the viewport width, so viewport breakpoints
+   keep the grid top-heavy and the cards fight over their tracks. Driving the
+   column count from the grid's own inline size collapses it the moment the
+   panel eats the room, and keeps the dense 5-up layout when the room is there. */
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+.tg-container {
+  container-type: inline-size;
+}
+.telemetry-grid > * {
+  min-width: 0;
+}
+.telemetry-grid > .tg-full {
+  grid-column: 1 / -1;
+}
+
+@container (min-width: 40rem) {
+  .telemetry-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (min-width: 56.25rem) {
+  .telemetry-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .telemetry-grid > .tg-wide {
+    grid-column: span 3;
+  }
+  .telemetry-grid > .tg-narrow {
+    grid-column: span 2;
+  }
+}

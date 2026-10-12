@@ -80,8 +80,23 @@ const BarYAxisInner = memo(function BarYAxisInner({
   maxLabels = 20,
   container,
 }: BarYAxisProps & { container: HTMLDivElement }) {
-  const { margin, barScale, bandWidth, barXAccessor, data, hoveredBarIndex } =
-    useChart();
+  const {
+    margin,
+    orientation,
+    barScale,
+    bandWidth,
+    barXAccessor,
+    data,
+    hoveredBarIndex,
+  } = useChart();
+
+  // Category labels along the value gutter only make sense on a horizontal bar
+  // chart, where categories run down the left edge. On a vertical chart they
+  // duplicate the bottom BarXAxis inside a margin-left gutter that cannot fit
+  // them, so this is a no-op there.
+  if (orientation !== "horizontal") {
+    return null;
+  }
 
   // Generate labels for each bar
   const labelsToShow = useMemo(() => {

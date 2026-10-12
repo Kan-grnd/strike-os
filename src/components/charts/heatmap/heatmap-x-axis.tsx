@@ -13,6 +13,9 @@ export interface HeatmapXAxisProps {
 
 const monthFmt = new Intl.DateTimeFormat("en-US", { month: "short" });
 
+/** Minimum px between month labels before the denser ones are dropped. */
+const MIN_MONTH_LABEL_SPACING = 46;
+
 export const HeatmapXAxis = memo(function HeatmapXAxis({
   className,
 }: HeatmapXAxisProps) {
@@ -33,7 +36,10 @@ export const HeatmapXAxis = memo(function HeatmapXAxis({
         continue;
       }
 
-      const monthAnchor = getHeatmapColumnMonthAnchor(column);
+      const monthAnchor = getHeatmapColumnMonthAnchor(
+        column,
+        columnIndex === 0
+      );
       if (!monthAnchor) {
         continue;
       }
@@ -51,7 +57,28 @@ export const HeatmapXAxis = memo(function HeatmapXAxis({
       lastMonthKey = monthKey;
     }
 
-    return ticks;
+    // Month anchors can land close together (a range starting mid-month puts
+    // the leading partial week next to a real 1st-of-month), so drop labels
+    // that would collide with the one before them. The final label is
+    // right-clamped at the plot edge, so it always wins its slot.
+    const spaced: typeof ticks = [];
+    for (const tick of ticks) {
+      const prev = spaced[spaced.length - 1];
+      if (!prev || tick.x - prev.x >= MIN_MONTH_LABEL_SPACING) {
+        spaced.push(tick);
+      }
+    }
+    const last = ticks[ticks.length - 1];
+    if (last && spaced[spaced.length - 1] !== last) {
+      const prev = spaced[spaced.length - 1];
+      if (!prev || last.x - prev.x < MIN_MONTH_LABEL_SPACING) {
+        spaced[spaced.length - 1] = last;
+      } else {
+        spaced.push(last);
+      }
+    }
+
+    return spaced;
   }, [data, margin.left, xScale]);
 
   const container = containerRef.current;
@@ -60,7 +87,7 @@ export const HeatmapXAxis = memo(function HeatmapXAxis({
   }
 
   return createPortal(
-    labels.map((tick) => (
+    labels.map((tick, i) => (
       <div
         className="pointer-events-none absolute"
         key={tick.key}
@@ -69,7 +96,7 @@ export const HeatmapXAxis = memo(function HeatmapXAxis({
           left: tick.x,
           width: 0,
           display: "flex",
-          justifyContent: "flex-start",
+          justifyContent: i === labels.length - 1 ? "flex-end" : "flex-start",
         }}
       >
         <span

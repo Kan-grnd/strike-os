@@ -681,7 +681,7 @@ export function Gauge({
 
     return (
       <div className={cn("relative w-full min-w-0 max-w-full", className)}>
-        <div className="w-full min-w-0" style={{ minWidth: resolvedMinWidth }}>
+        <div className="w-full min-w-0" style={{ minWidth: `min(${resolvedMinWidth}px, 100%)` }}>
           <ParentSize debounceTime={10}>
             {({ width }) =>
               width > 0 ? (
@@ -715,7 +715,7 @@ export function Gauge({
   return (
     <div
       className={cn("relative w-full max-w-full", className)}
-      style={{ minWidth: resolvedMinWidth }}
+      style={{ minWidth: `min(${resolvedMinWidth}px, 100%)` }}
     >
       <div className="mx-auto aspect-[21/16] w-full max-w-[560px]">
         <ParentSize debounceTime={10}>

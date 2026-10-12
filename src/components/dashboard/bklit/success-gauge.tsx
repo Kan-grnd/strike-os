@@ -24,7 +24,7 @@ export function SuccessGauge({
   return (
     <Panel title="Task success" hint="terminal outcomes · window">
       {loading ? (
-        <div className="h-[220px] w-full animate-pulse rounded-md bg-muted/40" />
+        <div className="h-[190px] w-full animate-pulse rounded-md bg-muted/40" />
       ) : value == null ? (
         <div className="flex h-full flex-col items-center justify-center gap-3">
           <Gauge

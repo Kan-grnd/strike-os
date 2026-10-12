@@ -48,7 +48,10 @@ function PrimaryNavItem({
           aria-label={domain.label}
           className={cn(
             "relative flex h-9 w-9 items-center justify-center rounded-md transition-colors",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+            // Inset the focus ring so it hugs the 36px button exactly. An
+            // outward ring grows past the box and, with the rail's tight 4px
+            // gaps, reads oversized and nearly stripes into neighbours.
+            "focus-visible:outline-none focus-visible:outline-offset-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60",
             open
               ? "bg-accent text-accent-foreground"
               : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"

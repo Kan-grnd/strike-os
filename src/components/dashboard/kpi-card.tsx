@@ -67,14 +67,7 @@ export function KpiCard({
       transition={{ duration: 0.5, delay: index * 0.08, ease: [0.16, 1, 0.3, 1] }}
       className="h-full"
     >
-      <Card className="group relative flex h-full flex-col overflow-hidden p-5 transition-colors hover:border-ring/40">
-        {accent && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full opacity-40 blur-2xl transition-opacity duration-500 group-hover:opacity-70"
-            style={{ background: accent }}
-          />
-        )}
+      <Card className="group relative flex h-full flex-col overflow-hidden p-4 transition-colors hover:border-ring/40">
         <div className="relative flex items-start justify-between">
           <div className="space-y-3">
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -86,7 +79,7 @@ export function KpiCard({
                   {prefix}
                 </span>
               )}
-              <span className="font-mono text-3xl font-bold tabular-nums tracking-tight">
+              <span className="font-mono text-2xl font-bold tabular-nums tracking-tight">
                 {rounded}
               </span>
               {suffix && (
@@ -97,14 +90,27 @@ export function KpiCard({
             </div>
             <p className="text-xs text-muted-foreground">{caption}</p>
           </div>
-          <div className="rounded-lg bg-muted/70 p-2.5 transition-colors group-hover:bg-accent">
-            <Icon className="h-5 w-5 text-muted-foreground group-hover:text-foreground" />
+          <div
+            className={cn(
+              "rounded-lg p-2 transition-colors",
+              !accent && "bg-muted/70 group-hover:bg-accent",
+            )}
+            style={accent ? { backgroundColor: accent } : undefined}
+          >
+            <Icon
+              className={cn(
+                "h-5 w-5",
+                accent
+                  ? "text-foreground"
+                  : "text-muted-foreground group-hover:text-foreground",
+              )}
+            />
           </div>
         </div>
 
         <div className="relative mt-auto flex items-end justify-between gap-3 pt-4">
           {spark && spark.length > 1 ? (
-            <Spark data={spark} className="h-7 flex-1" />
+            <Spark data={spark} className="h-6 flex-1" />
           ) : (
             <span />
           )}

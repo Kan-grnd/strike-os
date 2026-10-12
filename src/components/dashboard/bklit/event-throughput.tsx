@@ -42,14 +42,14 @@ export function EventThroughput({
         xDataKey="date"
         status={status}
         loadingLabel="Loading throughput"
-        aspectRatio="16 / 7"
+        aspectRatio="16 / 6"
         margin={{ top: 16, right: 12, bottom: 4, left: 8 }}
       >
         <Grid fadeHorizontal horizontal vertical={false} numTicksRows={4} />
         <Area
           dataKey="events"
-          fill={SERIES.info}
-          stroke={SERIES.info}
+          fill={SERIES.primary}
+          stroke={SERIES.primary}
           fillOpacity={0.28}
           dashFromIndex={data.length - 1}
         />

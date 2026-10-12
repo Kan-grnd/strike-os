@@ -72,7 +72,7 @@ export const HeatmapYAxis = memo(function HeatmapYAxis({
       >
         <span
           className={cn(
-            "whitespace-nowrap text-chart-label text-xs",
+            "whitespace-nowrap text-chart-label text-xs leading-none",
             className
           )}
           style={{ opacity: resolveHeatmapRowOpacity(tick.row, rowOpacity) }}

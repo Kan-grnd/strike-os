@@ -22,8 +22,8 @@ export function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <Card className={cn("flex h-full flex-col p-6", className)}>
-      <div className="mb-4 flex items-baseline justify-between gap-2">
+    <Card className={cn("flex h-full min-w-0 flex-col p-5", className)}>
+      <div className="mb-3 flex min-w-0 items-baseline justify-between gap-2">
         <h3 className="font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           {title}
         </h3>
@@ -33,7 +33,7 @@ export function Panel({
           </span>
         )}
       </div>
-      <div className={cn("min-h-0 flex-1", bodyClassName)}>{children}</div>
+      <div className={cn("min-h-0 min-w-0 flex-1", bodyClassName)}>{children}</div>
     </Card>
   );
 }

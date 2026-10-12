@@ -10,7 +10,7 @@ export function TaskFunnel({ tasks }: { tasks: any[] }) {
 
   const colored = stages.map((s, i) => ({
     ...s,
-    color: [SERIES.info, SERIES.primary, SERIES.success][i],
+    color: ["hsl(var(--muted-foreground))", SERIES.primary, SERIES.success][i],
   }));
 
   return (
@@ -19,7 +19,7 @@ export function TaskFunnel({ tasks }: { tasks: any[] }) {
         <Empty>No tasks in the pipeline yet</Empty>
       ) : (
         <div className="flex h-full flex-col">
-          <div className="h-[240px] w-full">
+          <div className="h-[200px] w-full">
             <FunnelChart
               data={colored}
               orientation="horizontal"

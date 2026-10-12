@@ -20,6 +20,11 @@ export interface XAxisProps {
    * `"domain"` — evenly spaced ticks across the time domain (may not align with hover).
    */
   tickMode?: "domain" | "data";
+  /**
+   * Minimum px between tick labels before density is reduced to fit the plot
+   * width. Default: 64
+   */
+  minLabelSpacing?: number;
 }
 
 interface AxisTick {
@@ -36,6 +41,8 @@ interface XAxisLabelProps {
   isHovering: boolean;
   tickerHalfWidth: number;
   animatePosition: boolean;
+  /** Clamp the label inside the plot at the first/last tick. */
+  edge?: "start" | "end";
 }
 
 function XAxisLabel({
@@ -46,6 +53,7 @@ function XAxisLabel({
   isHovering,
   tickerHalfWidth,
   animatePosition,
+  edge,
 }: XAxisLabelProps) {
   const fadeBuffer = 20;
   const fadeRadius = tickerHalfWidth + fadeBuffer;
@@ -70,7 +78,12 @@ function XAxisLabel({
         bottom: 12,
         width: 0,
         display: "flex",
-        justifyContent: "center",
+        justifyContent:
+          edge === "start"
+            ? "flex-start"
+            : edge === "end"
+              ? "flex-end"
+              : "center",
         transition: animatePosition
           ? `left ${X_AXIS_POSITION_TWEEN_MS}ms cubic-bezier(${LINE_LOADING_PULSE_EASE.join(", ")})`
           : undefined,
@@ -576,10 +589,18 @@ const XAxisInner = memo(function XAxisInner({
   numTicks = 5,
   tickerHalfWidth = 50,
   tickMode = "data",
+  minLabelSpacing = 64,
   container,
 }: XAxisProps & { container: HTMLDivElement }) {
   const { xScale, margin, tooltipData, data, xAccessor, dateLabels, xDomain } =
     useChart();
+
+  // Shrink the tick budget when the plot is narrow so labels never collide.
+  const plotWidth = Math.max(container.clientWidth - margin.left - margin.right, 0);
+  const effectiveNumTicks = Math.min(
+    numTicks,
+    Math.max(2, Math.floor(plotWidth / minLabelSpacing))
+  );
 
   const labelsToShow = useMemo(() => {
     const projectionExtendsScale =
@@ -588,7 +609,7 @@ const XAxisInner = memo(function XAxisInner({
     if (tickMode === "domain") {
       return buildDomainTicks({
         marginLeft: margin.left,
-        numTicks,
+        numTicks: effectiveNumTicks,
         xScale,
       });
     }
@@ -597,7 +618,7 @@ const XAxisInner = memo(function XAxisInner({
     if (projectionExtendsScale && xDomain == null) {
       return buildDomainTicks({
         marginLeft: margin.left,
-        numTicks,
+        numTicks: effectiveNumTicks,
         xScale,
       });
     }
@@ -606,7 +627,7 @@ const XAxisInner = memo(function XAxisInner({
       data,
       dateLabels,
       marginLeft: margin.left,
-      targetTickCount: numTicks,
+      targetTickCount: effectiveNumTicks,
       xAccessor,
       xScale,
     });
@@ -619,7 +640,7 @@ const XAxisInner = memo(function XAxisInner({
         xAccessor,
         xScale,
         margin.left,
-        Math.max(1, numTicks - dataTicks.length + 1)
+        Math.max(1, effectiveNumTicks - dataTicks.length + 1)
       );
     }
 
@@ -632,7 +653,7 @@ const XAxisInner = memo(function XAxisInner({
     xAccessor,
     xScale,
     margin.left,
-    numTicks,
+    effectiveNumTicks,
   ]);
 
   const isHovering = tooltipData !== null;
@@ -644,11 +665,18 @@ const XAxisInner = memo(function XAxisInner({
       : null;
 
   return createPortal(
-    <div className="pointer-events-none absolute inset-0">
-      {labelsToShow.map((item) => (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {labelsToShow.map((item, i) => (
         <XAxisLabel
           animatePosition={xDomain == null}
           crosshairX={crosshairX}
+          edge={
+            i === 0
+              ? "start"
+              : i === labelsToShow.length - 1
+                ? "end"
+                : undefined
+          }
           hoveredLabel={hoveredLabel}
           isHovering={isHovering}
           key={`${item.date.getTime()}-${item.x}`}

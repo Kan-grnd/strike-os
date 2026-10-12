@@ -70,7 +70,7 @@ export function TaskOutputBar({
             xDataKey="label"
             stacked
             status={status}
-            aspectRatio="16 / 7"
+            aspectRatio="16 / 6"
             margin={{ top: 16, right: 12, bottom: 28, left: 8 }}
           >
             <Grid horizontal vertical={false} numTicksRows={4} />
