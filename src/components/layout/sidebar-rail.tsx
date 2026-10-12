@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { StrikeMark } from "@/components/ui/logo";
 import { Separator } from "@/components/ui/separator";
@@ -37,6 +38,8 @@ function PrimaryNavItem({
   buttonRef?: (el: HTMLButtonElement | null) => void;
 }) {
   const Icon = domain.icon;
+  const router = useRouter();
+  const firstHref = domain.children[0]?.href;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -44,13 +47,16 @@ function PrimaryNavItem({
           ref={buttonRef}
           type="button"
           onClick={() => onSelect(domain.id)}
+          onPointerEnter={() => {
+            if (firstHref) router.prefetch(firstHref);
+          }}
+          onFocus={() => {
+            if (firstHref) router.prefetch(firstHref);
+          }}
           aria-expanded={open}
           aria-label={domain.label}
           className={cn(
             "relative flex h-9 w-9 items-center justify-center rounded-md transition-colors",
-            // Inset the focus ring so it hugs the 36px button exactly. An
-            // outward ring grows past the box and, with the rail's tight 4px
-            // gaps, reads oversized and nearly stripes into neighbours.
             "focus-visible:outline-none focus-visible:outline-offset-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60",
             open
               ? "bg-accent text-accent-foreground"

@@ -14,6 +14,7 @@ import {
   useSidebarStatus,
 } from "@/components/layout/sidebar-footer";
 import {
+  NAV_DOMAINS,
   domainById,
   resolveNavigation,
   type NavigationDomain,
@@ -104,19 +105,13 @@ export function AppSidebar({
     return () => mq.removeEventListener("change", onMatch);
   }, []);
 
-  // A route the config knows about re-points the panel at its own domain. A
-  // route it does not know about is left alone, so an unlisted page does not
-  // yank the user back to Overview — that is the case the stored domain exists
-  // to cover.
-  //
-  // Deliberately NOT persisted. The stored value is the domain the user chose,
-  // not the domain the last route happened to imply: overwriting it on every
-  // navigation would leave nothing but the current route behind, and a route
-  // the config does not know would then have nothing to fall back to.
   React.useEffect(() => {
-    if (!routeDomain) return;
-    setSelectedId(routeDomain.id);
-  }, [routeDomain?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    for (const domain of NAV_DOMAINS) {
+      if (domain.children.length > 0) {
+        router.prefetch(domain.children[0].href);
+      }
+    }
+  }, [router]);
 
   const selected: NavigationDomain | null = domainById(selectedId) ?? routeDomain;
 
