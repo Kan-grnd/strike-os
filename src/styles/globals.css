@@ -313,7 +313,7 @@
   :root,
   .clean,
   .calm {
-    --glass-alpha-card: 0.82;
+    --glass-alpha-card: 0.80;
     --glass-alpha-elevated: 0.9;
     --glass-alpha-bar: 0.74;
     --glass-alpha-recessed: 0.66;
@@ -342,7 +342,7 @@
   .graphite,
   .void,
   .signal {
-    --glass-alpha-card: 0.68;
+    --glass-alpha-card: 0.66;
     --glass-alpha-elevated: 0.78;
     --glass-alpha-bar: 0.55;
     --glass-alpha-recessed: 0.5;
