@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarRail } from "@/components/layout/sidebar-rail";
@@ -59,16 +59,12 @@ export interface AppSidebarProps {
  * The two-level navigation.
  *
  * Level 1 is a rail of domain icons that never goes away; Level 2 is a panel
- * showing one domain's routes. Two things make it more than a layout change:
+ * showing one domain's routes. Key points:
  *
- * - The **selected** domain and the **route's** domain are separate. Picking a
- *   rail icon changes what the panel shows without moving the user, so
- *   "what am I looking at" and "where am I" can legitimately disagree for a
- *   moment. When they do, the panel shows the selected domain with no item
- *   highlighted — never a highlight on a page the user is not on.
- * - A route change re-selects the domain that owns it. Otherwise navigating to
- *   `/settings` from a Workforce panel would leave the panel on Workforce,
- *   hiding the page the user just arrived at.
+ * - Picking a rail icon navigates to that domain's first page and opens its
+ *   panel; pressing the icon of the domain already open closes the panel
+ *   without navigating.
+ * - A route change re-selects the domain that owns it.
  */
 export function AppSidebar({
   panelOpen = false,
@@ -76,6 +72,7 @@ export function AppSidebar({
   suppressAnimation = false,
 }: AppSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { domain: routeDomain, child: routeChild } = React.useMemo(
     () => resolveNavigation(pathname),
     [pathname]
@@ -131,8 +128,7 @@ export function AppSidebar({
   const selectDomain = (id: string) => {
     /* Pressing the icon of the domain already showing is a close. This is why
        the rail no longer carries a separate collapse button: the control that
-       opened the panel is the one that puts it away, which is both fewer
-       controls and the one a user reaches for. */
+       opened the panel is the one that puts it away. */
     if (selected?.id === id && level2Open) {
       if (narrow) {
         setDrawerOpen(false);
@@ -146,8 +142,12 @@ export function AppSidebar({
          the panel unmounting. */
       return;
     }
+    const domain = domainById(id);
     setSelectedId(id);
     persistDomain(id);
+    if (domain && domain.children.length > 0) {
+      router.push(domain.children[0].href);
+    }
     if (narrow) {
       setDrawerOpen(true);
       return;

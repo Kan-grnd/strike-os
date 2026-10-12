@@ -39,11 +39,9 @@ import {
  *    fails the build's test run if a page is unreachable, duplicated, or claims
  *    two domains, because a nav entry that silently points at nothing is worse
  *    than a missing one — it looks like the feature exists.
- * 2. A Level-1 domain is a *grouping*, never a destination. Nothing in here
- *    has an href at the domain level: a domain owns children, and the panel is
- *    derived from the selected domain plus the current route. That is what keeps
- *    this two levels deep instead of becoming a third level in disguise.
- */
+ * 2. A Level-1 domain is a *grouping* for navigation. Its first child is the
+ *    section's entry point: the rail icon navigates to `children[0].href`. */
+
 
 export type IconComponent = React.ComponentType<{ className?: string }>;
 
