@@ -129,6 +129,13 @@ export function CommandBar() {
     setOpen(true);
   };
 
+  // Pill-body clicks (hint, padding) focus the input; the logo button
+  // owns its own behavior and is skipped here.
+  const onPillClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest("button")) return;
+    focusInput();
+  };
+
   const resetSend = () => {
     timers.current.forEach((t) => window.clearTimeout(t));
     timers.current = [];
@@ -412,9 +419,9 @@ export function CommandBar() {
   let optionCursor = -1;
 
   return (
-    <div ref={rootRef} className="relative mx-auto w-full min-w-0 max-w-xl flex-1 px-4">
+    <div ref={rootRef} onClick={onPillClick} className="relative mx-auto w-full min-w-0 max-w-xl flex-1 cursor-text px-4">
       <style>{`@keyframes cmdshake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-3px)}40%,60%{transform:translateX(3px)}}`}</style>
-      <div className="group flex h-10 w-full items-center rounded-full border border-border bg-background pl-1 pr-1 text-sm hover:border-primary/40 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+      <div className="group flex h-10 w-full items-center rounded-full border glass pl-1 pr-1 text-sm hover:border-primary/40 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
         <span
           aria-hidden
           className={cn(
@@ -487,7 +494,7 @@ export function CommandBar() {
       </div>
 
       {open && (
-        <div className="absolute left-4 right-4 top-[calc(100%+8px)] z-50 rounded-lg border bg-popover p-1 text-popover-foreground">
+        <div className="absolute left-4 right-4 top-[calc(100%+8px)] z-50 rounded-lg border glass p-1 text-card-foreground">
           {sending ? (
             <div className="flex items-center gap-2.5 px-2 py-3" role="status">
               <span
