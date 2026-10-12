@@ -25,6 +25,8 @@ import { createMission, useAgents, useEvents, useMissions } from "@/hooks/useApi
 import { cn } from "@/lib/utils";
 
 /* Dispatch control: type a goal and send it to start work, or jump to a page.
+ * Flat platform styling only — card/popover surfaces, hairline borders,
+ * accent hovers, mono micro-labels. No blur, no glow, no new tokens.
  * Pill layout left to right: [Ctrl+K hint] [input] [logo hit button]. */
 
 type SendState = "ready" | "sending" | "success" | "error";
@@ -45,9 +47,13 @@ interface PanelEvent {
 const STALL_AFTER_MS = 60000;
 const SUCCESS_HOLD_MS = 6000;
 const CHECK_HOLD_MS = 1500;
-const IDLE_RESUME_MS = 4000;
 
 const OFFLINE_RE = /offline|error|failed|dead|stale/i;
+
+/* Mono uppercase micro-label, same as the hero status line. */
+const MICRO_LABEL = "font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground";
+/* Small bordered icon chip, same as the KPI cards at a smaller size. */
+const ICON_CHIP = "flex size-6 shrink-0 items-center justify-center rounded-md border border-border";
 
 const PAGE_LINKS: Array<{ title: string; href: string; Icon: LucideIcon }> = [
   { title: "Agents", href: "/agents", Icon: Users },
@@ -277,7 +283,7 @@ export function CommandBar() {
       });
       if (recentMissions.length > 0) {
         out.push({
-          label: "Recent missions",
+          label: "Recent",
           rows: recentMissions.map((m) => ({
             key: `mission-${m.id}`,
             kind: "mission" as const,
@@ -289,7 +295,7 @@ export function CommandBar() {
         });
       }
       out.push({
-        label: "Pages",
+        label: "Go to",
         rows: PAGE_LINKS.map((p) => ({
           key: `page-${p.href}`,
           kind: "page" as const,
@@ -312,11 +318,11 @@ export function CommandBar() {
       },
       { key: "ask-text", kind: "ask", title: `Ask AI Chat: "${q}"`, Icon: MessageCircle, run: askChat },
     ];
-    out.push({ label: null, rows });
+    out.push({ label: "Dispatch", rows });
     const matched = recentMissions.filter((m) => m.goal.toLowerCase().includes(needle));
     if (matched.length > 0) {
       out.push({
-        label: "Missions",
+        label: "Recent",
         rows: matched.map((m) => ({
           key: `mission-${m.id}`,
           kind: "mission" as const,
@@ -330,7 +336,7 @@ export function CommandBar() {
     const pages = PAGE_LINKS.filter((p) => p.title.toLowerCase().includes(needle));
     if (pages.length > 0) {
       out.push({
-        label: "Pages",
+        label: "Go to",
         rows: pages.map((p) => ({
           key: `page-${p.href}`,
           kind: "page" as const,
@@ -407,7 +413,8 @@ export function CommandBar() {
 
   return (
     <div ref={rootRef} className="relative mx-auto w-full min-w-0 max-w-xl flex-1 px-4">
-      <div className="cmdbar-pill group relative flex h-11 w-full items-center rounded-full">
+      <style>{`@keyframes cmdshake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-3px)}40%,60%{transform:translateX(3px)}}`}</style>
+      <div className="group flex h-10 w-full items-center rounded-full border border-border bg-background pl-1 pr-1 text-sm hover:border-primary/40 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
         <span
           aria-hidden
           className={cn(
@@ -450,29 +457,29 @@ export function CommandBar() {
           disabled={sending || succeeded}
           aria-label={buttonLabel}
           className={cn(
-            "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
             sending || (hasText && !succeeded)
-              ? "bg-primary text-primary-foreground shadow-[0_0_12px_2px_hsl(var(--primary)/0.5)] hover:brightness-110"
+              ? "border-transparent bg-primary text-primary-foreground hover:bg-primary/90"
               : succeeded || showCheck
-                ? "bg-success text-white"
+                ? "border-transparent bg-success text-success-foreground"
                 : failed
-                  ? "border-2 border-destructive text-destructive"
-                  : "border border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                  ? "border-destructive text-destructive"
+                  : "border-border text-muted-foreground hover:text-foreground",
           )}
         >
           {sending ? (
-            <>
+            <span className="relative flex h-4 w-4 items-center justify-center">
               <StrikeMark className="h-4 w-4" />
               <span
                 aria-hidden
-                className="absolute inset-0 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground motion-safe:animate-spin"
+                className="absolute -inset-0.5 rounded-full border-2 border-transparent border-t-current motion-safe:animate-spin"
               />
-            </>
+            </span>
           ) : succeeded || showCheck ? (
             <Check className="h-4 w-4" aria-hidden />
           ) : (
-            <span key={shakeKey} className={cn("flex", failed && "motion-safe:animate-cmd-shake")}>
+            <span key={shakeKey} className={cn("flex", failed && "motion-safe:animate-[cmdshake_0.4s_ease-in-out]")}>
               <StrikeMark className="h-4 w-4" />
             </span>
           )}
@@ -480,22 +487,22 @@ export function CommandBar() {
       </div>
 
       {open && (
-        <div className="cmdbar-panel absolute left-4 right-4 top-[calc(100%+8px)] z-50 rounded-2xl p-2">
+        <div className="absolute left-4 right-4 top-[calc(100%+8px)] z-50 rounded-lg border bg-popover p-1 text-popover-foreground">
           {sending ? (
-            <div className="flex items-center gap-3 px-3 py-4" role="status">
+            <div className="flex items-center gap-2.5 px-2 py-3" role="status">
               <span
                 aria-hidden
                 className="h-4 w-4 shrink-0 rounded-full border-2 border-primary/30 border-t-primary motion-safe:animate-spin"
               />
               <p className="text-sm">
-                Starting mission…
+                Starting mission...
                 {availAgents === 0 && !fleetLoading && (
                   <span className="text-muted-foreground"> No agents free — it will wait in the queue.</span>
                 )}
               </p>
             </div>
           ) : succeeded && success ? (
-            <div className="px-3 py-4" role="status">
+            <div className="px-2 py-3" role="status">
               <div className="flex items-center gap-2 text-sm font-medium text-success">
                 <Check className="h-4 w-4" aria-hidden />
                 Mission started
@@ -510,7 +517,7 @@ export function CommandBar() {
               </Link>
             </div>
           ) : failed ? (
-            <div className="px-3 py-4" role="alert">
+            <div className="px-2 py-3" role="alert">
               <div className="flex items-center gap-2 text-sm font-medium text-destructive">
                 <TriangleAlert className="h-4 w-4" aria-hidden />
                 Couldn&apos;t start that
@@ -519,54 +526,45 @@ export function CommandBar() {
               <button
                 type="button"
                 onClick={retry}
-                className="mt-2 rounded-full border border-border px-3 py-1 text-xs font-medium hover:border-primary/40 hover:text-foreground"
+                className="mt-2 rounded-md border border-border px-3 py-1 text-xs font-medium hover:bg-accent hover:text-accent-foreground"
               >
                 Try again
               </button>
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-2 px-3 pb-2 pt-1 text-xs" role="status">
-                {fleetLoading ? (
-                  <>
-                    <span aria-hidden className="size-2 rounded-full bg-muted-foreground motion-safe:animate-pulse" />
-                    <span className="text-muted-foreground">Checking fleet…</span>
-                  </>
-                ) : fleetFailed ? (
-                  <>
-                    <span aria-hidden className="size-2 rounded-full bg-muted-foreground" />
-                    <span className="text-muted-foreground">Fleet status unavailable.</span>
-                  </>
-                ) : totalAgents === 0 || availAgents === 0 ? (
-                  <>
-                    <span aria-hidden className="size-2 rounded-full bg-destructive" />
-                    <span className="text-destructive">No agents available. Work will wait in the queue.</span>
-                  </>
-                ) : stalled ? (
-                  <>
-                    <span aria-hidden className="size-2 rounded-full bg-warning" />
-                    <span className="text-warning">
-                      Possible stall · last event{" "}
-                      {lastEventAt ? formatDistanceToNow(new Date(lastEventAt), { addSuffix: true }) : "unknown"}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <span aria-hidden className="size-2 rounded-full bg-success" />
-                    <span className="text-success">
-                      {availAgents} of {totalAgents} agents available
-                    </span>
-                  </>
-                )}
+              <div className="flex items-center gap-2 px-2 py-1.5" role="status">
+                <span
+                  aria-hidden
+                  className={cn(
+                    "size-2 shrink-0 rounded-full",
+                    fleetLoading || fleetFailed
+                      ? "bg-muted-foreground"
+                      : totalAgents === 0 || availAgents === 0
+                        ? "bg-destructive"
+                        : stalled
+                          ? "bg-warning"
+                          : "bg-success",
+                    fleetLoading && "motion-safe:animate-pulse",
+                  )}
+                />
+                <span className={MICRO_LABEL}>
+                  {fleetLoading
+                    ? "Checking fleet…"
+                    : fleetFailed
+                      ? "Fleet status unavailable"
+                      : totalAgents === 0 || availAgents === 0
+                        ? "No agents available. Work will wait in the queue"
+                        : stalled
+                          ? `Possible stall · last event ${lastEventAt ? formatDistanceToNow(new Date(lastEventAt), { addSuffix: true }) : "unknown"}`
+                          : `${availAgents} of ${totalAgents} agents available`}
+                </span>
               </div>
+              <div aria-hidden className="-mx-1 h-px bg-border" />
               <ul role="listbox" id={listId} aria-label="Commands" className="max-h-[min(24rem,60vh)] overflow-auto">
                 {groups.map((g) => (
                   <div key={g.label ?? "top"}>
-                    {g.label && (
-                      <li aria-hidden className="px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                        {g.label}
-                      </li>
-                    )}
+                    {g.label && <li aria-hidden className={cn(MICRO_LABEL, "px-2 pb-1 pt-2")}>{g.label}</li>}
                     {g.rows.map((row) => {
                       optionCursor += 1;
                       const idx = optionCursor;
@@ -581,14 +579,16 @@ export function CommandBar() {
                           onMouseEnter={() => setActiveIndex(idx)}
                           onClick={() => row.run()}
                           className={cn(
-                            "flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-sm",
+                            "flex cursor-pointer select-none items-center gap-2.5 rounded-sm px-2 py-1.5 text-sm outline-none",
                             idx === activeIndex ? "bg-accent text-accent-foreground" : "text-foreground",
                           )}
                         >
                           {row.dotClass ? (
                             <span aria-hidden className={cn("size-2 shrink-0 rounded-full", row.dotClass)} />
                           ) : Icon ? (
-                            <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                            <span className={ICON_CHIP} aria-hidden>
+                              <Icon className="size-3 text-muted-foreground" aria-hidden />
+                            </span>
                           ) : null}
                           <span className="min-w-0 flex-1 truncate">{row.title}</span>
                           {row.hint && <span className="shrink-0 text-xs text-muted-foreground">{row.hint}</span>}

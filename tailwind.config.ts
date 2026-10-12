@@ -253,20 +253,6 @@ const config: Config = {
   				to: {
   					transform: 'rotate(360deg)'
   				}
-  			},
-  			'cmd-shake': {
-  				'10%, 90%': {
-  					transform: 'translateX(-1px)'
-  				},
-  				'20%, 80%': {
-  					transform: 'translateX(2px)'
-  				},
-  				'30%, 50%, 70%': {
-  					transform: 'translateX(-3px)'
-  				},
-  				'40%, 60%': {
-  					transform: 'translateX(3px)'
-  				}
   			}
   		},
   		animation: {
@@ -279,8 +265,7 @@ const config: Config = {
   			'slide-in-from-left': 'slide-in-from-left 0.2s ease-out',
   			'slide-in-from-right': 'slide-in-from-right 0.2s ease-out',
   			'pulse-subtle': 'pulse-subtle 2s ease-in-out infinite',
-  			'spin-slow': 'spin-slow 3s linear infinite',
-  			'cmd-shake': 'cmd-shake 0.4s ease-in-out'
+  			'spin-slow': 'spin-slow 3s linear infinite'
   		}
   	}
   },
