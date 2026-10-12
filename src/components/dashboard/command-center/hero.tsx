@@ -46,7 +46,7 @@ export function Hero({
       </div>
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 h-full w-full hidden md:block [mask-image:linear-gradient(to_right,transparent,black_45%)]"
+        className="pointer-events-none absolute inset-y-0 right-0 h-full w-[42%] hidden md:block [mask-image:linear-gradient(to_right,transparent,black_45%)]"
       >
         <HeroSwarm />
       </div>
