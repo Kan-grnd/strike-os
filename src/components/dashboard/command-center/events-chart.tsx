@@ -25,7 +25,7 @@ export function EventsChart({ trend, totalEvents, totalProblems }: EventsChartPr
   const isEmpty = data.length === 0;
 
   return (
-    <Card className="flex flex-col p-5 xl:col-span-8 rounded-2xl border-border bg-card shadow-none">
+    <Card className="flex flex-col p-5 xl:col-span-8 rounded-2xl">
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Events vs Problems</h2>

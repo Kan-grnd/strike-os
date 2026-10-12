@@ -38,7 +38,7 @@ export function FleetDonut({ fleet }: FleetDonutProps) {
   const data: PieData[] = nonZero.map((i) => ({ label: i.label, value: i.value, color: i.color }));
 
   return (
-    <Card className="flex flex-col p-5 xl:col-span-4 rounded-2xl border-border bg-card shadow-none">
+    <Card className="flex flex-col p-5 xl:col-span-4 rounded-2xl">
       <h2 className="text-lg font-semibold tracking-tight">Agents by state</h2>
       {total === 0 ? (
         <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">

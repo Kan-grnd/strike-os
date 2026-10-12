@@ -45,7 +45,7 @@ export function Actions({ actions }: ActionsProps) {
         {headerRight}
       </header>
       {count === 0 ? (
-        <Alert className="rounded-2xl border-border bg-card shadow-none">
+        <Alert className="rounded-2xl glass">
           <CircleCheck className="size-4 text-success" aria-hidden />
           <AlertTitle>All clear</AlertTitle>
           <AlertDescription>
@@ -55,7 +55,7 @@ export function Actions({ actions }: ActionsProps) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {actions.map((a) => (
-            <Card key={a.id} className="flex flex-col gap-4 p-5 rounded-2xl border-border bg-card shadow-none">
+            <Card key={a.id} className="flex flex-col gap-4 p-5 rounded-2xl">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="text-base leading-snug font-semibold">{a.title}</h3>
                 <span
