@@ -56,6 +56,7 @@ export function HeroSwarm() {
       shape="layer-stack"
       count={900}
       color={color}
+      spread={1.15}
       interactive={false}
       paused={prefersReduced === true}
       reducedMotion={prefersReduced === true}
