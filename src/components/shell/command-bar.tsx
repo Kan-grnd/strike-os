@@ -564,7 +564,21 @@ export function CommandBar() {
               <ul role="listbox" id={listId} aria-label="Commands" className="max-h-[min(24rem,60vh)] overflow-auto">
                 {groups.map((g) => (
                   <div key={g.label ?? "top"}>
-                    {g.label && <li aria-hidden className={cn(MICRO_LABEL, "px-2 pb-1 pt-2")}>{g.label}</li>}
+                    {g.label && g.rows.length > 0 && (
+                      <li role="presentation" className="px-2 pb-1 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => g.rows[0]?.run()}
+                          aria-label={`${g.label}, go to first: ${g.rows[0]?.title ?? ""}`}
+                          className={cn(
+                            MICRO_LABEL,
+                            "cursor-pointer rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          )}
+                        >
+                          {g.label}
+                        </button>
+                      </li>
+                    )}
                     {g.rows.map((row) => {
                       optionCursor += 1;
                       const idx = optionCursor;
