@@ -83,7 +83,7 @@ function ChatHistoryList({
                   aria-current={activeId === c.id ? "page" : undefined}
                   onClick={onNavigate}
                   className={cn(
-                    "min-w-0 flex-1 truncate rounded-md px-3 py-2 text-left text-[13px]",
+                    "min-w-0 flex-1 truncate rounded-xl px-3 py-2 text-left text-[13px]",
                     activeId === c.id
                       ? "bg-accent text-accent-foreground"
                       : "text-foreground hover:bg-accent"
@@ -98,7 +98,7 @@ function ChatHistoryList({
                   aria-label={`Delete conversation: ${c.title}`}
                   title="Delete"
                   onClick={() => onDelete(c.id)}
-                  className="h-8 w-8 shrink-0 rounded-md opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+                  className="h-8 w-8 shrink-0 rounded-xl opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -177,7 +177,7 @@ export function ChatHistoryNav({ onNavigate }: { onNavigate?: () => void }) {
         onClick={toggleHistory}
         aria-expanded={historyOpen}
         className={cn(
-          "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+          "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
           chatActive
             ? "bg-accent text-accent-foreground"
@@ -227,7 +227,7 @@ export function ChatHistoryNav({ onNavigate }: { onNavigate?: () => void }) {
               aria-label="New chat"
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
                 onNewChat
                   ? "bg-accent text-accent-foreground"
                   : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"

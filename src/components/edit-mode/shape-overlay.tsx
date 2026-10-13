@@ -919,18 +919,18 @@ export function ShapeOverlay() {
             placeholder="Label"
             maxLength={60}
             aria-label="Text label"
-            className="h-9 w-44 rounded-md border border-cyan-400/50 bg-background px-2 text-sm shadow-lg outline-none"
+            className="h-9 w-44 rounded-xl border border-cyan-400/50 bg-background px-2 text-sm shadow-lg outline-none"
           />
           <button
             type="submit"
-            className="h-9 rounded-md bg-cyan-400 px-3 text-xs font-semibold text-black shadow-lg"
+            className="h-9 rounded-xl bg-cyan-400 px-3 text-xs font-semibold text-black shadow-lg"
           >
             Add
           </button>
           <button
             type="button"
             onClick={() => setTextDraft(null)}
-            className="h-9 rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground shadow-lg"
+            className="h-9 rounded-xl border border-border bg-background px-3 text-xs font-medium text-muted-foreground shadow-lg"
           >
             Cancel
           </button>

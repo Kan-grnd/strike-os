@@ -282,7 +282,7 @@ export default function ColoniesPage() {
                     </div>
                     <Link
                       href={`/agents?colonyId=${colony.id}`}
-                      className="mt-auto inline-flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-accent"
+                      className="mt-auto inline-flex items-center justify-between rounded-xl border px-3 py-2 text-sm transition-colors hover:bg-accent"
                     >
                       <span className="flex items-center gap-2">
                         <Users className="h-3.5 w-3.5" />

@@ -54,7 +54,7 @@ function AgentListRow({
     <button
       type="button"
       onClick={() => onOpen?.(agent.id)}
-      className="flex w-full items-center justify-between gap-2 rounded-md px-1.5 py-1 text-left text-xs hover:bg-accent"
+      className="flex w-full items-center justify-between gap-2 rounded-xl px-1.5 py-1 text-left text-xs hover:bg-accent"
     >
       <span className="flex items-center gap-1.5 truncate font-medium">
         <Icon className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
@@ -110,7 +110,7 @@ export function InspectorPanel({
         className={cn(
           "flex flex-col rounded-xl border glass-elevated transition-[opacity,border-color,box-shadow] duration-200 motion-reduce:transition-none",
           narrow
-            ? "fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] w-full rounded-t-2xl border-b-0"
+            ? "fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] w-full rounded-t-xl border-b-0"
             : "absolute top-20 right-4 z-40 max-h-[calc(100vh-6rem)] w-72"
         )}
       >
@@ -150,7 +150,7 @@ export function InspectorPanel({
       className={cn(
         "flex flex-col rounded-xl border glass-elevated transition-[opacity,border-color,box-shadow] duration-200 motion-reduce:transition-none",
         narrow
-          ? "fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] w-full rounded-t-2xl border-b-0"
+          ? "fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] w-full rounded-t-xl border-b-0"
           : "absolute top-20 right-4 z-40 max-h-[calc(100vh-6rem)] w-72"
       )}
     >

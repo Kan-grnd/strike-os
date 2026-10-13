@@ -33,7 +33,7 @@ export function Hero({
   const statusText = lastEventAgo ? `System online · ${lastEventAgo}` : "System online · LIVE";
 
   return (
-    <Card className="relative z-10 overflow-hidden p-6 md:p-8 rounded-2xl">
+    <Card className="relative z-10 overflow-hidden p-6 md:p-8 rounded-xl">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-y-0 left-0 w-[45%] bg-[linear-gradient(to_right,color-mix(in_oklab,hsl(var(--secondary))_55%,transparent)_0%,transparent_100%)]"

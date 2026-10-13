@@ -18,7 +18,7 @@ export function EditModeToggle() {
       title={active ? "Leave edit mode" : "EDIT MODE — tickets only"}
       aria-label={active ? "Leave edit mode" : "Enter edit mode"}
       aria-pressed={active}
-      className={`inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors ${
+      className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border transition-colors ${
         active
           ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
           : "border-border bg-transparent text-muted-foreground hover:text-foreground"

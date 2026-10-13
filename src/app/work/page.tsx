@@ -99,7 +99,7 @@ const COLUMNS: DataTableColumn<WorkRow>[] = [
       <div className="min-w-[220px] max-w-[420px]">
         <Link
           href={kind === "mission" ? `/missions/${record.id}` : `/workflows/${record.id}`}
-          className="font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded-sm"
+          className="font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded-xl"
         >
           {kind === "mission" ? record.goal : record.name}
         </Link>
@@ -403,7 +403,7 @@ function WorkBoard() {
             </button>
           )}
         </div>
-        <div role="group" aria-label="Filter by type" className="relative flex gap-1 rounded-lg border bg-background p-1">
+        <div role="group" aria-label="Filter by type" className="relative flex gap-1 rounded-xl border bg-background p-1">
           {FACETS.map((t) => (
             <button
               key={t}
@@ -411,14 +411,14 @@ function WorkBoard() {
               aria-pressed={facet === t}
               onClick={() => setFacetFilter(t)}
               className={cn(
-                "relative rounded-md px-3 py-1 text-sm transition-colors",
+                "relative rounded-xl px-3 py-1 text-sm transition-colors",
                 facet === t ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
               {facet === t && (
                 <motion.span
                   layoutId="work-facet-pill"
-                  className="absolute inset-0 rounded-md bg-primary"
+                  className="absolute inset-0 rounded-xl bg-primary"
                   transition={{ type: "spring", stiffness: 420, damping: 34 }}
                 />
               )}
@@ -472,27 +472,27 @@ function WorkBoard() {
           </div>
 
           {createError && (
-            <p className="flex items-center gap-2 text-sm text-destructive bg-destructive/5 border border-destructive/20 rounded-md px-3 py-2">
+            <p className="flex items-center gap-2 text-sm text-destructive bg-destructive/5 border border-destructive/20 rounded-xl px-3 py-2">
               <AlertCircle className="h-4 w-4 shrink-0" /> {createError}
             </p>
           )}
 
           {simResult && (
-            <div className="p-4 rounded-lg bg-success/5 border border-success/20 space-y-3">
+            <div className="p-4 rounded-xl bg-success/5 border border-success/20 space-y-3">
               <h3 className="font-semibold text-success flex items-center gap-2">
                 <Sparkles className="h-4 w-4" /> Simulation Preview
               </h3>
               <p className="text-sm text-muted-foreground">{simResult.name}</p>
               <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="rounded-lg p-3 border">
+                <div className="rounded-xl p-3 border">
                   <p className="text-xs text-muted-foreground">Steps</p>
                   <p className="font-bold text-xl">{simResult.actions?.length || 0}</p>
                 </div>
-                <div className="rounded-lg p-3 border">
+                <div className="rounded-xl p-3 border">
                   <p className="text-xs text-muted-foreground">Est. Cost</p>
                   <p className="font-bold text-xl">${(simResult.totalCost || 0).toFixed(3)}</p>
                 </div>
-                <div className="rounded-lg p-3 border">
+                <div className="rounded-xl p-3 border">
                   <p className="text-xs text-muted-foreground">Est. Duration</p>
                   <p className="font-bold text-xl">{Math.round((simResult.totalDuration || 0) / 1000)}s</p>
                 </div>

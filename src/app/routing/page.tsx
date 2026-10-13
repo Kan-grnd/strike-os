@@ -97,7 +97,7 @@ export default function RoutingPage() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: Math.min(i * 0.05, 0.3), ease: EASE }}
-                    className="rounded-lg border bg-background p-3"
+                    className="rounded-xl border bg-background p-3"
                   >
                     <p className="font-mono text-sm text-primary">{r.task}</p>
                     <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -117,7 +117,7 @@ export default function RoutingPage() {
                 {fallbackChain.map((m, i) => (
                   <div
                     key={m}
-                    className="flex items-center gap-2 rounded-md bg-muted/50 p-2"
+                    className="flex items-center gap-2 rounded-xl bg-muted/50 p-2"
                   >
                     <span className="font-mono text-xs text-muted-foreground">
                       {i + 1}
@@ -150,7 +150,7 @@ export default function RoutingPage() {
                   setSelectedAgent(selectedAgent === a.id ? "" : a.id)
                 }
                 className={cn(
-                  "flex w-full items-center justify-between gap-2 rounded-md border p-2 text-left transition-colors",
+                  "flex w-full items-center justify-between gap-2 rounded-xl border p-2 text-left transition-colors",
                   selectedAgent === a.id
                     ? "border-primary bg-primary/5"
                     : "hover:border-ring/40"
@@ -186,7 +186,7 @@ export default function RoutingPage() {
         </div>
         {selected ? (
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-lg bg-muted p-4">
+            <div className="rounded-xl bg-muted p-4">
               <p className="text-xs text-muted-foreground">Selected agent</p>
               <p className="font-mono text-sm">{selected.name}</p>
               <p className="mt-2 text-xs text-muted-foreground">
@@ -206,7 +206,7 @@ export default function RoutingPage() {
               {testResult && (
                 <div
                   className={cn(
-                    "rounded-lg border p-3",
+                    "rounded-xl border p-3",
                     testResult.error
                       ? "border-destructive/30 bg-destructive/10"
                       : "border-success/30 bg-success/10"

@@ -54,7 +54,7 @@ const TASK_COLUMNS: DataTableColumn<any>[] = [
     render: (t) => (
       <Link
         href={`/tasks/${t.id}`}
-        className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        className="rounded-xl hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
       >
         {t.description}
       </Link>
@@ -278,7 +278,7 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
       />
 
       {actionError && (
-        <p className="flex items-center gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <p className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" /> {actionError}
         </p>
       )}

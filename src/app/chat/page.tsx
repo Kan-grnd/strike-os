@@ -312,7 +312,7 @@ function ChatPageInner() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <a
           href="#chat-composer"
-          className="sr-only rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[95] focus:ring-2 focus:ring-ring"
+          className="sr-only rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[95] focus:ring-2 focus:ring-ring"
         >
           Skip to composer
         </a>
@@ -375,7 +375,7 @@ function ChatPageInner() {
                         <div className={cn("flex max-w-[85%] gap-3", isUser && "flex-row-reverse")}>
                           <div
                             className={cn(
-                              "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
+                              "flex h-7 w-7 shrink-0 items-center justify-center rounded-xl",
                               isUser
                                 ? "bg-primary text-primary-foreground"
                                 : "bg-muted text-muted-foreground"
@@ -410,7 +410,7 @@ function ChatPageInner() {
                                   aria-label="Copy message"
                                   title="Copy"
                                   onClick={() => copyMessage(m)}
-                                  className="h-8 w-8 rounded-md"
+                                  className="h-8 w-8 rounded-xl"
                                 >
                                   {copiedId === m.id ? (
                                     <Check className="h-3.5 w-3.5 text-success" />
@@ -427,7 +427,7 @@ function ChatPageInner() {
                                   title="Good response"
                                   onClick={() => toggleVote(m.id, "up")}
                                   className={cn(
-                                    "h-8 w-8 rounded-md",
+                                    "h-8 w-8 rounded-xl",
                                     votes[m.id] === "up" && "text-primary"
                                   )}
                                 >
@@ -442,7 +442,7 @@ function ChatPageInner() {
                                   title="Bad response"
                                   onClick={() => toggleVote(m.id, "down")}
                                   className={cn(
-                                    "h-8 w-8 rounded-md",
+                                    "h-8 w-8 rounded-xl",
                                     votes[m.id] === "down" && "text-primary"
                                   )}
                                 >

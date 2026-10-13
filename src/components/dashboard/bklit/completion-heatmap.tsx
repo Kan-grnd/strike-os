@@ -172,7 +172,7 @@ export function CompletionHeatmap({ tasks }: { tasks: any[] }) {
           {/* tooltip */}
           {tooltip && (
             <div
-              className="pointer-events-none absolute z-20 w-max -translate-x-1/2 -translate-y-full rounded-md border bg-popover px-2 py-1 shadow-sm"
+              className="pointer-events-none absolute z-20 w-max -translate-x-1/2 -translate-y-full rounded-xl border bg-popover px-2 py-1 shadow-sm"
               style={{ left: tooltip.x, top: tooltip.y - 6 }}
             >
               <div className="text-[11px] font-medium leading-tight">

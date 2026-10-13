@@ -603,7 +603,7 @@ function KnowledgePageInner() {
       <div
         id="knowledge-controls-panel"
         className={cn(
-          "pointer-events-auto absolute left-3 sm:left-4 bottom-16 z-50 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border glass-elevated p-3 shadow-xl backdrop-blur-md",
+          "pointer-events-auto absolute left-3 sm:left-4 bottom-16 z-50 w-72 max-w-[calc(100vw-2rem)] rounded-xl border glass-elevated p-3 shadow-xl backdrop-blur-md",
           controlsOpen ? "block" : "hidden"
         )}
       >
@@ -629,7 +629,7 @@ function KnowledgePageInner() {
                 type="button"
                 onClick={() => setFilters((f) => ({ ...f, term: "" }))}
                 aria-label="Clear search"
-                className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-xl text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <X className="h-3.5 w-3.5" aria-hidden />
               </button>

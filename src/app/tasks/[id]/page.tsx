@@ -116,7 +116,7 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
       </div>
 
       {retryError && (
-        <p className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
           {retryError}
         </p>
       )}
@@ -133,7 +133,7 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
           <SectionLabel>Input</SectionLabel>
           <pre
             tabIndex={0}
-            className="overflow-auto rounded-lg bg-muted/60 p-3 font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="overflow-auto rounded-xl bg-muted/60 p-3 font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {JSON.stringify(input, null, 2)}
           </pre>
@@ -142,7 +142,7 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
           <SectionLabel>Output</SectionLabel>
           <pre
             tabIndex={0}
-            className="overflow-auto rounded-lg bg-muted/60 p-3 font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="overflow-auto rounded-xl bg-muted/60 p-3 font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {Object.keys(output as Record<string, unknown>).length > 0
               ? JSON.stringify(output, null, 2)

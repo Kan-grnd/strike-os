@@ -167,20 +167,20 @@ export function CommandBar() {
         />
         <CommandShortcut
           aria-hidden
-          className="ml-2 hidden shrink-0 items-center rounded-md border glass-control px-1.5 py-0.5 font-mono text-[11px] tracking-normal text-muted-foreground sm:inline-flex"
+          className="ml-2 hidden shrink-0 items-center rounded-xl border glass-control px-1.5 py-0.5 font-mono text-[11px] tracking-normal text-muted-foreground sm:inline-flex"
         >
           {mounted ? (isMac ? "⌘K" : "Ctrl K") : ""}
         </CommandShortcut>
         {open && (
-          <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 rounded-lg border glass-elevated p-1">
+          <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 rounded-xl border glass-elevated p-1">
             <CommandList className="max-h-[min(20rem,50vh)]">
               {q ? (
                 <CommandItem
                   value={q}
                   onSelect={() => askChat()}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-sm"
+                  className="flex cursor-pointer items-center gap-2.5 rounded-xl px-2 py-1.5 text-sm"
                 >
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-md border glass-control">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-xl border glass-control">
                     {asking ? (
                       <Loader2 className="size-3 animate-spin text-muted-foreground" aria-hidden />
                     ) : askError ? (
@@ -211,10 +211,10 @@ export function CommandBar() {
                   key={p.href}
                   value={p.label}
                   onSelect={() => go(p.href)}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-sm"
+                  className="flex cursor-pointer items-center gap-2.5 rounded-xl px-2 py-1.5 text-sm"
                 >
                   {p.Icon && (
-                    <span className="flex size-6 shrink-0 items-center justify-center rounded-md border glass-control">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-xl border glass-control">
                       <p.Icon className="size-3 text-muted-foreground" aria-hidden />
                     </span>
                   )}

@@ -213,9 +213,9 @@ export function NeedsYouStrip({
             <Link
               key={item.key}
               href={item.href}
-              className="group flex min-w-0 items-start gap-3 rounded-lg border border-border/60 p-3 transition-colors hover:border-ring/40 hover:bg-accent/40"
+              className="group flex min-w-0 items-start gap-3 rounded-xl border border-border/60 p-3 transition-colors hover:border-ring/40 hover:bg-accent/40"
             >
-              <span className={cn("shrink-0 rounded-md p-2", TONE_BOX[item.tone])}>
+              <span className={cn("shrink-0 rounded-xl p-2", TONE_BOX[item.tone])}>
                 <Icon className="h-4 w-4" />
               </span>
               <div className="min-w-0 flex-1">
@@ -323,7 +323,7 @@ export function MissionProgressSection({
             <Link
               key={m.id}
               href={`/missions/${m.id}`}
-              className="group block rounded-lg px-1 py-3 transition-colors first:pt-0 last:pb-0 hover:bg-accent/40"
+              className="group block rounded-xl px-1 py-3 transition-colors first:pt-0 last:pb-0 hover:bg-accent/40"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">

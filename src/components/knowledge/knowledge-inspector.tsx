@@ -49,7 +49,7 @@ function ConnectionRow({
     <button
       type="button"
       onClick={onSelect}
-      className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex w-full items-center gap-2 rounded-xl border px-2.5 py-2 text-left text-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
       <span className="shrink-0 font-mono text-muted-foreground">{relation}</span>
@@ -179,7 +179,7 @@ function EdgeDetail({
         <button
           type="button"
           onClick={() => onSelect({ kind: "node", key: edge.source })}
-          className="rounded-md border px-3 py-2 text-left text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="rounded-xl border px-3 py-2 text-left text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
             from · {source?.type ?? "unknown"}
@@ -193,7 +193,7 @@ function EdgeDetail({
         <button
           type="button"
           onClick={() => onSelect({ kind: "node", key: edge.target })}
-          className="rounded-md border px-3 py-2 text-left text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="rounded-xl border px-3 py-2 text-left text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
             to · {target?.type ?? "unknown"}
@@ -207,7 +207,7 @@ function EdgeDetail({
           <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Metadata
           </p>
-          <dl className="space-y-1 rounded-md border p-2.5 text-xs">
+          <dl className="space-y-1 rounded-xl border p-2.5 text-xs">
             {metadata.map(([k, v]) => (
               <div key={k} className="flex justify-between gap-3">
                 <dt className="font-mono text-muted-foreground">{k}</dt>
@@ -265,7 +265,7 @@ function RelationshipsList({
               <button
                 type="button"
                 onClick={() => onSelect({ kind: "edge", id: e.id })}
-                className="flex w-full flex-col gap-1 rounded-md border px-2.5 py-2 text-left transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex w-full flex-col gap-1 rounded-xl border px-2.5 py-2 text-left transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="flex items-center gap-1.5 text-xs">
                   <span className="min-w-0 flex-1 truncate font-medium">

@@ -55,7 +55,7 @@ const TOOLS: { id: ToolId; title: string; icon: typeof Square }[] = [
   { id: "eraser", title: "Eraser — tap a shape to delete it", icon: Eraser },
 ];
 
-const BTN = "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors";
+const BTN = "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors";
 const DIVIDER = "mx-0.5 h-5 w-px bg-border";
 
 /**
@@ -223,7 +223,7 @@ export function ShapeToolbar() {
           </button>
 
           {moreOpen && (
-            <div className="absolute top-full right-0 z-10 mt-1.5 w-[184px] space-y-2.5 rounded-lg border border-border bg-background p-2 shadow-xl">
+            <div className="absolute top-full right-0 z-10 mt-1.5 w-[184px] space-y-2.5 rounded-xl border border-border bg-background p-2 shadow-xl">
               <div>
                 <div className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
                   Stroke
@@ -238,7 +238,7 @@ export function ShapeToolbar() {
                       aria-pressed={strokeWidth === w}
                       onClick={() => setStrokeWidth(w)}
                       className={cn(
-                        "flex h-8 items-center justify-center rounded-md border transition-colors",
+                        "flex h-8 items-center justify-center rounded-xl border transition-colors",
                         strokeWidth === w
                           ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
                           : "border-border text-muted-foreground hover:text-foreground"
@@ -280,7 +280,7 @@ export function ShapeToolbar() {
                   aria-pressed={fill}
                   title="Fill interior (rectangle / ellipse)"
                   className={cn(
-                    "flex h-8 w-full items-center justify-center gap-2 rounded-md border text-xs transition-colors",
+                    "flex h-8 w-full items-center justify-center gap-2 rounded-xl border text-xs transition-colors",
                     fill
                       ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
                       : "border-border text-muted-foreground hover:text-foreground"
@@ -303,7 +303,7 @@ export function ShapeToolbar() {
                     title="Bring forward"
                     aria-label="Bring forward"
                     className={cn(
-                      "flex h-8 items-center justify-center gap-1.5 rounded-md border text-xs transition-colors",
+                      "flex h-8 items-center justify-center gap-1.5 rounded-xl border text-xs transition-colors",
                       "border-border text-muted-foreground hover:text-foreground disabled:opacity-30"
                     )}
                   >
@@ -317,7 +317,7 @@ export function ShapeToolbar() {
                     title="Send backward"
                     aria-label="Send backward"
                     className={cn(
-                      "flex h-8 items-center justify-center gap-1.5 rounded-md border text-xs transition-colors",
+                      "flex h-8 items-center justify-center gap-1.5 rounded-xl border text-xs transition-colors",
                       "border-border text-muted-foreground hover:text-foreground disabled:opacity-30"
                     )}
                   >
@@ -383,7 +383,7 @@ export function ShapeToolbar() {
                   }
                   aria-label={clearArmed ? "Confirm clear page" : "Clear page"}
                   className={cn(
-                    "flex h-8 w-full items-center justify-center gap-2 rounded-md border text-xs transition-colors",
+                    "flex h-8 w-full items-center justify-center gap-2 rounded-xl border text-xs transition-colors",
                     clearArmed
                       ? "border-destructive/50 bg-destructive/15 text-destructive"
                       : "border-border text-muted-foreground hover:border-destructive/40 hover:text-destructive disabled:opacity-30"

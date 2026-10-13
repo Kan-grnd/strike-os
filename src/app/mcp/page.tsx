@@ -112,7 +112,7 @@ export default function McpPage() {
               >
                 <Card className="flex h-full flex-col p-5 transition-colors hover:border-ring/40">
                   <div className="mb-3 flex items-start justify-between">
-                    <div className="rounded-md bg-muted p-2">
+                    <div className="rounded-xl bg-muted p-2">
                       <Plug className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <Badge className={`border ${meta.className}`}>{c.status}</Badge>

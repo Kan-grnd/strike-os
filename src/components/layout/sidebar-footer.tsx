@@ -158,7 +158,7 @@ export function SidebarRailAttention() {
      it stays a live region rather than a link to nowhere; the moment something
      needs the user it becomes the hop to the worst thing's home. */
   const triggerCls = cn(
-    "flex h-8 w-full items-center justify-center gap-1 rounded-md",
+    "flex h-8 w-full items-center justify-center gap-1 rounded-xl",
     "transition-colors hover:bg-accent/50 hover:text-foreground",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
     attention ? "text-foreground" : "text-muted-foreground"
@@ -219,7 +219,7 @@ export function SidebarRailClosedFooter({ status }: { status: SidebarStatus }) {
               href={attentionHref(attentionState)}
               aria-label={label}
               className={cn(
-                "flex h-8 w-full items-center justify-center gap-1 rounded-md",
+                "flex h-8 w-full items-center justify-center gap-1 rounded-xl",
                 "transition-colors hover:bg-accent/50 hover:text-foreground",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
                 "text-foreground"
@@ -235,7 +235,7 @@ export function SidebarRailClosedFooter({ status }: { status: SidebarStatus }) {
         <span
           aria-hidden="true"
           title={label}
-          className="flex h-8 w-full items-center justify-center rounded-md text-muted-foreground"
+          className="flex h-8 w-full items-center justify-center rounded-xl text-muted-foreground"
         >
           <Bell className="h-3.5 w-3.5" />
         </span>
@@ -317,7 +317,7 @@ export function SidebarStatusDot({ status, className }: { status: SidebarStatus;
           role="status"
           aria-label={label}
           className={cn(
-            "flex h-8 w-full items-center justify-center rounded-md",
+            "flex h-8 w-full items-center justify-center rounded-xl",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
             className
           )}

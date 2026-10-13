@@ -70,7 +70,7 @@ function SecondaryNavItem({
          asked for. */
       onClick={onNavigate}
       className={cn(
-        "relative flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
+        "relative flex items-center gap-2.5 rounded-xl px-3 py-1.5 text-[13px] font-medium transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
         active
           ? "bg-accent text-accent-foreground"

@@ -92,7 +92,7 @@ export function KpiCard({
           </div>
           <div
             className={cn(
-              "rounded-lg p-2 transition-colors",
+              "rounded-xl p-2 transition-colors",
               !accent && "bg-muted/70 group-hover:bg-accent",
             )}
             style={accent ? { backgroundColor: accent } : undefined}

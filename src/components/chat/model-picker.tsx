@@ -58,7 +58,7 @@ export function ModelPicker({
           side="top"
           align="start"
           sideOffset={6}
-          className="z-50 max-h-64 overflow-hidden rounded-lg border glass-elevated text-popover-foreground"
+          className="z-50 max-h-64 overflow-hidden rounded-xl border glass-elevated text-popover-foreground"
         >
           <SelectPrimitive.ScrollUpButton className="flex h-5 items-center justify-center text-muted-foreground">
             <ChevronDown className="h-3.5 w-3.5 rotate-180" />
@@ -68,7 +68,7 @@ export function ModelPicker({
               <SelectPrimitive.Item
                 key={m.id}
                 value={m.id}
-                className="relative flex cursor-pointer select-none items-center rounded-md py-1.5 pl-7 pr-3 text-[13px] text-foreground outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                className="relative flex cursor-pointer select-none items-center rounded-xl py-1.5 pl-7 pr-3 text-[13px] text-foreground outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
               >
                 <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
                   <SelectPrimitive.ItemIndicator>

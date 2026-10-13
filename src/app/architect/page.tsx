@@ -433,7 +433,7 @@ export default function AgentArchitectPage() {
                 </label>
                 <select
                   id="agent-type"
-                  className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm h-10"
+                  className="mt-2 w-full rounded-xl border bg-background px-3 py-2 text-sm h-10"
                   value={type}
                   onChange={(e) => setType(e.target.value)}
                 >
@@ -449,7 +449,7 @@ export default function AgentArchitectPage() {
                 </label>
                 <select
                   id="agent-colony"
-                  className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm h-10"
+                  className="mt-2 w-full rounded-xl border bg-background px-3 py-2 text-sm h-10"
                   value={colonyId}
                   onChange={(e) => setColonyId(e.target.value)}
                 >
@@ -525,7 +525,7 @@ export default function AgentArchitectPage() {
                       onClick={() => toggleTool(tool.name)}
                       aria-pressed={on}
                       className={cn(
-                        "rounded-md border px-3 py-2 text-left text-sm transition-colors",
+                        "rounded-xl border px-3 py-2 text-left text-sm transition-colors",
                         on
                           ? "border-primary bg-primary/10"
                           : "border-border hover:border-primary/50"

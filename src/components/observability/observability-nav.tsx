@@ -29,7 +29,7 @@ export function ObservabilityNav() {
             href={tab.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "relative rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+              "relative rounded-xl px-3 py-1.5 text-sm font-medium transition-colors",
               active
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground"
@@ -39,7 +39,7 @@ export function ObservabilityNav() {
               <motion.span
                 layoutId="observability-tab"
                 transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                className="absolute inset-0 rounded-lg bg-muted"
+                className="absolute inset-0 rounded-xl bg-muted"
               />
             )}
             <span className="relative z-10">{tab.label}</span>

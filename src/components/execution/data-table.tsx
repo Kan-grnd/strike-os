@@ -59,7 +59,7 @@ export function DataTable<T>({
     <div
       tabIndex={0}
       className={cn(
-        "overflow-x-auto rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "overflow-x-auto rounded-xl border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         className
       )}
     >

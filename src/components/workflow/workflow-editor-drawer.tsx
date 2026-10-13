@@ -51,7 +51,7 @@ export function WorkflowEditorDrawer({
           <div>
             <label className="text-sm font-medium">Action Type</label>
             <select 
-              className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm h-10"
+              className="mt-2 w-full rounded-xl border bg-background px-3 py-2 text-sm h-10"
               value={type}
               onChange={(e) => setType(e.target.value)}
             >
@@ -87,7 +87,7 @@ export function WorkflowEditorDrawer({
                   onChange={(e) => handleConfigChange("message", e.target.value)}
                   placeholder="Notification message"
                 />
-                <select className="mt-2 rounded-md border bg-background px-3 py-2 text-sm h-10"
+                <select className="mt-2 rounded-xl border bg-background px-3 py-2 text-sm h-10"
                   value={(config.severity as string) || "info"}
                   onChange={(e) => handleConfigChange("severity", e.target.value)}
                 >
@@ -108,7 +108,7 @@ export function WorkflowEditorDrawer({
                   onChange={(e) => handleConfigChange("url", e.target.value)}
                   placeholder="https://webhook.example.com"
                 />
-                <select className="mt-2 rounded-md border bg-background px-3 py-2 text-sm h-10"
+                <select className="mt-2 rounded-xl border bg-background px-3 py-2 text-sm h-10"
                   value={(config.method as string) || "POST"}
                   onChange={(e) => handleConfigChange("method", e.target.value)}
                 >
@@ -166,7 +166,7 @@ export function WorkflowEditorDrawer({
                   onChange={(e) => handleConfigChange("path", e.target.value)}
                   placeholder="/api/endpoint"
                 />
-                <select className="mt-2 rounded-md border bg-background px-3 py-2 text-sm h-10"
+                <select className="mt-2 rounded-xl border bg-background px-3 py-2 text-sm h-10"
                   value={(config.method as string) || "GET"}
                   onChange={(e) => handleConfigChange("method", e.target.value)}
                 >

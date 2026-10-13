@@ -151,7 +151,7 @@ export default function ModelsPage() {
               >
                 <Card className="flex h-full flex-col p-5 transition-colors hover:border-ring/40">
                   <div className="mb-2 flex items-start justify-between">
-                    <div className="rounded-md bg-muted p-2">
+                    <div className="rounded-xl bg-muted p-2">
                       <Cpu className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <Badge variant="outline">{m.provider?.name || "Unknown"}</Badge>

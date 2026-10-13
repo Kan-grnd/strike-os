@@ -45,7 +45,7 @@ export function Actions({ actions }: ActionsProps) {
         {headerRight}
       </header>
       {count === 0 ? (
-        <Alert className="rounded-2xl glass">
+        <Alert className="rounded-xl glass">
           <CircleCheck className="size-4 text-success" aria-hidden />
           <AlertTitle>All clear</AlertTitle>
           <AlertDescription>
@@ -55,12 +55,12 @@ export function Actions({ actions }: ActionsProps) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {actions.map((a) => (
-            <Card key={a.id} className="flex flex-col gap-4 p-5 rounded-2xl">
+            <Card key={a.id} className="flex flex-col gap-4 p-5 rounded-xl">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="text-base leading-snug font-semibold">{a.title}</h3>
                 <span
                   className={cn(
-                    "shrink-0 rounded-md border border-border px-2 py-0.5 text-[11px] font-medium",
+                    "shrink-0 rounded-xl border border-border px-2 py-0.5 text-[11px] font-medium",
                     a.priority === "High" ? "text-destructive" : "text-muted-foreground"
                   )}
                 >
@@ -84,7 +84,7 @@ export function Actions({ actions }: ActionsProps) {
                   <dd className="text-foreground/90">{a.reason}</dd>
                 </div>
               </dl>
-              <Button variant="secondary" className="mt-auto w-full rounded-lg" onClick={() => openSheet(a)}>
+              <Button variant="secondary" className="mt-auto w-full rounded-xl" onClick={() => openSheet(a)}>
                 {a.actionLabel}
               </Button>
             </Card>

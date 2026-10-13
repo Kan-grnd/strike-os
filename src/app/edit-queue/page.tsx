@@ -232,7 +232,7 @@ export default function EditQueuePage() {
         {changes.length > 0 && (
           <ul className="mt-3 space-y-1.5">
             {changes.map((c, i) => (
-              <li key={i} className="rounded-md border border-border bg-muted/20 px-3 py-2 text-xs">
+              <li key={i} className="rounded-xl border border-border bg-muted/20 px-3 py-2 text-xs">
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                   <span className="font-mono font-medium text-foreground/90">{c.property}</span>
                   <span className="font-mono break-all text-muted-foreground">{c.current || "—"}</span>
@@ -247,7 +247,7 @@ export default function EditQueuePage() {
           </ul>
         )}
 
-        <div className="mt-3 rounded-md bg-muted/50 px-3 py-2 text-xs whitespace-pre-wrap text-foreground/90">
+        <div className="mt-3 rounded-xl bg-muted/50 px-3 py-2 text-xs whitespace-pre-wrap text-foreground/90">
           {t.intent}
         </div>
 
@@ -310,7 +310,7 @@ export default function EditQueuePage() {
               type="button"
               onClick={() => setKindFilter(null)}
               className={cn(
-                "rounded-md border px-2 py-0.5 text-xs",
+                "rounded-xl border px-2 py-0.5 text-xs",
                 kindFilter === null ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300" : "border-border text-muted-foreground hover:text-foreground"
               )}
             >
@@ -322,7 +322,7 @@ export default function EditQueuePage() {
                 type="button"
                 onClick={() => setKindFilter(kindFilter === k ? null : k)}
                 className={cn(
-                  "rounded-md border px-2 py-0.5 text-xs",
+                  "rounded-xl border px-2 py-0.5 text-xs",
                   kindFilter === k ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300" : "border-border text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -336,7 +336,7 @@ export default function EditQueuePage() {
                 type="button"
                 onClick={() => setPriorityFilter(priorityFilter === p ? null : p)}
                 className={cn(
-                  "rounded-md border px-2 py-0.5 text-xs",
+                  "rounded-xl border px-2 py-0.5 text-xs",
                   priorityFilter === p ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300" : "border-border text-muted-foreground hover:text-foreground"
                 )}
               >

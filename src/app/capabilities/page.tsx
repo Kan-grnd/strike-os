@@ -116,7 +116,7 @@ export default function CapabilitiesPage() {
                       <Card className="flex h-full items-start gap-3 p-4 transition-colors hover:border-ring/40">
                         <div
                           className={cn(
-                            "shrink-0 rounded-lg border p-2",
+                            "shrink-0 rounded-xl border p-2",
                             empty
                               ? "border-warning/40 text-warning"
                               : "text-muted-foreground"

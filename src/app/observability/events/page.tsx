@@ -146,7 +146,7 @@ export default function EventsPage() {
                 transition={{ duration: 0.25, delay: Math.min(i * 0.02, 0.2), ease: EASE }}
                 className="flex items-start gap-3 p-2"
               >
-                <div className={cn("shrink-0 rounded-md p-2", eventColor(e.type))}>
+                <div className={cn("shrink-0 rounded-xl p-2", eventColor(e.type))}>
                   {eventIcon(e.type)}
                 </div>
                 <div className="min-w-0 flex-1">

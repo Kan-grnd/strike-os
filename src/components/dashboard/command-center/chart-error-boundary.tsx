@@ -31,7 +31,7 @@ export class ChartErrorBoundary extends Component<Props, State> {
       return (
         <div
           className={cn(
-            "flex min-h-40 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground",
+            "flex min-h-40 items-center justify-center rounded-xl border border-dashed text-xs text-muted-foreground",
             this.props.className
           )}
         >

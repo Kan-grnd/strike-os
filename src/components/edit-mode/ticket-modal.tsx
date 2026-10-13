@@ -130,7 +130,7 @@ function ColorCell({
         value={hex}
         onChange={(e) => onChange(e.target.value)}
         aria-label={`Change ${i + 1} colour swatch`}
-        className="h-9 w-10 shrink-0 cursor-pointer rounded-md border border-border bg-background p-0.5"
+        className="h-9 w-10 shrink-0 cursor-pointer rounded-xl border border-border bg-background p-0.5"
       />
       <Input
         value={desired}
@@ -159,7 +159,7 @@ function SelectCell({
       value={desired}
       onChange={(e) => onChange(e.target.value)}
       aria-label={`Change ${i + 1} value`}
-      className="h-9 w-full rounded-md border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
+      className="h-9 w-full rounded-xl border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
     >
       <option value="">—</option>
       {options.map((o) => (
@@ -189,7 +189,7 @@ function ToggleShowCell({
       aria-label={`Change ${i + 1} show/hide`}
       onClick={() => onChange(showing ? "none" : "block")}
       className={cn(
-        "flex h-9 w-full items-center justify-center gap-1.5 rounded-md border text-xs font-medium transition-colors",
+        "flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border text-xs font-medium transition-colors",
         showing
           ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
           : "border-border text-muted-foreground hover:text-foreground"
@@ -255,7 +255,7 @@ function NumberCell({
         tabIndex={-1}
         aria-label={`Change ${i + 1} decrement`}
         onClick={() => commit(String(((parsed?.num ?? 0) - step) * 1))}
-        className="h-9 w-8 shrink-0 rounded-md border border-border text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        className="h-9 w-8 shrink-0 rounded-xl border border-border text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
         −
       </button>
@@ -272,7 +272,7 @@ function NumberCell({
         tabIndex={-1}
         aria-label={`Change ${i + 1} increment`}
         onClick={() => commit(String(((parsed?.num ?? 0) + step) * 1))}
-        className="h-9 w-8 shrink-0 rounded-md border border-border text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        className="h-9 w-8 shrink-0 rounded-xl border border-border text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
         +
       </button>
@@ -280,7 +280,7 @@ function NumberCell({
         value={unit}
         onChange={(e) => commit(num === "" ? "0" : num, e.target.value)}
         aria-label={`Change ${i + 1} unit`}
-        className="h-9 w-14 shrink-0 rounded-md border border-border bg-background px-1 text-xs outline-none focus:border-cyan-400/60"
+        className="h-9 w-14 shrink-0 rounded-xl border border-border bg-background px-1 text-xs outline-none focus:border-cyan-400/60"
       >
         {units.map((u) => (
           <option key={u} value={u}>
@@ -310,13 +310,13 @@ function ChangeRow({
   const control = controlFor(row.property, kind);
 
   return (
-    <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-2.5">
+    <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-2.5">
       <div className="flex items-center gap-1.5">
         <select
           value={row.property}
           onChange={(e) => onPropertyChange(e.target.value)}
           aria-label={`Change ${i + 1} property`}
-          className="h-9 min-w-0 flex-1 rounded-md border border-border bg-background px-1.5 font-mono text-xs outline-none focus:border-cyan-400/60"
+          className="h-9 min-w-0 flex-1 rounded-xl border border-border bg-background px-1.5 font-mono text-xs outline-none focus:border-cyan-400/60"
         >
           {CHANGE_PROPERTIES.map((p) => (
             <option key={p} value={p}>
@@ -330,7 +330,7 @@ function ChangeRow({
           onClick={onRemove}
           aria-label={`Remove change ${i + 1}`}
           title={`Remove change ${i + 1}`}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -340,7 +340,7 @@ function ChangeRow({
         <div className="space-y-1">
           <FieldLabel>Current</FieldLabel>
           <div
-            className="flex h-9 items-center truncate rounded-md border border-border bg-background/60 px-2 font-mono text-xs text-foreground/70"
+            className="flex h-9 items-center truncate rounded-xl border border-border bg-background/60 px-2 font-mono text-xs text-foreground/70"
             title={row.current}
           >
             {row.current || "—"}
@@ -915,7 +915,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 title="Close"
                 aria-label="Close"
               >
@@ -931,7 +931,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                     onClick={() => setStep(i)}
                     aria-current={i === step}
                     className={cn(
-                      "flex h-8 w-full items-center justify-center gap-1.5 rounded-md text-[11px] font-medium transition-colors",
+                      "flex h-8 w-full items-center justify-center gap-1.5 rounded-xl text-[11px] font-medium transition-colors",
                       i === step
                         ? "bg-cyan-400/15 text-cyan-300"
                         : i < step
@@ -1002,7 +1002,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                           type="button"
                           onClick={() => applyTemplate(tpl)}
                           title="Fills the kind, a change row or two, and a draft intent"
-                          className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                          className="rounded-xl border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                         >
                           {tpl.label}
                         </button>
@@ -1020,7 +1020,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                           onClick={() => pickKind(k)}
                           aria-pressed={kind === k}
                           className={cn(
-                            "rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                            "rounded-xl border px-2.5 py-1.5 text-xs font-medium transition-colors",
                             kind === k
                               ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
                               : "border-border text-muted-foreground hover:text-foreground"
@@ -1042,7 +1042,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                           onClick={() => setScope(s.id)}
                           aria-pressed={scope === s.id}
                           className={cn(
-                            "rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                            "rounded-xl border px-2.5 py-1.5 text-xs font-medium transition-colors",
                             scope === s.id
                               ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
                               : "border-border text-muted-foreground hover:text-foreground"
@@ -1076,7 +1076,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                     </Button>
                   </div>
                   {changes.length === 0 ? (
-                    <p className="rounded-md border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
+                    <p className="rounded-xl border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
                       No rows yet. Add one, or go back and pick a template.
                     </p>
                   ) : (
@@ -1121,7 +1121,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                           value={priority}
                           onChange={(e) => setPriority(e.target.value as TicketPriority)}
                           aria-label="Ticket priority"
-                          className="h-8 w-24 rounded-md border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
+                          className="h-8 w-24 rounded-xl border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
                         >
                           {Object.entries(PRIORITY_LABEL).map(([value, label]) => (
                             <option key={value} value={value}>
@@ -1154,7 +1154,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                       type="button"
                       onClick={() => setDataOpen((v) => !v)}
                       aria-expanded={dataOpen}
-                      className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-left text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                      className="flex w-full items-center gap-2 rounded-xl border border-border px-3 py-2 text-left text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                     >
                       <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", dataOpen && "rotate-90")} />
                       Data
@@ -1163,7 +1163,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                       </span>
                     </button>
                     {dataOpen && (
-                      <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-2.5">
+                      <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-2.5">
                         <p className="text-[11px] text-muted-foreground">
                           If this change is scoped to a record, point the implementer at it.
                         </p>
@@ -1174,7 +1174,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                               value={dataContext.model}
                               onChange={(e) => setDataContext((d) => ({ ...d, model: e.target.value }))}
                               aria-label="Data model"
-                              className="h-9 w-full rounded-md border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
+                              className="h-9 w-full rounded-xl border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
                             >
                               <option value="">— none —</option>
                               {metaModels.map((m) => (
@@ -1198,7 +1198,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                                 }
                               }}
                               aria-label="Data endpoint"
-                              className="h-9 w-full rounded-md border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
+                              className="h-9 w-full rounded-xl border border-border bg-background px-1.5 text-xs outline-none focus:border-cyan-400/60"
                             >
                               <option value="">— none —</option>
                               {metaRoutes.slice(0, 120).map((r) => (
@@ -1255,7 +1255,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                   {shapes.length > 0 && (
                     <section className="space-y-2">
                       <FieldLabel>Annotations</FieldLabel>
-                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1.5">
                           <span
                             className="inline-block h-2 w-2 rounded-full"
@@ -1274,7 +1274,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
 
               {step === 3 && (
                 <div className="space-y-3">
-                  <section className="space-y-1.5 rounded-lg border border-border p-3">
+                  <section className="space-y-1.5 rounded-xl border border-border p-3">
                     <FieldLabel>Target</FieldLabel>
                     <div className="text-xs">
                       {target.label ? <div className="font-medium">“{target.label}”</div> : null}
@@ -1291,7 +1291,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                     </div>
                   </section>
 
-                  <section className="space-y-1.5 rounded-lg border border-border p-3">
+                  <section className="space-y-1.5 rounded-xl border border-border p-3">
                     <FieldLabel>Changes ({desiredRows.length})</FieldLabel>
                     {desiredRows.length === 0 ? (
                       <p className="text-xs text-muted-foreground">None yet.</p>
@@ -1310,7 +1310,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                     )}
                   </section>
 
-                  <section className="space-y-1.5 rounded-lg border border-border p-3">
+                  <section className="space-y-1.5 rounded-xl border border-border p-3">
                     <FieldLabel>Intent</FieldLabel>
                     <p className="text-xs whitespace-pre-wrap text-foreground/90">
                       {intent || <span className="text-muted-foreground">Not written yet.</span>}
@@ -1318,7 +1318,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                   </section>
 
                   {cleanData && (
-                    <section className="space-y-1.5 rounded-lg border border-border p-3">
+                    <section className="space-y-1.5 rounded-xl border border-border p-3">
                       <FieldLabel>Data</FieldLabel>
                       <ul className="space-y-0.5 text-[11px] text-muted-foreground">
                         {cleanData.model && <li>model: <span className="font-mono">{cleanData.model}</span></li>}
@@ -1329,7 +1329,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                     </section>
                   )}
 
-                  <section className="space-y-1.5 rounded-lg border border-border p-3">
+                  <section className="space-y-1.5 rounded-xl border border-border p-3">
                     <FieldLabel>Picture</FieldLabel>
                     <p className="text-xs text-muted-foreground">
                       {thumbnail ? (
@@ -1351,7 +1351,7 @@ export function TicketModal({ capture, onClose }: TicketModalProps) {
                   </section>
 
                   {missing.length > 0 && (
-                    <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                    <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
                       Still needed: {missing.join(", ")}.
                     </p>
                   )}

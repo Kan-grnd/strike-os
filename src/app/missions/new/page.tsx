@@ -137,7 +137,7 @@ export default function NewMissionPage() {
           </Button>
         </div>
         {error && (
-          <p className="flex items-center gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <p className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
             <AlertCircle className="h-4 w-4 shrink-0" /> {error}
           </p>
         )}
@@ -190,7 +190,7 @@ export default function NewMissionPage() {
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.35, delay: Math.min(i * 0.05, 0.4), ease: EASE }}
-                  className="flex items-center gap-3 rounded-lg border bg-background/60 p-3"
+                  className="flex items-center gap-3 rounded-xl border bg-background/60 p-3"
                 >
                   <Badge variant="outline" className="font-mono">
                     {step.step}

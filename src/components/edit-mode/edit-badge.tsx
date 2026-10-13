@@ -161,7 +161,7 @@ export function EditBadge() {
     <div
       ref={panelRef}
       style={pos ? { left: pos.x, top: pos.y } : undefined}
-      className={`pointer-events-auto fixed z-[95] flex max-h-[calc(100vh-5.5rem)] w-max max-w-[calc(100vw-1rem)] flex-col gap-1.5 rounded-lg border border-cyan-400/40 glass-elevated p-1.5 ${
+      className={`pointer-events-auto fixed z-[95] flex max-h-[calc(100vh-5.5rem)] w-max max-w-[calc(100vw-1rem)] flex-col gap-1.5 rounded-xl border border-cyan-400/40 glass-elevated p-1.5 ${
         pos ? "" : "top-16 left-1/2 -translate-x-1/2"
       }`}
     >
@@ -203,7 +203,7 @@ export function EditBadge() {
         <button
           type="button"
           onClick={() => setActive(false)}
-          className="ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           title="Leave edit mode"
           aria-label="Leave edit mode"
         >

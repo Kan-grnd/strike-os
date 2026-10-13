@@ -56,7 +56,7 @@ export function PromptComposer({
       <div
         onClick={handleBoxClick}
         className={cn(
-          "cursor-text rounded-3xl border glass p-3 transition-[border-color,box-shadow] focus-within:border-ring/60 focus-within:shadow-[0_10px_36px_-8px_hsl(var(--foreground)/0.16)] focus-within:ring-2 focus-within:ring-ring/30",
+          "cursor-text rounded-xl border glass p-3 transition-[border-color,box-shadow] focus-within:border-ring/60 focus-within:shadow-[0_10px_36px_-8px_hsl(var(--foreground)/0.16)] focus-within:ring-2 focus-within:ring-ring/30",
           disabled && "cursor-not-allowed opacity-60",
           className
         )}

@@ -154,7 +154,7 @@ export default function SettingsPage() {
                 onClick={() => setTab(t.id)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "relative flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
                   active
                     ? "text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground"
@@ -163,7 +163,7 @@ export default function SettingsPage() {
                 {active && (
                   <motion.span
                     layoutId="settings-tab"
-                    className="absolute inset-0 rounded-md bg-primary"
+                    className="absolute inset-0 rounded-xl bg-primary"
                     transition={{ type: "spring", stiffness: 400, damping: 32 }}
                   />
                 )}
@@ -397,17 +397,17 @@ function AppearanceTab({
                   tabIndex={selected ? 0 : -1}
                   onClick={() => pick(p.id, idx)}
                   className={cn(
-                    "flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    "flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3 outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     selected
                       ? "border-primary/60 bg-primary/5 ring-2 ring-primary/25"
                       : "border-border bg-background hover:bg-muted"
                   )}
                 >
                   <span className="flex shrink-0 items-end gap-1.5" aria-hidden="true">
-                    <span className="h-6 w-6 rounded-md border border-black/10" style={{ background: p.bg }} />
-                    <span className="h-6 w-6 rounded-md border border-black/10" style={{ background: p.surface }} />
-                    <span className="h-6 w-6 rounded-md border border-black/10" style={{ background: p.accent }} />
-                    <span className="h-6 w-6 rounded-md border border-black/10" style={{ background: p.secondary }} />
+                    <span className="h-6 w-6 rounded-xl border border-black/10" style={{ background: p.bg }} />
+                    <span className="h-6 w-6 rounded-xl border border-black/10" style={{ background: p.surface }} />
+                    <span className="h-6 w-6 rounded-xl border border-black/10" style={{ background: p.accent }} />
+                    <span className="h-6 w-6 rounded-xl border border-black/10" style={{ background: p.secondary }} />
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="whitespace-nowrap text-sm font-semibold text-foreground" title={p.name}>
@@ -453,7 +453,7 @@ function AppearanceTab({
           </Select>
         </FormRow>
         {pinnedLocally && (
-          <div className="mt-2 flex items-center justify-between gap-4 rounded-md border border-border bg-muted/50 px-3 py-2">
+          <div className="mt-2 flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/50 px-3 py-2">
             <p className="text-xs text-muted-foreground">
               This browser is pinned to its own theme and ignores the default.
             </p>
@@ -498,7 +498,7 @@ function AppearanceTab({
                 onClick={() => save("appearance.accent", a.id)}
                 title={a.label}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium capitalize transition-colors",
+                  "flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium capitalize transition-colors",
                   (settings?.["appearance.accent"] || "none") === a.id
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-background hover:bg-muted"
@@ -527,7 +527,7 @@ function AppearanceTab({
                 key={d}
                 onClick={() => save("appearance.density", d)}
                 className={cn(
-                  "rounded-md border px-3 py-1.5 text-xs font-medium capitalize",
+                  "rounded-xl border px-3 py-1.5 text-xs font-medium capitalize",
                   settings?.["appearance.density"] === d
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-background hover:bg-muted"
@@ -562,7 +562,7 @@ function LiveDataTab({
             key={p.id}
             onClick={() => save("refresh.preset", p.id)}
             className={cn(
-              "flex w-full items-center justify-between rounded-md border p-4 text-left transition-colors",
+              "flex w-full items-center justify-between rounded-xl border p-4 text-left transition-colors",
               current === p.id
                 ? "border-primary bg-primary/5"
                 : "hover:bg-muted/40"
@@ -636,7 +636,7 @@ function SecretsTab() {
             secrets.map((s: any) => (
               <div
                 key={s.id}
-                className="flex items-center justify-between rounded-md bg-muted/30 p-3 text-sm"
+                className="flex items-center justify-between rounded-xl bg-muted/30 p-3 text-sm"
               >
                 <div className="flex items-center gap-2">
                   <Badge variant="outline">{s.provider}</Badge>
@@ -845,7 +845,7 @@ function DangerZoneTab({ onReset }: { onReset: () => Promise<void> }) {
       <TabHeader icon={AlertTriangle} title="Danger Zone" desc="Destructive, irreversible actions" />
       <Card className="border-destructive/40 p-6 space-y-4">
         <div className="flex items-start gap-3">
-          <div className="rounded-md bg-destructive/10 p-2 text-destructive">
+          <div className="rounded-xl bg-destructive/10 p-2 text-destructive">
             <Database className="h-5 w-5" />
           </div>
           <div>
@@ -879,7 +879,7 @@ function DangerZoneTab({ onReset }: { onReset: () => Promise<void> }) {
       </Card>
       <Card className="border-destructive/40 p-6 space-y-4">
         <div className="flex items-start gap-3">
-          <div className="rounded-md bg-destructive/10 p-2 text-destructive">
+          <div className="rounded-xl bg-destructive/10 p-2 text-destructive">
             {cleaning ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
@@ -919,7 +919,7 @@ function AboutTab() {
       <TabHeader icon={Info} title="About" desc="Platform details" />
       <Card className="p-6 space-y-3">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary">
             <SettingsIcon className="h-5 w-5 text-primary-foreground" />
           </div>
           <div>

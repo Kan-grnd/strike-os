@@ -193,8 +193,8 @@ function TasksBoard() {
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="space-y-2">
               <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-              <div className="h-20 animate-pulse rounded-lg bg-muted/60" />
-              <div className="h-20 animate-pulse rounded-lg bg-muted/40" />
+              <div className="h-20 animate-pulse rounded-xl bg-muted/60" />
+              <div className="h-20 animate-pulse rounded-xl bg-muted/40" />
             </div>
           ))}
         </div>

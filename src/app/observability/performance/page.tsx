@@ -49,14 +49,14 @@ export default function ObservabilityPerformancePage() {
         title="Performance"
         description="Agent, model, provider, and tool performance metrics."
         actions={
-          <div className="inline-flex items-center gap-1 rounded-lg border bg-card p-1">
+          <div className="inline-flex items-center gap-1 rounded-xl border bg-card p-1">
             {RANGES.map((r) => (
               <button
                 key={r}
                 type="button"
                 onClick={() => setRange(r)}
                 className={cn(
-                  "relative rounded-md px-3 py-1 text-sm font-medium transition-colors",
+                  "relative rounded-xl px-3 py-1 text-sm font-medium transition-colors",
                   range === r ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -64,7 +64,7 @@ export default function ObservabilityPerformancePage() {
                   <motion.span
                     layoutId="performance-range"
                     transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                    className="absolute inset-0 rounded-md bg-muted"
+                    className="absolute inset-0 rounded-xl bg-muted"
                   />
                 )}
                 <span className="relative z-10">{r}</span>

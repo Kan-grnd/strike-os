@@ -25,7 +25,7 @@ export function EventsChart({ trend, totalEvents, totalProblems }: EventsChartPr
   const isEmpty = data.length === 0;
 
   return (
-    <Card className="flex flex-col p-5 xl:col-span-8 rounded-2xl">
+    <Card className="flex flex-col p-5 xl:col-span-8 rounded-xl">
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Events vs Problems</h2>
@@ -41,7 +41,7 @@ export function EventsChart({ trend, totalEvents, totalProblems }: EventsChartPr
         </ToggleGroup>
       </header>
       {isEmpty ? (
-        <div className="flex min-h-64 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
+        <div className="flex min-h-64 items-center justify-center rounded-xl border border-dashed text-xs text-muted-foreground">
           No events in this period
         </div>
       ) : (

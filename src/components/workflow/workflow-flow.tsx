@@ -17,7 +17,7 @@ export function WorkflowFlow({ actions = [], title }: { actions?: Array<{ type: 
             <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0 z-10 shadow-sm">
               {i + 1}
             </div>
-            <div className="flex-1 min-w-0 rounded-lg border glass px-3 py-2">
+            <div className="flex-1 min-w-0 rounded-xl border glass px-3 py-2">
               <div className="flex items-center justify-between">
                 <span className="font-medium text-sm">{action.type}</span>
                 <span className="text-xs text-muted-foreground font-mono">{String(action.config?.goal || "no details")}</span>

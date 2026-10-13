@@ -75,7 +75,7 @@ export default function TracesPage() {
                 <Card className="p-4 transition-colors hover:border-ring/40">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex min-w-0 items-start gap-3">
-                      <div className="shrink-0 rounded-md bg-muted p-2">
+                      <div className="shrink-0 rounded-xl bg-muted p-2">
                         <Zap className="h-5 w-5 text-primary" />
                       </div>
                       <div className="min-w-0">

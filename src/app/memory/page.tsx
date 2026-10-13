@@ -305,7 +305,7 @@ export default function MemoryPage() {
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <li key={i}>
               <Card className="animate-pulse p-5">
-                <div className="mb-3 h-9 w-9 rounded-md bg-muted" />
+                <div className="mb-3 h-9 w-9 rounded-xl bg-muted" />
                 <div className="h-4 w-3/4 rounded bg-muted" />
                 <div className="mt-3 h-3 w-1/3 rounded bg-muted" />
               </Card>
@@ -390,11 +390,11 @@ export default function MemoryPage() {
                     aria-haspopup="dialog"
                     aria-label={`Open memory: ${previewOf(spoken, 80)}`}
                     onClick={() => setOpenId(m.id)}
-                    className="group block h-full w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    className="group block h-full w-full rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
                     <Card className="flex h-full flex-col p-5 transition-colors group-hover:border-ring/40">
                       <div className="mb-3 flex items-start justify-between gap-2">
-                        <div className="rounded-md bg-muted p-2">
+                        <div className="rounded-xl bg-muted p-2">
                           <Database className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <Badge variant="outline" className="shrink-0 text-xs">
@@ -887,7 +887,7 @@ function CreateMemoryDialog({
           {formError && (
             <p
               role="alert"
-              className="flex items-start gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive"
+              className="flex items-start gap-1.5 rounded-xl border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive"
             >
               <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" /> {formError}
             </p>

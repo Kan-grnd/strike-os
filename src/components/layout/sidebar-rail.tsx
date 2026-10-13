@@ -56,7 +56,7 @@ function PrimaryNavItem({
           aria-expanded={open}
           aria-label={domain.label}
           className={cn(
-            "relative flex h-9 w-9 items-center justify-center rounded-md transition-colors",
+            "relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors",
             "focus-visible:outline-none focus-visible:outline-offset-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60",
             open
               ? "bg-accent text-accent-foreground"
@@ -126,7 +126,7 @@ export function SidebarRail({
     >
       <div className="flex h-14 w-full shrink-0 items-center justify-center">
         <span
-          className="flex h-8 w-8 items-center justify-center rounded-md text-foreground"
+          className="flex h-8 w-8 items-center justify-center rounded-xl text-foreground"
           title="Strike OS"
         >
           <StrikeMark className="h-5 w-5" />
