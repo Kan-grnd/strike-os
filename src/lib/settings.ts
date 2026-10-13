@@ -19,7 +19,7 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
   "appearance.density": "comfortable",
   "appearance.radius": "0.5rem",
   "appearance.accent": "none",
-  "appearance.defaultThemeId": "graphite",
+  "appearance.defaultThemeId": "void",
   "refresh.preset": "normal",
   "automations.requireApproval": "false",
 };

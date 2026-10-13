@@ -45,7 +45,7 @@ export function ModeToggle() {
       size="icon"
       className="h-9 w-9"
       type="button"
-      onClick={() => chooseTheme(isDark ? "clean" : "graphite")}
+      onClick={() => chooseTheme(isDark ? "calm" : "void")}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >

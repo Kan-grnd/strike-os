@@ -7,10 +7,8 @@
  * monochrome-first, one dark color anchor (`signal`).
  */
 export const THEME_IDS = [
-  "clean",
   "calm",
   "bold",
-  "graphite",
   "void",
   "signal",
 ] as const;
@@ -39,15 +37,6 @@ export interface ThemePack {
 
 export const THEME_PACKS: ThemePack[] = [
   {
-    id: "clean",
-    name: "Clean",
-    tagline: "Minimal light monochrome",
-    bg: "#ffffff",
-    surface: "#fafafa",
-    accent: "#171717",
-    secondary: "#e5e5e5",
-  },
-  {
     id: "calm",
     name: "Calm",
     tagline: "Soft low-contrast light",
@@ -65,15 +54,7 @@ export const THEME_PACKS: ThemePack[] = [
     accent: "#000000",
     secondary: "#dedede",
   },
-  {
-    id: "graphite",
-    name: "Graphite",
-    tagline: "Dark neutral monochrome · default",
-    bg: "#171717",
-    surface: "#212121",
-    accent: "#e8e8e8",
-    secondary: "#2e2e2e",
-  },
+
   {
     id: "void",
     name: "Void",
@@ -94,4 +75,4 @@ export const THEME_PACKS: ThemePack[] = [
   },
 ];
 
-export const DEFAULT_THEME: ThemeId = "graphite";
+export const DEFAULT_THEME: ThemeId = "void";

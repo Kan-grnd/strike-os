@@ -24,41 +24,39 @@
 
 @layer base {
   :root,
-  .clean {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 12%;
-    --card: 0 0% 98.0392156862745%;
-    --card-foreground: 0 0% 12%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 12%;
-    --primary: 0 0% 9.019607843137255%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 89.80392156862746%;
-    --secondary-foreground: 0 0% 20%;
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 42%;
-    --accent: 0 0% 92%;
-    --accent-foreground: 0 0% 12%;
-    --destructive: 0 91% 38%; /* hue immutable; lightness darkened for WCAG AA */
-    --destructive-foreground: 0 0% 100%;
-    --success: 158 64% 26%; /* hue immutable; lightness darkened for WCAG AA */
-    --success-foreground: 0 0% 100%;
-    --warning: 43 96% 24%; /* hue immutable; lightness darkened for WCAG AA */
-    --warning-foreground: 0 0% 100%;
+  .dark,
+  .void {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 7.8431372549019605%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 9%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 0 0% 94.90196078431372%;
+    --primary-foreground: 0 0% 4%;
+    --secondary: 0 0% 14.901960784313726%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 6%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 0 0% 13%;
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
+    --destructive-foreground: 0 0% 6%;
+    --success: 158 64% 52%; /* #34d399 ok (immutable) */
+    --success-foreground: 0 0% 6%;
+    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
+    --warning-foreground: 0 0% 6%;
     --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 210 80% 38%;
-    --info-foreground: 0 0% 100%;
-    --border: 0 0% 88%;
-    --input: 0 0% 90%;
-    --ring: 0 0% 9%;
+    --info: 210 60% 62%;
+    --info-foreground: 0 0% 6%;
+    --border: 0 0% 21%;
+    --input: 0 0% 12%;
+    --ring: 0 0% 95%;
 
-    --radius: 0.5rem;
+    color-scheme: dark;
 
-    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-mono: "JetBrains Mono", "SF Mono", Menlo, Monaco, Consolas, monospace;
-
-    color-scheme: light;
   }
+}
 
   .dark,
   .graphite {
@@ -154,36 +152,7 @@
     color-scheme: light;
   }
 
-  .void {
-    --background: 0 0% 0%;
-    --foreground: 0 0% 95%;
-    --card: 0 0% 7.8431372549019605%;
-    --card-foreground: 0 0% 95%;
-    --popover: 0 0% 9%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 0 0% 94.90196078431372%;
-    --primary-foreground: 0 0% 4%;
-    --secondary: 0 0% 14.901960784313726%;
-    --secondary-foreground: 0 0% 95%;
-    --muted: 0 0% 6%;
-    --muted-foreground: 0 0% 60%;
-    --accent: 0 0% 13%;
-    --accent-foreground: 0 0% 95%;
-    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
-    --destructive-foreground: 0 0% 6%;
-    --success: 158 64% 52%; /* #34d399 ok (immutable) */
-    --success-foreground: 0 0% 6%;
-    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
-    --warning-foreground: 0 0% 6%;
-    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 210 60% 62%;
-    --info-foreground: 0 0% 6%;
-    --border: 0 0% 21%;
-    --input: 0 0% 12%;
-    --ring: 0 0% 95%;
-
-    color-scheme: dark;
-  }
+}
 
   .signal {
     --background: 240 9.090909090909092% 6.470588235294117%;
@@ -310,8 +279,6 @@
      top edge inverts here too - a white highlight is invisible on a
      light surface, so it becomes a faint inner shadow that still reads
      as an edge. */
-  :root,
-  .clean,
   .calm {
     --glass-alpha-card: 0.80;
     --glass-alpha-elevated: 0.9;
@@ -338,8 +305,8 @@
 
   /* Dark packs. Cards are far enough from the page colour to carry a
      lighter fill, so the material reads as depth rather than as fog. */
+  :root,
   .dark,
-  .graphite,
   .void,
   .signal {
     --glass-alpha-card: 0.66;
@@ -422,11 +389,9 @@
      identical to the pre-glass UI. */
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     :root,
-    .clean,
     .calm,
     .bold,
     .dark,
-    .graphite,
     .void,
     .signal {
       --glass-alpha-card: 1;
