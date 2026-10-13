@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Sparkles, CircleCheck, X } from "lucide-react";
 import type { ActionItem, Tone } from "./adapter";
-import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Drawer, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Link from "next/link";
 
@@ -91,11 +91,11 @@ export function Actions({ actions }: ActionsProps) {
           ))}
         </div>
       )}
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="bg-popover/90 backdrop-blur-2xl">
-          <SheetHeader>
-            <SheetTitle>{active?.title}</SheetTitle>
-          </SheetHeader>
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>{active?.title}</DrawerTitle>
+          </DrawerHeader>
           <div className="space-y-4 pt-4">
             <div className="text-sm text-muted-foreground">{active?.detail.hint || active?.reason}</div>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
@@ -144,16 +144,16 @@ export function Actions({ actions }: ActionsProps) {
               </div>
             ) : null}
           </div>
-          <SheetFooter>
+          <DrawerFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button onClick={handlePrimary}>{active?.actionLabel}</Button>
             <Button variant="outline" className="rounded-full" asChild>
               <Link href={active?.traceId ? `/observability/traces/${active.traceId}` : `/work`}>
                 Open full trace
               </Link>
             </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </section>
   );
 }
