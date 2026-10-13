@@ -292,7 +292,12 @@ export function SidebarFooter({ status, className }: { status: SidebarStatus; cl
       </div>
       <div className="flex items-center justify-between">
         <span>Agents</span>
-        <span className="font-medium tabular-nums text-foreground">{status.agentCount}</span>
+        <span
+          className="font-medium tabular-nums text-foreground"
+          title={status.agentCountKnown ? `${status.agentCount} agents` : "Agent count unknown"}
+        >
+          {status.agentCountKnown ? status.agentCount : "—"}
+        </span>
       </div>
     </div>
   );
@@ -303,7 +308,7 @@ export function SidebarFooter({ status, className }: { status: SidebarStatus; cl
  * tooltip and an accessible name rather than as a second visible readout.
  */
 export function SidebarStatusDot({ status, className }: { status: SidebarStatus; className?: string }) {
-  const label = `${status.online ? "Online" : status.status} · ${status.agentCount} agents`;
+  const label = `${status.online ? "Online" : status.status} · ${status.agentCountKnown ? `${status.agentCount} agents` : "agent count unknown"}`;
   return (
     <Tooltip>
       <TooltipTrigger asChild>

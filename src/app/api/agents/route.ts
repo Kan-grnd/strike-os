@@ -11,16 +11,24 @@ export async function GET(req: Request) {
   const type = searchParams.get("type");
   const colonyId = searchParams.get("colonyId");
 
-  const agents = await prisma.agent.findMany({
-    where: {
-      ...(status ? { status: status as never } : {}),
-      ...(type ? { type: type as never } : {}),
-      ...(colonyId ? { colonyId } : {}),
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  try {
+    const agents = await prisma.agent.findMany({
+      where: {
+        ...(status ? { status: status as never } : {}),
+        ...(type ? { type: type as never } : {}),
+        ...(colonyId ? { colonyId } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
-  return NextResponse.json({ agents });
+    return NextResponse.json({ agents });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { error: "Failed to fetch agents" },
+      { status: 503 }
+    );
+  }
 }
 
 export async function POST(req: Request) {
