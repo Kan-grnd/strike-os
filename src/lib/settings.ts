@@ -17,7 +17,7 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
   "workspace.defaultColonyId": "",
   "workspace.sidebarCollapsed": "false",
   "appearance.density": "comfortable",
-  "appearance.radius": "0.5rem",
+  "appearance.radius": "rounded",
   "appearance.accent": "none",
   "appearance.defaultThemeId": "void",
   "refresh.preset": "normal",

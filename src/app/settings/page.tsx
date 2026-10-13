@@ -45,6 +45,10 @@ import {
   useThemeSelection,
   WORKSPACE_DEFAULT_THEME_KEY,
 } from "@/components/ui/theme-provider";
+import {
+  RADIUS_PROFILES,
+  normalizeRadiusProfileId,
+} from "@/lib/radius-profiles";
 import useSWR from "swr";
 import {
   useSettings,
@@ -91,12 +95,6 @@ const ACCENTS = [
   { id: "burnt-orange", label: "Burnt orange", hex: "#ea580c" },
 ] as const;
 
-const RADII = [
-  { value: "0", label: "Sharp (0)" },
-  { value: "0.5rem", label: "Default (0.5rem)" },
-  { value: "1rem", label: "Rounded (1rem)" },
-] as const;
-
 function FormRow({
   label,
   hint,
@@ -122,15 +120,6 @@ function FormRow({
 export default function SettingsPage() {
   const [tab, setTab] = useState<TabId>("workspace");
   const { settings, mutate, isSaving, save } = useSettingsState();
-
-  useEffect(() => {
-    const el = document.documentElement;
-    const density = settings?.["appearance.density"] || "comfortable";
-    el.dataset.density = density;
-    el.dataset.accent = settings?.["appearance.accent"] || "none";
-    const radius = settings?.["appearance.radius"];
-    if (radius) el.style.setProperty("--radius", radius);
-  }, [settings]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -323,6 +312,7 @@ function AppearanceTab({
 }) {
   const { theme, chooseTheme, followWorkspaceDefault } = useThemeSelection();
   const activePack = THEME_PACKS.some((p) => p.id === theme) ? theme : DEFAULT_THEME;
+  const activeRadius = normalizeRadiusProfileId(settings?.["appearance.radius"]);
   const themeRefs = useRef<(HTMLDivElement | null)[]>([]);
   const workspaceDefault = normalizeThemeId(
     settings?.[WORKSPACE_DEFAULT_THEME_KEY],
@@ -470,22 +460,41 @@ function AppearanceTab({
       </Card>
 
       <Card className="p-6">
-        <FormRow label="Corner radius" hint="Maps to --radius, applied app-wide">
-          <Select
-            value={settings?.["appearance.radius"] || "0.5rem"}
-            onValueChange={(v) => save("appearance.radius", v)}
+        <FormRow wide label="Corner radius" hint="One profile restyles every corner, applied app-wide">
+          <div
+            role="radiogroup"
+            aria-label="Corner radius profile"
+            className="grid grid-cols-2 gap-2 sm:grid-cols-4"
           >
-            <SelectTrigger className="w-full" aria-label="Corner radius">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {RADII.map((r) => (
-                <SelectItem key={r.value} value={r.value}>
-                  {r.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            {RADIUS_PROFILES.map((p) => {
+              const selected = activeRadius === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => save("appearance.radius", p.id)}
+                  className={cn(
+                    "flex flex-col items-start gap-2 rounded-xl border p-3 text-left outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    selected
+                      ? "border-primary/60 bg-primary/5 ring-2 ring-primary/25"
+                      : "border-border bg-background hover:bg-muted"
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="h-9 w-9 border-2 border-primary/70 bg-primary/10"
+                    style={{ borderRadius: `${p.xl}px` }}
+                  />
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="text-sm font-semibold text-foreground">{p.label}</span>
+                    <span className="text-xs text-muted-foreground">{p.tagline}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </FormRow>
       </Card>
 

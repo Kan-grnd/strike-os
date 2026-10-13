@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import { AppearanceBoot } from "@/components/ui/appearance-boot";
 import { Toaster } from "sonner";
 import "@/styles/globals.css";
 import GlobalShell from "@/app/(shell)/layout";
@@ -54,6 +55,7 @@ export default function RootLayout({
             {children}
           </GlobalShell>
           <Toaster />
+          <AppearanceBoot />
         </ThemeProvider>
       </body>
     </html>

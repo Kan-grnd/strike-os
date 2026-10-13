@@ -3,6 +3,7 @@ import prisma from "@/lib/db";
 import { eventBus } from "@/lib/events";
 import { SETTING_KEYS, SETTING_DEFAULTS, type SettingKey } from "@/lib/settings";
 import { DEFAULT_THEME, isThemeId } from "@/lib/theme-packs";
+import { normalizeRadiusProfileId } from "@/lib/radius-profiles";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,9 @@ async function readSettings() {
   if (!isThemeId(settings["appearance.defaultThemeId"])) {
     settings["appearance.defaultThemeId"] = DEFAULT_THEME;
   }
+  settings["appearance.radius"] = normalizeRadiusProfileId(
+    settings["appearance.radius"]
+  );
   return settings;
 }
 
@@ -53,6 +57,10 @@ export async function PUT(req: Request) {
           { error: `Unknown theme pack: ${value}` },
           { status: 400 }
         );
+      }
+      if (key === "appearance.radius") {
+        entries.push({ key: key as SettingKey, value: normalizeRadiusProfileId(value) });
+        continue;
       }
       entries.push({ key: key as SettingKey, value });
     }
