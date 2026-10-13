@@ -23,6 +23,14 @@ import {
 import { StrikeMark } from "@/components/ui/logo";
 import { createMission, useAgents, useEvents, useMissions } from "@/hooks/useApi";
 import { cn } from "@/lib/utils";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 
 /* Dispatch control: type a goal and send it to start work, or jump to a page.
  * Flat platform styling only — card/popover surfaces, hairline borders,
@@ -568,57 +576,81 @@ export function CommandBar() {
                 </span>
               </div>
               <div aria-hidden className="-mx-1 h-px bg-border" />
-              <ul role="listbox" id={listId} aria-label="Commands" className="max-h-[min(24rem,60vh)] overflow-auto">
-                {groups.map((g) => (
-                  <div key={g.label ?? "top"}>
-                    {g.label && g.rows.length > 0 && (
-                      <li role="presentation" className="px-2 pb-1 pt-2">
-                        <button
-                          type="button"
-                          onClick={() => g.rows[0]?.run()}
-                          aria-label={`${g.label}, go to first: ${g.rows[0]?.title ?? ""}`}
-                          className={cn(
-                            MICRO_LABEL,
-                            "cursor-pointer rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                          )}
-                        >
-                          {g.label}
-                        </button>
-                      </li>
-                    )}
-                    {g.rows.map((row) => {
-                      optionCursor += 1;
-                      const idx = optionCursor;
-                      const id = `${listId}-opt-${idx}`;
-                      const Icon = row.Icon;
-                      return (
-                        <li
-                          key={row.key}
-                          id={id}
-                          role="option"
-                          aria-selected={idx === activeIndex}
-                          onMouseEnter={() => setActiveIndex(idx)}
-                          onClick={() => row.run()}
-                          className={cn(
-                            "flex cursor-pointer select-none items-center gap-2.5 rounded-sm px-2 py-1.5 text-sm outline-none",
-                            idx === activeIndex ? "bg-accent text-accent-foreground" : "text-foreground",
-                          )}
-                        >
-                          {row.dotClass ? (
-                            <span aria-hidden className={cn("size-2 shrink-0 rounded-full", row.dotClass)} />
-                          ) : Icon ? (
-                            <span className={ICON_CHIP} aria-hidden>
-                              <Icon className="size-3 text-muted-foreground" aria-hidden />
-                            </span>
-                          ) : null}
-                          <span className="min-w-0 flex-1 truncate">{row.title}</span>
-                          {row.hint && <span className="shrink-0 text-xs text-muted-foreground">{row.hint}</span>}
-                        </li>
-                      );
-                    })}
-                  </div>
-                ))}
-              </ul>
+              <Command
+                shouldFilter={false}
+                className="max-h-[min(24rem,60vh)] overflow-auto border-none shadow-none"
+                value={q}
+              >
+                <CommandInput
+                  ref={inputRef}
+                  value={text}
+                  onValueChange={(v) => {
+                    setText(v);
+                    setActiveIndex(0);
+                    if (sendStateRef.current === "error") {
+                      setSend("ready");
+                      setErrorMsg(null);
+                    }
+                  }}
+                  onFocus={() => {
+                    setFocused(true);
+                    setOpen(true);
+                  }}
+                  onBlur={() => setFocused(false)}
+                  onKeyDown={onInputKeyDown}
+                  readOnly={sending || succeeded}
+                  placeholder="What would you like Strike OS to do?"
+                  className="hidden"
+                />
+                <CommandList>
+                  <CommandEmpty>No matches</CommandEmpty>
+                  {groups.map((g) => (
+                    <div key={g.label ?? "top"}>
+                      {g.label && g.rows.length > 0 && (
+                        <div className="px-2 pb-1 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => g.rows[0]?.run()}
+                            aria-label={`${g.label}, go to first: ${g.rows[0]?.title ?? ""}`}
+                            className={cn(
+                              MICRO_LABEL,
+                              "cursor-pointer rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            )}
+                          >
+                            {g.label}
+                          </button>
+                        </div>
+                      )}
+                      {g.rows.map((row) => {
+                        optionCursor += 1;
+                        const idx = optionCursor;
+                        const Icon = row.Icon;
+                        return (
+                          <CommandItem
+                            key={row.key}
+                            onSelect={() => row.run()}
+                            onMouseEnter={() => setActiveIndex(idx)}
+                            className={cn(
+                              "flex cursor-pointer select-none items-center gap-2.5 rounded-sm px-2 py-1.5 text-sm outline-none",
+                              idx === activeIndex ? "bg-accent text-accent-foreground" : "text-foreground",
+                            )}
+                          >
+                            {row.dotClass ? (
+                              <span aria-hidden className={cn("size-2 shrink-0 rounded-full", row.dotClass)} />
+                            ) : Icon ? (
+                              <span className={ICON_CHIP} aria-hidden>
+                                <Icon className="size-3 text-muted-foreground" aria-hidden />
+                              </span>
+                            ) : null}
+                            <span className="min-w-0 flex-1 truncate">{row.title}</span>
+                            {row.hint && <span className="shrink-0 text-xs text-muted-foreground">{row.hint}</span>}
+                          </CommandItem>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </CommandList>
+              </Command>
             </>
           )}
         </div>

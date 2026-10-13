@@ -80,10 +80,10 @@ export default function GlobalShell({ children }: { children: React.ReactNode })
       </Suspense>
       <main className="flex-1 min-w-0 overflow-auto relative">
         <EditModeProvider>
-          <header className="sticky top-0 z-[82] glass-bar border-b h-14 flex items-center justify-between px-6">
-            <span className="text-xl font-bold shrink-0">Strike OS</span>
+          <header className="sticky top-0 z-[82] glass-bar border-b h-14 grid grid-cols-[1fr_auto_1fr] items-center px-6">
+            <div />
             <CommandBar />
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center justify-end gap-2 shrink-0">
               <EditModeToggle />
               <ModeToggle />
             </div>
