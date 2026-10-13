@@ -70,12 +70,9 @@ export function SidebarDrawer({
            get them back out. */
         onOpenAutoFocus={(e) => e.preventDefault()}
         /* Clears the 64px rail so the two columns read as one navigation rather
-           than as a dialog floating over an unrelated strip. `max-h-none` undoes
-           the shared component's `max-h-[90vh]`, which is right for a form sheet
-           but wrong here: this panel stops 84px short of the bottom, so its
-           footer floats above the rail's instead of continuing it. */
+           than as a dialog floating over an unrelated strip. */
         className={cn(
-          "left-16 max-h-none w-56 max-w-[calc(100vw-4rem)] gap-0 border-r border-l-0 p-0",
+          "left-16 w-56 max-w-[calc(100vw-4rem)] gap-0 border-r border-l-0 p-0",
           "glass-bar"
         )}
       >

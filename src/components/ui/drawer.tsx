@@ -54,9 +54,9 @@ const DrawerContent = React.forwardRef<
       ref={ref}
       data-side={side}
       className={cn(
-        "fixed z-50 flex max-h-[90vh] flex-col gap-4 border-l glass-elevated p-6 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 pointer-events-auto",
-        side === "right" && "right-0 top-0 h-full w-96 max-w-[90vw]",
-        side === "left" && "left-0 top-0 h-full w-72 max-w-[80vw] border-l-0 border-r",
+        "fixed z-50 flex flex-col gap-4 border-l glass-elevated p-6 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 pointer-events-auto",
+        side === "right" && "right-0 top-0 h-full w-96 max-w-[90vw] rounded-l-2xl",
+        side === "left" && "left-0 top-0 h-full w-72 max-w-[80vw] rounded-r-2xl border-l-0 border-r",
         className
       )}
       {...props}
