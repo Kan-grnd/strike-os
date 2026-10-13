@@ -56,39 +56,6 @@
     color-scheme: dark;
 
   }
-}
-
-  .dark,
-  .graphite {
-    --background: 0 0% 9.019607843137255%;
-    --foreground: 0 0% 90%;
-    --card: 0 0% 12.941176470588237%;
-    --card-foreground: 0 0% 90%;
-    --popover: 0 0% 15%;
-    --popover-foreground: 0 0% 90%;
-    --primary: 0 0% 90.98039215686275%;
-    --primary-foreground: 0 0% 7%;
-    --secondary: 0 0% 18.03921568627451%;
-    --secondary-foreground: 0 0% 90%;
-    --muted: 0 0% 13%;
-    --muted-foreground: 0 0% 64%;
-    --accent: 0 0% 17%;
-    --accent-foreground: 0 0% 90%;
-    --destructive: 0 91% 71%; /* #f87171 failed (immutable) */
-    --destructive-foreground: 0 0% 6%;
-    --success: 158 64% 52%; /* #34d399 ok (immutable) */
-    --success-foreground: 0 0% 6%;
-    --warning: 43 96% 56%; /* #fbbf24 blocked (immutable) */
-    --warning-foreground: 0 0% 6%;
-    --approval: 255 92% 76%; /* #a78bfa approval (immutable) */
-    --info: 210 70% 60%;
-    --info-foreground: 0 0% 8%;
-    --border: 0 0% 26%;
-    --input: 0 0% 18%;
-    --ring: 0 0% 91%;
-
-    color-scheme: dark;
-  }
 
   .calm {
     --background: 45 16.666666666666703% 95.29411764705881%;
@@ -151,8 +118,6 @@
 
     color-scheme: light;
   }
-
-}
 
   .signal {
     --background: 240 9.090909090909092% 6.470588235294117%;
