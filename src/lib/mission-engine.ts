@@ -15,9 +15,9 @@ import { TaskEngine } from "./task-engine";
 import { ModelGateway } from "./model-gateway";
 import { hasConfiguredProvider } from "./providers/config";
 import { PlanStep, MissionPlan, parseMissionPlan, normalizeSteps, simulatedPlan } from "./plan";
-import { setAgentState, pauseAgent, resumeAgent } from "./runtime-state";
+import { setAgentState, pauseAgent, resumeAgent, spawnAgent } from "./runtime-state";
 import { settleMissionIfComplete } from "./completion";
-import { setBrainState } from "./brain";
+import { setBrainState, BRAIN_ID } from "./brain";
 
 export type { PlanStep } from "./plan";
 export { parseMissionPlan, simulatedPlan } from "./plan";
@@ -266,16 +266,43 @@ export class MissionEngine {
     for (const a of agents) {
       (byType[a.type] ||= []).push(a.id);
     }
-    const anyAgent = agents[0]?.id;
+    let anyAgent = agents[0]?.id;
 
     const created: { id: string; step: number }[] = [];
     for (const step of steps) {
-      const ownerAgentId =
+      let ownerAgentId =
         (step.agentId && agents.find((a) => a.id === step.agentId)?.id) ||
         byType[step.agentType]?.[0] ||
         byType["SPECIALIST"]?.[0] ||
         anyAgent ||
         null;
+
+      // No existing agent can take this step — the Brain spawns the capacity it
+      // needs. The sub-agent hangs off the mission's lead agent (if any) and is
+      // reused by later steps of the same type.
+      if (!ownerAgentId) {
+        try {
+          const spawned = await spawnAgent({
+            name: `${step.agentType || "WORKER"} · ${step.description.slice(0, 40)}`,
+            type: step.agentType || "WORKER",
+            description: `Sub-agent spawned for mission step ${step.step}`,
+            /* Parent off a real, loaded agent only — `agentIds` may name agents
+             * that do not exist, and a bad parentId is an FK violation. */
+            parentId: anyAgent || undefined,
+            missionId,
+            source: "mission-engine",
+          });
+          ownerAgentId = spawned?.id ?? null;
+          if (ownerAgentId) {
+            (byType[step.agentType] ||= []).push(ownerAgentId);
+            anyAgent = anyAgent ?? ownerAgentId;
+          }
+        } catch (err) {
+          // A spawn failure must not abort the mission — the step just runs
+          // unowned, exactly as it would have without the spawn attempt.
+          console.error("[mission-engine] sub-agent spawn failed:", err);
+        }
+      }
 
       const task = await db.task.create({
         data: {
@@ -446,6 +473,16 @@ export class MissionEngine {
           taskId: t.id,
           missionId,
           source: "mission-engine",
+        });
+        await eventBus.emit({
+          type: "delegation.completed",
+          source: "mission-engine",
+          subject: "delegation",
+          subjectId: t.ownerAgentId,
+          taskId: t.id,
+          missionId,
+          agentId: t.ownerAgentId,
+          payload: { from: BRAIN_ID, to: t.ownerAgentId },
         });
       }
     }

@@ -8,7 +8,7 @@
 import { eventBus } from "./events";
 import { setAgentState } from "./runtime-state";
 import { settleMissionIfComplete } from "./completion";
-import { setBrainState } from "./brain";
+import { setBrainState, BRAIN_ID } from "./brain";
 import { PrismaClient } from "@prisma/client";
 
 export interface TaskResult {
@@ -203,7 +203,47 @@ export class TaskEngine {
         missionId: task.missionId,
         source: "task-engine",
       }).catch(() => undefined);
+
+      // The Brain handing a task to an agent is a delegation — the live flow
+      // draws a real edge from the Brain to the owner while it runs.
+      await eventBus.emit({
+        type: "delegation.started",
+        source: "task-engine",
+        subject: "delegation",
+        subjectId: task.ownerAgentId,
+        taskId: task.id,
+        missionId: task.missionId,
+        agentId: task.ownerAgentId,
+        payload: {
+          from: BRAIN_ID,
+          to: task.ownerAgentId,
+          label: "Delegated",
+          description: task.description,
+        },
+      }).catch(() => undefined);
+
+      await setBrainState("delegating", {
+        missionId: task.missionId,
+        taskId: task.id,
+        detail: task.description,
+        decision: `Delegating "${task.description.slice(0, 48)}"`,
+      }).catch(() => undefined);
     }
+  }
+
+  /** Close the delegation edge opened when the task was assigned. */
+  private async emitDelegationCompleted(task: any) {
+    if (!task.ownerAgentId) return;
+    await eventBus.emit({
+      type: "delegation.completed",
+      source: "task-engine",
+      subject: "delegation",
+      subjectId: task.ownerAgentId,
+      taskId: task.id,
+      missionId: task.missionId,
+      agentId: task.ownerAgentId,
+      payload: { from: BRAIN_ID, to: task.ownerAgentId },
+    }).catch(() => undefined);
   }
 
   private async runTask(task: any) {
@@ -275,6 +315,8 @@ export class TaskEngine {
         },
       });
 
+      await this.emitDelegationCompleted(task);
+
       // Update agent stats + runtime state
       if (task.ownerAgentId) {
         const agent = await this.db.agent.findUnique({ where: { id: task.ownerAgentId } });
@@ -325,6 +367,8 @@ export class TaskEngine {
         payload: { description: task.description, error: (err as Error).message },
       });
 
+      await this.emitDelegationCompleted(task);
+
       if (task.ownerAgentId) {
         await setAgentState(task.ownerAgentId, "failed", {
           reason: `task failed: ${(err as Error).message || "execution error"}`,
@@ -360,6 +404,9 @@ export class TaskEngine {
       agentId: task.ownerAgentId || undefined,
       payload: { description: task.description, reason },
     });
+
+    await this.emitDelegationCompleted(task);
+
     if (task.ownerAgentId) {
       await setAgentState(task.ownerAgentId, "failed", {
         reason: `task failed: ${reason}`,

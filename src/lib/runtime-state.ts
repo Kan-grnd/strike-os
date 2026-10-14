@@ -406,6 +406,8 @@ export interface SpawnAgentInput {
   tools?: string[];
   models?: string[];
   memoryScope?: string;
+  /** The mission this sub-agent was spawned for, if any (carried on the event). */
+  missionId?: string;
 }
 
 export async function spawnAgent(input: SpawnAgentInput & { source?: string }): Promise<{ id: string } | null> {
@@ -440,6 +442,24 @@ export async function spawnAgent(input: SpawnAgentInput & { source?: string }): 
     agentId: agent.id,
     payload: { name: agent.name, type: agent.type, colonyId, parentId: input.parentId ?? null },
   });
+
+  // `agent.spawned` marks a *spawn* specifically (as opposed to any creation), and
+  // is the control-plane event the live flow consumes to draw a real edge.
+  await eventBus.emit({
+    type: "agent.spawned",
+    source: input.source ?? "topology",
+    subject: "agent",
+    subjectId: agent.id,
+    agentId: agent.id,
+    missionId: input.missionId,
+    payload: {
+      name: agent.name,
+      type: agent.type,
+      colonyId,
+      parentId: input.parentId ?? null,
+    },
+  });
+
   await setAgentState(agent.id, "initializing", { reason: "agent spawned", source: input.source ?? "topology" });
 
   // Brief spin-up, then idle
