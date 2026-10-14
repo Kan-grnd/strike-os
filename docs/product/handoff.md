@@ -481,6 +481,26 @@ spawn 11, missions 26, selectors 138); `tsc` clean; build clean, artifacts fresh
 > (Policies/Tools/Routing work); pagination for the runs list (E18) is also noted for **M5**.
 > M4.5 (universal states) and M4.6 (dead controls) remain.
 
+**M4.5 status: ✅ DONE, verified** — commit **`935ff02`**. Every surface defines its states instead
+of rendering blank. **App-level** `src/app/{loading,error,not-found,global-error}.tsx` + shared
+`PageSkeleton`/`ErrorState` give a consistent skeleton on navigation, an honest **retryable** error
+boundary, a styled 404 **inside the shell**, and a full-document last-resort fallback. Each of the
+six dynamic detail routes ships a `loading.tsx`. The Activity surfaces were completed — the traces
+list and detail now distinguish a **load failure** from "not found" (ErrorState + retry), the
+Events/Logs/Metrics tabs surface request errors, and the last `Observability` eyebrow became
+`Activity` (M4.4's one-word rule). **Verified:** `check-states` **7/7** (state files exist; error
+boundary is a client boundary with `reset`; global-error renders its own html/body; every dynamic
+route has a loading boundary); live e2e `m45-e2e.ts` **17/17** (unmatched/retired routes are styled
+404s with the shell; every nav target 200; detail routes stream 200; a bad resource is an honest API
+404). Regressions green (attention 14, health 24, spend 15, drift 16, recovery 15, approvals 10,
+spawn 11, missions 26, navigation 24, activity 10, selectors 138); `tsc` clean; build clean,
+artifacts fresh. D63.
+
+> **M4.5 note:** the loading skeleton and error boundary render in the browser, so the HTTP-observable
+> half (404 coverage, route health, honest API 404s) is what the e2e asserts; the client states are
+> verified structurally (compiled chunks) and in review. The `workforce/live` and `knowledge`
+> inline loaders are labelled centred spinners (not bare) and were left as-is.
+
 > **Pre-existing check failures (not ours):** `scripts/check-node-contrast.ts` and
 > `scripts/check-orb-palette.ts` both abort because a `clean` theme is referenced but
 > missing from the theme registry / `globals.css`. Unrelated to M2.1 (no theme files

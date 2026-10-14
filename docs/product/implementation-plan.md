@@ -571,14 +571,29 @@ operator's decisions actually controlling execution.
 - **Edge cases:** E18 (paginate; no client-side loops) — deferred: the list is bounded by the seeded set,
   pagination noted for M5.
 
-## M4.5 — Universal states
-- **Objective:** every data surface defines all five states.
-- **Affected files:** app-level and route-group `loading.tsx` / `error.tsx` /
-  `not-found.tsx` (none exist today).
+## M4.5 — Universal states ✅ DONE
+- **Objective:** every data surface defines all five states. **(D63.)**
+- **Affected files:** new `src/app/{loading,error,not-found,global-error}.tsx`; new
+  `src/components/shared/{page-skeleton,error-state}.tsx`; a `loading.tsx` on each dynamic detail route
+  (`activity/runs/[id]`, `activity/traces/[id]`, `missions/[id]`, `tasks/[id]`, `workflows/[id]`,
+  `workforce/agents/[id]`); `src/app/activity/{traces/page,traces/[id]/page,events/page}.tsx` (error
+  branches + the last `Observability` eyebrow → `Activity`); new `scripts/check-states.ts`.
 - **Dependencies:** M4.1–M4.4.
-- **Acceptance criteria:** no surface renders blank or a bare spinner; errors are honest
-  and retryable.
-- **Testing:** simulate slow/failed/empty responses per surface.
+- **Expected behaviour:** no surface renders blank or a bare spinner; errors are honest and retryable.
+- **Design (D63):** the **framework-level** states live at the app root — a shell-shaped `PageSkeleton` on
+  navigation, an error boundary that shows the failure + a working **retry**, a styled `not-found` rendered
+  **inside the shell** (so a 404 never strands the operator), and a plain `global-error` for when the root
+  layout itself fails. The **inline** states stay per-surface; the Activity family was completed so a load
+  failure is distinguished from "not found".
+- **Acceptance criteria:** ✅ app-level loading/error/not-found/global-error exist and compile; ✅ every
+  dynamic detail route ships a loading boundary; ✅ the 404 renders the styled page inside the shell; ✅
+  data errors are retryable, not blank.
+- **Testing:** ✅ pure `check-states` (**7** — state files exist, error boundary is a client boundary with
+  `reset`, global-error renders its own html/body, every dynamic route has a `loading.tsx`); ✅ live e2e
+  `m45-e2e.ts` (**17/17**: unmatched/retired routes are styled 404s with the shell, every nav target 200,
+  detail surfaces stream 200, a bad resource is an honest API 404). Regressions green (attention 14, health
+  24, spend 15, drift 16, recovery 15, approvals 10, spawn 11, missions 26, navigation 24, activity 10,
+  selectors 138); `tsc` clean; build clean, artifacts fresh.
 
 ## M4.6 — Dead controls
 - **Objective:** resolve the nine UI promises in [ui-spec.md](./ui-spec.md) §7.
