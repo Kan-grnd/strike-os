@@ -13,6 +13,7 @@
 import { PrismaClient } from "@prisma/client";
 import { eventBus } from "./events";
 import { setAgentState } from "./runtime-state";
+import { setBrainState } from "./brain";
 
 const TERMINAL_TASK_STATUS = ["COMPLETED", "FAILED", "CANCELLED"];
 
@@ -75,6 +76,17 @@ export async function settleMissionIfComplete(
     missionId: mission.id,
     payload: { goal: mission.goal, totalCost, taskCount: tasks.length },
   });
+
+  await setBrainState("idle", {
+    missionId: mission.id,
+    detail: mission.goal,
+    decision:
+      status === "COMPLETED"
+        ? "Mission completed"
+        : status === "CANCELLED"
+          ? "Mission cancelled"
+          : "Mission ended with failures",
+  }).catch(() => undefined);
 
   return true;
 }

@@ -3,6 +3,7 @@ import {
   Activity,
   BookOpen,
   Boxes,
+  Brain,
   Briefcase,
   Cpu,
   Database,
@@ -87,6 +88,7 @@ export const NAV_DOMAINS: NavigationDomain[] = [
     icon: Users,
     children: [
       { label: "Agents", href: "/agents", matches: ["/agents"] },
+      { label: "Brain", href: "/workforce/brain" },
       { label: "Colonies", href: "/colonies" },
       { label: "Agent Architect", href: "/architect" },
       { label: "Capabilities", href: "/capabilities" },
@@ -169,6 +171,7 @@ const CHILD_ICONS: Record<string, IconComponent> = {
   "/": LayoutDashboard,
   "/chat": MessageSquare,
   "/agents": Users,
+  "/workforce/brain": Brain,
   "/colonies": Boxes,
   "/architect": Sparkles,
   "/capabilities": Target,

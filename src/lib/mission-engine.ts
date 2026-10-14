@@ -17,6 +17,7 @@ import { hasConfiguredProvider } from "./providers/config";
 import { PlanStep, MissionPlan, parseMissionPlan, normalizeSteps, simulatedPlan } from "./plan";
 import { setAgentState, pauseAgent, resumeAgent } from "./runtime-state";
 import { settleMissionIfComplete } from "./completion";
+import { setBrainState } from "./brain";
 
 export type { PlanStep } from "./plan";
 export { parseMissionPlan, simulatedPlan } from "./plan";
@@ -113,9 +114,15 @@ export class MissionEngine {
    * clearly-labelled simulated plan. A configured provider that fails throws.
    */
   async planMission(goal: string): Promise<MissionPlanResult> {
+    await setBrainState("planning", { detail: goal, decision: "Planning mission" });
     if (!(await hasConfiguredProvider())) {
+      const steps = simulatedPlan(goal);
+      await setBrainState("idle", {
+        detail: goal,
+        decision: `Planned ${steps.length} steps (simulated)`,
+      });
       return {
-        steps: simulatedPlan(goal),
+        steps,
         simulated: true,
         planner: "simulated",
         note: "No model provider configured — this is a placeholder plan, not a model-generated one.",
@@ -137,6 +144,10 @@ export class MissionEngine {
     });
 
     const steps = parsePlanStepsFromModel(response.content);
+    await setBrainState("idle", {
+      detail: goal,
+      decision: `Planned ${steps.length} steps`,
+    });
     return {
       steps,
       simulated: false,
@@ -327,6 +338,12 @@ export class MissionEngine {
       subjectId: mission.id,
       missionId: mission.id,
       payload: { goal: mission.goal, taskCount: createdTasks, operationId },
+    });
+
+    await setBrainState("delegating", {
+      missionId: mission.id,
+      detail: mission.goal,
+      decision: `Launched mission — ${createdTasks} task${createdTasks === 1 ? "" : "s"} delegated`,
     });
   }
 

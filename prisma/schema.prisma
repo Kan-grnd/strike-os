@@ -195,6 +195,18 @@ model Operation {
   @@map("operations")
 }
 
+model BrainState {
+  id        String   @id @default("brain")
+  state     String   @default("idle") // idle | planning | delegating | supervising | recovering
+  detail    String?
+  missionId String?
+  taskId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("brain_state")
+}
+
 model Tool {
   id          String   @id @default(cuid())
   name        String

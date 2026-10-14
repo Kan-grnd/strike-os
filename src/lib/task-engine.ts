@@ -8,6 +8,7 @@
 import { eventBus } from "./events";
 import { setAgentState } from "./runtime-state";
 import { settleMissionIfComplete } from "./completion";
+import { setBrainState } from "./brain";
 import { PrismaClient } from "@prisma/client";
 
 export interface TaskResult {
@@ -231,6 +232,13 @@ export class TaskEngine {
       }).catch(() => undefined);
     }
 
+    await setBrainState("supervising", {
+      missionId: task.missionId,
+      taskId: task.id,
+      detail: task.description,
+      decision: `Supervising "${task.description.slice(0, 48)}"`,
+    }).catch(() => undefined);
+
     try {
       const result = await this.runner.execute(task.id);
 
@@ -326,6 +334,13 @@ export class TaskEngine {
         }).catch(() => undefined);
       }
 
+      await setBrainState("recovering", {
+        missionId: task.missionId,
+        taskId: task.id,
+        detail: task.description,
+        decision: `Task failed — ${(err as Error).message || "execution error"}`,
+      }).catch(() => undefined);
+
       await settleMissionIfComplete(this.db, task.missionId).catch(() => undefined);
     }
   }
@@ -354,6 +369,13 @@ export class TaskEngine {
       }).catch(() => undefined);
     }
 
+    await setBrainState("recovering", {
+      missionId: task.missionId,
+      taskId: task.id,
+      detail: task.description,
+      decision: `Task failed — ${reason}`,
+    }).catch(() => undefined);
+
     await settleMissionIfComplete(this.db, task.missionId).catch(() => undefined);
   }
 
@@ -362,6 +384,13 @@ export class TaskEngine {
       where: { id: task.id },
       data: { status: "QUEUED" },
     });
+
+    await setBrainState("recovering", {
+      missionId: task.missionId,
+      taskId: task.id,
+      detail: task.description,
+      decision: `Retrying task — attempt ${task.retryCount + 1}/${task.maxRetries}`,
+    }).catch(() => undefined);
     await eventBus.emit({
       type: "task.retried",
       source: "task-engine",
