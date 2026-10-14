@@ -14,6 +14,10 @@ The flags mark which workflows are the **product's reason to exist** [CONFIRMED]
 zero tasks (`missions/route.ts:29-51`), and the "planner" is a keyword match. Closing this
 is the first milestone.** [CONFIRMED]
 
+> **Correction:** the task-creation logic already exists in `MissionEngine.createMission`
+> (`mission-engine.ts:138-212`) — the route never calls it. This is a wiring fix, not a
+> build. See [handoff.md](./handoff.md) §3.
+
 - **Entry point:** Control Center "New mission", or the global command bar, or a
   system-authored mission awaiting review.
 - **Prerequisites:** at least one installed Specialist or Agent; a provider configured

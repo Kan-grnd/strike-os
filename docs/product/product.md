@@ -102,9 +102,15 @@ The audit found the low-level machinery is real and the high-level product is no
   guards, a genuine topology renderer, a real chat path, and real observability data.
 - **Not real:** the flagship loop. `POST /api/missions` stores a plan and creates **zero
   tasks** (`missions/route.ts:29-51`), so describing intent produces no running work. The
-  "LLM planner" is a keyword pattern-match (`mission-engine.ts:121-125`). Delegation,
-  approvals, automations, tool execution and the Brain state event are all declared and
-  consumed but **never emitted**.
+  task-creation logic *does* exist in `MissionEngine.createMission`
+  (`mission-engine.ts:138-212`) — the route simply never calls it, so the fix is wiring,
+  not building. The "LLM planner" is a keyword pattern-match (`mission-engine.ts:121-125`).
+  Delegation, approvals, automations, tool execution and the Brain state event are all
+  declared and consumed but **never emitted**.
+
+> **Corrections from reading the code** are collected in
+> [handoff.md](./handoff.md) §3 — read them before building. They make M1.2 and M3.2
+> smaller than this summary implies.
 
 This is why **closing the intent→execution loop is the first milestone** [CONFIRMED] —
 until it closes, nothing else in the product is real.

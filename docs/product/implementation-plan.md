@@ -1,10 +1,12 @@
 # Strike OS — Implementation Plan
 
-**Read this with [decisions.md](./decisions.md).** Every task cites the decisions it
-implements. The order is chosen so the product works at the end of every task.
+**Read [handoff.md](./handoff.md) first** — it carries the context, the ground rules, the
+corrections to the earlier audit, and the decision gates. This file is the task list.
+
+Every task cites the decisions it implements ([decisions.md](./decisions.md)) and the edge
+cases it must handle ([edge-cases.md](./edge-cases.md)).
 
 > **Gate:** no application code changes until the operator approves this plan.
-> The status legend is in [decisions.md](./decisions.md).
 
 ## Sequencing
 
@@ -17,74 +19,87 @@ M5  Hygiene & configuration               (routing, policies, dead controls)
 ```
 
 Each milestone is independently shippable. Within a milestone, tasks are ordered; a task
-may depend on earlier tasks.
+may depend on earlier tasks. **Do not start M2 until M1 is verified.**
 
 ---
 
 # M1 — Close the intent → execution loop
 
-*This is the milestone that makes the product real. [D9, D11, D18, D19]*
+*The milestone that makes the product real. [D9, D11, D18, D19]*
 
 ## M1.1 — A real planner
 
-- **Objective:** replace the keyword `patternMatchPlan` with a genuine LLM plan, and make
-  it fail loudly.
-- **Affected files:** `src/lib/mission-engine.ts` (`patternMatchPlan` :25-119,
-  `llmPlan` :121-125), `src/lib/model-gateway.ts`, `src/app/api/missions/route.ts`.
+- **Objective:** replace the keyword planner with a genuine LLM plan; make planning failure
+  loud.
+- **Affected files:** `src/lib/mission-engine.ts` (`patternMatchPlan` :25-119, `llmPlan`
+  :121-125, `planMission` :134-136), `src/lib/model-gateway.ts`, `src/app/api/missions/route.ts`.
 - **Dependencies:** none.
-- **Expected behaviour:** given intent text + available Specialists/Agents + mission
-  limits, the Brain returns a structured plan: operations, tasks per operation, the
-  specialist/agent intended per task, cadence, estimated cost, required permissions.
+- **Expected behaviour:** given intent text, the available Specialists/Agents (with their
+  capabilities) and the mission's limits, the Brain returns a structured plan: steps, the
+  intended worker per step, cadence, estimated cost, required permissions.
 - **Acceptance criteria:**
-  - A mission with intent "keep the API docs current" yields ≥1 operation with ≥1 task,
-    each task naming an intended agent and a model.
-  - `llmPlan` is no longer an alias for a keyword matcher.
-  - Provider failure returns an **error**, never a silent fallback plan.
-  - With no provider configured, the plan is returned and labelled `simulated: true`.
+  - "Keep the API docs current" yields ≥1 step, each naming an intended agent and model.
+  - `llmPlan` no longer calls `patternMatchPlan`; `patternMatchPlan` is deleted.
+  - Provider failure → error response, **no mission row created**.
+  - No provider configured → plan returned with `simulated: true`.
 - **Edge cases:** E1, E2.
-- **Testing:** unit — plan shape for 3 intents; integration — provider error path returns
-  error not a plan; simulation path sets the flag.
+- **Testing:** unit — plan shape for 3 intents; integration — provider error returns an
+  error, not a plan; simulation path sets the flag.
+- **Gotcha:** `PlanStep.agentType` is a free string matched against `agent.type`
+  (`mission-engine.ts:167`). A real LLM will invent types that match nothing. **Constrain
+  the prompt to the actual installed types, or have the planner return `agentId` directly.**
+  This is the most likely way M1.1 yields an unexecutable plan.
 
 ## M1.2 — A mission actually creates work
 
-- **Objective:** launching a mission persists an Operation and its Tasks, which the
+- **Objective:** approving a mission persists an Operation and its Tasks, which the
   existing scheduler picks up.
-- **Affected files:** `src/app/api/missions/route.ts` (:29-51 creates no tasks),
-  `prisma/schema.prisma` (add `Operation`), `src/lib/task-engine.ts` (unchanged consumer).
+- **Affected files:** `src/app/api/missions/route.ts` (:29-51 — bypasses the engine),
+  `src/lib/mission-engine.ts` (`createMission` :138-212 — already creates tasks),
+  `prisma/schema.prisma` (add `Operation`; add `Task.parentOperationId`),
+  `src/lib/engine.ts` (`getDb()` :24-27).
 - **Dependencies:** M1.1.
-- **Expected behaviour:** approving a mission creates one `Operation`
-  (`PLANNING→RUNNING`) and its `Task` rows (`QUEUED`). Within one 2s engine tick, the
-  scheduler claims them and the agents execute.
+- **Expected behaviour:** the route calls `getMissionEngine()` → `createMission(...)`,
+  which creates one `Operation` (`PLANNING→RUNNING`) and its `Task` rows (`QUEUED`), each
+  with `parentOperationId`. Within one 2s tick the scheduler claims them.
 - **Acceptance criteria:**
-  - `POST` mission → approve → DB has 1 Operation + N Tasks with `status=QUEUED`.
-  - Within 3s a task transitions `QUEUED→RUNNING`.
-  - `Task.parentOperationId` is set on every task.
+  - Approve a mission → 1 `Operation` + N `Task` rows with `status=QUEUED`.
+  - Within 3s a task transitions `QUEUED→ASSIGNED→RUNNING`.
+  - Every task has `parentOperationId`.
 - **Edge cases:** E19 (idempotent launch), E14 (edit-during-planning).
-- **Testing:** integration — launch a mission against a test DB, assert task creation and
-  a `RUNNING` transition; double-POST asserts a single mission.
+- **Testing:** integration — launch against a test DB, assert task creation and a `RUNNING`
+  transition; double-POST asserts a single mission.
+- **Gotcha:** `createMission` assigns `ownerAgentId` by type-matching and falls back to
+  `agentIds[0]` (`:167-168`), so a step can land on an agent that cannot do it. Tighten
+  here rather than later. Also fold `getDb()` onto the shared `@/lib/db` singleton — it
+  currently constructs a second `PrismaClient` (two pools).
 
 ## M1.3 — Plan review & the launch gate
 
-- **Objective:** the operator reviews the plan and approves it before anything runs.
-- **Affected files:** `src/app/(missions)/new` (new route), planner API.
-- **Dependencies:** M1.1, M1.2.
-- **Expected behaviour:** `/missions/new` shows the plan (operations, tasks, workers,
-  cadence, cost, permissions); the operator can edit then approve; approval launches;
-  abandoning leaves nothing running.
+- **Objective:** nothing runs until the operator approves the plan.
+- **Affected files:** new `src/app/(missions)/new` route; `mission-engine.ts`
+  (`startMission` :214-232).
+- **Dependencies:** M1.1, M1.2, **G1 resolved** (status vocabulary).
+- **Expected behaviour:** `/missions/new` shows the plan (steps, workers, cadence, cost,
+  permissions); the operator can edit then approve; approval launches; abandoning creates
+  nothing.
 - **Acceptance criteria:**
-  - No task is created before approval.
+  - No task exists before approval.
   - Editing cadence/cost before approval is reflected in the created Operation.
-  - Abandon creates no rows.
+  - Abandon leaves no rows.
 - **Edge cases:** E1, E19.
 - **Testing:** e2e — plan → approve → run; plan → abandon → no rows.
+- **Gotcha:** `createMission` writes `status: "READY"` (`:156`) and `startMission` accepts
+  `["READY","PLANNING"]` (`:217`). Under **G1 option B** these become `DRAFT` / `ACTIVE`.
 
 ## M1.4 — Honest simulation, end to end
 
 - **Objective:** REAL vs SIMULATED is visible everywhere a result appears; silent
   degradation is removed.
-- **Affected files:** `src/lib/task-runner-real.ts` (:68-72 silent mock),
-  `src/lib/engine.ts` (`hasApiKeys` :29-54), task/run UI, `src/app/page.tsx`
-  (`NEXT_PUBLIC_DASHBOARD_SAMPLE` :90-117).
+- **Affected files:** `src/lib/task-runner-real.ts` (:68-72 silent mock, `mockFallback`
+  :115-125), `src/lib/task-engine.ts` (`runTask` :234-244, `MockTaskRunner` :22-36),
+  `src/lib/engine.ts` (`hasApiKeys` :29-40), `prisma/schema.prisma` (add `Task.simulated`),
+  `src/app/page.tsx` (`NEXT_PUBLIC_DASHBOARD_SAMPLE` :90-117), task/run UI.
 - **Dependencies:** M1.1.
 - **Expected behaviour:** every task result carries `simulated`; the UI marks it; with no
   provider the app shows an app-wide **simulation mode** banner.
@@ -95,19 +110,28 @@ may depend on earlier tasks.
 - **Edge cases:** E1, E2, E4.
 - **Testing:** unit — flag propagation; integration — provider failure yields either
   recovery or a marked simulated result, never unmarked.
+- **Note:** the flag **already exists** in `Task.output` JSON (`task-engine.ts:31`,
+  `task-runner-real.ts:121`). Add a real `Task.simulated` boolean column so it is
+  queryable, set it in `runTask`, and **delete `mockFallback`** — the runner must recover
+  (M3.2) or throw.
+- **Reality check:** with `.env` holding only `DATABASE_URL` and no `secrets` rows,
+  `hasApiKeys()` is false → the engine runs `MockTaskRunner` → **the whole product is
+  simulated today.** The banner will be on from day one until a provider is configured.
 
 ## M1.5 — Correct model policy on tasks
 
-- **Objective:** the task runner reads policy from the task/mission, not the agent's stale
-  `memoryScope`.
-- **Affected files:** `src/lib/task-runner-real.ts` (:104).
+- **Objective:** routing uses the mission/task policy, not a repurposed field.
+- **Affected files:** `src/lib/task-runner-real.ts` (`parseAgentPolicy` :104-112),
+  `src/lib/model-gateway.ts` (`parsePolicy` :198-204, `selectModel` :65-143).
 - **Dependencies:** none.
-- **Expected behaviour:** routing uses the mission/task `modelPolicy`; the agent's
+- **Expected behaviour:** policy resolves **task → operation → mission → agent default**;
   `memoryScope` is never consulted for model choice.
 - **Acceptance criteria:** a task whose mission policy names model M executes on M
   regardless of the agent's `memoryScope`.
 - **Edge cases:** E20.
 - **Testing:** unit — policy resolution order.
+- **Gotcha:** the bug is in **two** places, and `selectModel` has **no callers** — either
+  wire it in or remove it. A router nobody calls is a lie in the UI.
 
 **M1 exit criteria:** intent → approved plan → running tasks → visible REAL/SIMULATED,
 verified on a served build.
@@ -121,23 +145,23 @@ verified on a served build.
 ## M2.1 — The Brain is a real, observable entity
 - **Objective:** a Brain with state that reports what it is doing.
 - **Affected files:** new `Brain` persistence, `src/lib/events.ts` (:92
-  `brain.state.changed` never emitted), `src/app/workforce/brain`.
+  `brain.state.changed` never emitted), new `src/app/workforce/brain`.
 - **Dependencies:** M1.
 - **Expected behaviour:** the Brain has states (idle/planning/delegating/supervising/
-  recovering) emitted as real events; `/workforce/brain` shows current state + decisions.
-- **Acceptance criteria:** a planning operation emits `brain.state.changed` at least twice;
-  the page reflects it live.
+  recovering) emitted as real events; the page shows current state + recent decisions.
+- **Acceptance criteria:** a planning operation emits `brain.state.changed` ≥2 times; the
+  page reflects it live.
 - **Edge cases:** E5.
 - **Testing:** integration — event emission; e2e — page updates.
 
 ## M2.2 — Delegation is real
 - **Objective:** the Brain delegates tasks and spawns sub-agents; edges and events are real.
 - **Affected files:** `src/lib/runtime-state.ts` (`spawnAgent` :411, `delegating`),
-  `delegation.*`/`agent.spawned` emitters.
+  `delegation.*` / `agent.spawned` emitters.
 - **Dependencies:** M2.1.
-- **Expected behaviour:** delegating a task sets `delegating`, emits `delegation.*`;
-  spawning creates a child agent emitting `agent.spawned`; the live graph draws real edges.
-- **Acceptance criteria:** no consumed event lacks an emitter; live flow shows a real
+- **Expected behaviour:** delegating a task sets `delegating` and emits `delegation.*`;
+  spawning creates a child agent and emits `agent.spawned`; the live graph draws real edges.
+- **Acceptance criteria:** no consumed event lacks an emitter; the live flow shows a real
   delegation edge during execution.
 - **Edge cases:** E11.
 - **Testing:** integration — event/payload contract for each consumed event.
@@ -155,8 +179,8 @@ verified on a served build.
 
 ## M2.4 — Specialists actually work
 - **Objective:** fix the permanent 403, add the page, make install usable.
-- **Affected files:** `src/lib/specialist-bundles.ts` (:167 dev guard),
-  `src/app/workforce/specialists` (new), `POST /api/specialists`.
+- **Affected files:** `src/lib/specialist-bundles.ts` (:167 dev guard), new
+  `src/app/workforce/specialists`, `POST /api/specialists`.
 - **Dependencies:** M2.1.
 - **Expected behaviour:** installation works against Postgres; Specialists appear in the
   roster and can own standing work.
@@ -167,11 +191,11 @@ verified on a served build.
 
 ## M2.5 — Live work flow
 - **Objective:** `/workforce/live` renders real executing work; empty/reconnecting states.
-- **Affected files:** `src/app/workforce/live` (from `/topology`), runtime store.
+- **Affected files:** new `src/app/workforce/live` (from `/topology`), runtime store.
 - **Dependencies:** M2.2.
-- **Expected behaviour:** graph shows missions → operations → tasks → agents with live
+- **Expected behaviour:** the graph shows missions → operations → tasks → agents with live
   edges; reload re-populates current execution only; on drop it stops animating.
-- **Acceptance criteria:** during a run, the graph shows the executing agent and its
+- **Acceptance criteria:** during a run the graph shows the executing agent and its
   delegation edge; killing the stream shows "reconnecting".
 - **Edge cases:** E5, D12.
 - **Testing:** e2e — run a mission while watching; drop the connection.
@@ -185,7 +209,7 @@ verified on a served build.
 ## M3.1 — Approvals: create, block, resolve
 - **Objective:** gates really pause work and are resolvable.
 - **Affected files:** `src/app/api/approvals/route.ts` (nothing blocks / no resolve),
-  `runtime-state.ts` (`waiting_for_approval`), engine.
+  `runtime-state.ts` (`waiting_for_approval`), the engine.
 - **Dependencies:** M2.3.
 - **Expected behaviour:** a gate creates a `PENDING` approval, sets `waiting_for_approval`
   and pauses the affected scope; resolve resumes or rolls back; resolution is idempotent.
@@ -197,30 +221,33 @@ verified on a served build.
 ## M3.2 — Failure recovery
 - **Objective:** retry → Brain recovers → escalate, using the declared policies.
 - **Affected files:** `runtime-state.ts` (`ESCALATE`/`ABORT_BRANCH`/`SPAWN_REPLACEMENT`
-  :43-53), engine, health.
+  :43-53), `task-engine.ts` (retry loop :128-158), health.
 - **Dependencies:** M3.1.
-- **Expected behaviour:** bounded retry; then reassign → fallback model (within policy) →
-  spawn replacement; if all fail, escalate with context; health degrades.
+- **Expected behaviour:** bounded retry (already built) → reassign → fallback model (within
+  policy) → spawn replacement; if all fail, escalate with context; health degrades.
   Outside-policy model fallback is a gate.
 - **Acceptance criteria:** a repeatedly-failing task reassigns at least once and then
   escalates; escalation carries the failure context; no silent permanent `FAILED`.
 - **Edge cases:** E2, E3, E10, E20.
 - **Testing:** integration — scripted failures across each recovery path.
+- **Note:** **retry already exists** (`task-engine.ts:128-158`) and already emits
+  `task.failed` with `retryExhausted: true` on exhaustion. Build the **recovery** and
+  **escalation** steps, not the retry.
 
 ## M3.3 — Health rollup
 - **Objective:** task → operation → mission health for the attention surface.
-- **Affected files:** new health computation, mission/operation/task reads.
+- **Affected files:** new health computation; mission/operation/task reads.
 - **Dependencies:** M1.2, M3.2.
 - **Expected behaviour:** health computed from children; debounced so a within-tick
-  recovery doesn't flash.
-- **Acceptance criteria:** a failing task makes its operation `DEGRADED`, a failing
+  recovery does not flash.
+- **Acceptance criteria:** a failing task makes its operation `DEGRADED`; a failing
   operation makes its mission `BLOCKED`, within one tick.
 - **Testing:** unit — rollup matrix; integration — drive a mission into each state.
 
 ## M3.4 — Cost & drift gates
 - **Objective:** spending ceilings and drift signals become real gates.
-- **Affected files:** mission policy, cost accounting (`model-gateway.ts:65` hardcoded),
-  drift detector.
+- **Affected files:** mission policy, cost accounting (`model-gateway.ts:65` hardcoded
+  tables), drift detector.
 - **Dependencies:** M3.1.
 - **Expected behaviour:** crossing a ceiling pauses the operation and asks; drift signals
   route to the attention queue.
@@ -228,8 +255,10 @@ verified on a served build.
   cadence appears in "needs you".
 - **Edge cases:** E15, E16.
 - **Testing:** integration — ceiling breach; drift injection.
+- **Note:** thresholds are **open questions** (Q1, Q2). Make them configurable; do not
+  invent values.
 
-**M3 exit criteria:** an autonomous run can proceed, gate, recover, and escalate with the
+**M3 exit criteria:** an autonomous run can proceed, gate, recover and escalate, with the
 operator's decisions actually controlling execution.
 
 ---
@@ -238,51 +267,104 @@ operator's decisions actually controlling execution.
 
 *[D3, D10, D11, D20–D25]*
 
-- **M4.1 — Control Center rebuild.** `/` becomes the attention-first surface (queue +
-  mission health + live summary). Remove hardcoded KPIs, `"recent"`, dead loops,
-  sample-data path. *(Deps: M3.3)*
-- **M4.2 — Missions list & detail.** `/missions`, `/missions/[id]`; automations fold in as
-  triggers on the detail page. *(Deps: M1.2)*
-- **M4.3 — IA reorg.** Apply the five-domain structure; retire redirects
-  (`next.config.js`) and the merged `/work`; update `navigation.ts`. Keep
-  `check-navigation.ts` green. *(Deps: M4.1, M4.2)*
-- **M4.4 — Activity.** Consolidate `/activity/{runs,events,traces}`; kill the
-  Observatory/Observability split. *(Deps: M3.3)*
-- **M4.5 — Universal states.** Add `loading.tsx`/`error.tsx`/`not-found.tsx` at app and
-  route-group level; implement all five states per `ui-spec.md` §3.
-- **M4.6 — Dead controls.** Resolve the nine UI promises in `ui-spec.md` §7 — each works
-  or is removed.
+## M4.1 — Control Center rebuild
+- **Objective:** `/` becomes the attention-first surface.
+- **Affected files:** `src/app/page.tsx`.
+- **Dependencies:** M3.3.
+- **Expected behaviour:** a ranked "Needs you" queue, then mission health, then a live
+  summary; each queue item actionable in one click.
+- **Acceptance criteria:** the operator can answer "is it healthy?" in <5s and act without
+  navigating. Hardcoded KPIs, `"recent"`, `toHourSeries` and `NEXT_PUBLIC_DASHBOARD_SAMPLE`
+  are gone.
+- **Edge cases:** E4 (honest error, no sample data).
+- **Testing:** e2e — with a blocked mission, the queue shows it and resolves it.
+
+## M4.2 — Missions list & detail
+- **Objective:** the directing surface.
+- **Affected files:** new `src/app/missions`, `src/app/missions/[id]`.
+- **Dependencies:** M1.2.
+- **Expected behaviour:** a list (health, cadence, last run, cost, next run), sorted
+  "needs attention first"; detail shows operations timeline, cadence/triggers, limits,
+  history. **Automations fold in as triggers on the detail page.**
+- **Acceptance criteria:** a mission's triggers are editable on its detail page; no
+  separate Automations surface remains.
+- **Testing:** e2e — create, view, pause, resume.
+
+## M4.3 — IA reorg
+- **Objective:** apply the five-domain structure.
+- **Affected files:** `src/lib/navigation.ts`, `next.config.js`, route moves.
+- **Dependencies:** M4.1, M4.2, **G2 resolved**.
+- **Expected behaviour:** Control Center · Missions · Workforce · Activity · Settings;
+  redirects retired; the merged `/work` removed.
+- **Acceptance criteria:** `scripts/check-navigation.ts` passes; every route appears
+  exactly once; `/missions`, `/workflows`, `/automations` no longer redirect.
+- **Testing:** run the nav checker; assert no 404s on nav targets.
+
+## M4.4 — Activity
+- **Objective:** consolidate history.
+- **Affected files:** new `src/app/activity/{runs,events,traces}`; retire the
+  Observatory/Observability split.
+- **Dependencies:** M3.3.
+- **Expected behaviour:** runs list + run detail (tasks, cost, duration, REAL/SIMULATED,
+  recovery history), events, traces.
+- **Acceptance criteria:** one word — Activity — everywhere; run detail shows per-task
+  simulation state.
+- **Edge cases:** E18 (paginate; no client-side loops).
+- **Testing:** e2e — open a completed run.
+
+## M4.5 — Universal states
+- **Objective:** every data surface defines all five states.
+- **Affected files:** app-level and route-group `loading.tsx` / `error.tsx` /
+  `not-found.tsx` (none exist today).
+- **Dependencies:** M4.1–M4.4.
+- **Acceptance criteria:** no surface renders blank or a bare spinner; errors are honest
+  and retryable.
+- **Testing:** simulate slow/failed/empty responses per surface.
+
+## M4.6 — Dead controls
+- **Objective:** resolve the nine UI promises in [ui-spec.md](./ui-spec.md) §7.
+- **Acceptance criteria:** each control works or is removed. No visible control lies.
+- **Testing:** click every control on the affected pages.
 
 ---
 
 # M5 — Hygiene & configuration
 
-- **M5.1 — Routing.** Rebuild `/routing` against a real endpoint, or mark it a preview and
-  remove the fake "Run test" POST to `/api/models/select`. *(D24)*
-- **M5.2 — Policies & Limits.** Settings surface for ceilings, retry bounds, spawn limits,
-  routing policy. *(D13, D14)*
-- **M5.3 — Tools & Permissions.** Make the trust surface real (permission checks, grant
-  flows, audit). Wire the ~14 dead buttons. *(D13, D17)*
-- **M5.4 — Engine durability.** Re-queue orphaned `RUNNING` tasks on boot with a cap. *(E3)*
-- **M5.5 — Retention & cost source.** Implement retention per Q8 and a single cost source
-  per Q9 once answered.
-- **M5.6 — Docs truth.** Correct `session.md`/`README.md` claims that do not match the
-  code (Zustand, missing routes).
+## M5.1 — Routing
+- Rebuild `/routing` against a real endpoint, or mark it a preview and remove the fake
+  "Run test" POST to `/api/models/select`. *(D24)*
+
+## M5.2 — Policies & Limits
+- Settings surface for ceilings, retry bounds, spawn limits, routing policy. *(D13, D14)*
+
+## M5.3 — Tools & Permissions
+- Make the trust surface real: permission checks, grant flows, audit. Wire the ~14 dead
+  buttons. *(D13, D17)*
+
+## M5.4 — Engine durability
+- Re-queue orphaned `RUNNING` tasks on boot with a reattempt cap. *(E3)*
+
+## M5.5 — Retention & cost source
+- Implement retention per Q8 and a single cost source per Q9 once answered.
+
+## M5.6 — Docs truth
+- Correct `session.md` / `README.md` claims that do not match the code (Zustand, missing
+  routes).
 
 ---
 
 ## Cross-cutting requirements for every task
 
-- **States:** loading / empty / error / success / partial on every data surface. [ui-spec §3]
-- **Honesty:** REAL/SIMULATED and connection state are never faked. [D18, realtime §5]
+- **States:** loading / empty / error / success / partial on every data surface.
+- **Honesty:** REAL/SIMULATED and connection state are never faked. [D18]
 - **Vocabulary:** match [system-hierarchy.md](./system-hierarchy.md) §4 in all UI copy.
-- **Accessibility:** keyboard, focus, `aria-live` for live changes, reduced-motion. [ui-spec §5]
-- **Verification:** `npx tsc --noEmit` → detached build → serve → verify routes and static
-  assets → commit (explicit paths, no push).
-- **No emoji in UI;** icons via SVG/icon library.
+- **Accessibility:** keyboard, focus, `aria-live`, reduced-motion.
+- **Verification:** `npx tsc --noEmit` → detached build → serve → verify → commit (explicit
+  paths, no push).
+- **No emoji in UI;** icons via SVG.
 
-## Definition of done for the whole plan
+## Definition of done
 
 A coding agent can build any task above **without guessing intended behaviour**, because
 every task names its decisions, its files, its edge cases and its acceptance criteria — and
-the product's FIRST loop (state intent → approve → run → observe honestly) works end to end.
+the product's first loop (state intent → approve → run → observe honestly) works end to end.

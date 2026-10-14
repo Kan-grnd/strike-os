@@ -75,6 +75,16 @@ These are **not** endorsed — they were adopted to keep moving. Veto freely.
 | D38 | Recovery *within policy* is automatic; outside policy is a gate | ASSUMED |
 | D39 | Keep the existing glass design system and radius profiles | ASSUMED |
 
+## G. Decision gates
+
+Two decisions must be settled before the tasks that depend on them. Both have a
+recommended default so the building agent is not blocked.
+
+| Gate | Decision | Blocks | Recommended default |
+|---|---|---|---|
+| **G1** | Mission status vocabulary — code says `READY`/`RUNNING`, spec says `DRAFT`/`ACTIVE` | M1.3 | **Adopt `DRAFT`/`ACTIVE`** and rename in `mission-engine.ts` |
+| **G2** | The `RECOMMENDED` IA items (D20–D24) | M4.3 | **Build as proposed** unless vetoed |
+
 ## F. Open questions
 
 See [open-questions.md](./open-questions.md) — grouped there with owners.

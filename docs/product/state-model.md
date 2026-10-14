@@ -34,6 +34,14 @@ DRAFT ──launch──▶ ACTIVE ──pause──▶ PAUSED ──resume─�
   └──discard──▶ (deleted)
 ```
 
+> **Vocabulary conflict — resolve before building (gate G1).** The code uses
+> `PLANNING / READY / RUNNING / PAUSED / COMPLETED / FAILED / CANCELLED`
+> (`schema.prisma:118`, `mission-engine.ts:156,217`). This document proposes
+> `DRAFT / ACTIVE / PAUSED / COMPLETED / ARCHIVED`. **Recommended: adopt this document's
+> vocabulary** (`DRAFT`/`ACTIVE`) and rename in the engine — "an ACTIVE mission" is the
+> correct mental model for standing intent, and the rename is contained to one file. See
+> [handoff.md](./handoff.md) §5 G1.
+
 ---
 
 ## 2. Operation lifecycle — a run [CONFIRMED]
