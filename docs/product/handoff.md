@@ -62,8 +62,12 @@ high-level product is not. Do not assume a screen that renders is a screen that 
 - ~~`brain.state.changed` — declared and consumed, **never emitted** (`events.ts:92`).~~
   **Emitted since M2.1 (`a82073b`)** — `setBrainState` (`src/lib/brain.ts`) persists a
   `BrainState` singleton and emits the event from planning/launch/task/retry/settlement.
-- `spawnAgent()` (`runtime-state.ts:411`) — **never called** during execution; the
-  `delegating` state is never set; `delegation.*` / `agent.spawned` never emitted.
+- ~~`spawnAgent()` (`runtime-state.ts:411`) — never called during execution; the
+  `delegating` state is never set; `delegation.*` / `agent.spawned` never emitted.~~
+  **Real since M2.2 (`a61b550`)** — `materializePlan` gap-fills a missing owner by
+  spawning a sub-agent (emits `agent.spawned`); `assignTask` emits `delegation.started`
+  (`brain → agent`) and terminal transitions emit `delegation.completed`. `communication.*`
+  / `verification.*` emitters remain deferred to M2.5/M3.
 - `TriggerEngine` / `ActionEngine` — singletons with **zero callers**
   (`automation-triggers.ts:213`, `automation-actions.ts:274`).
 - `Approval` — model exists, **no auto-creation, no resolve endpoint, nothing blocks**
@@ -248,9 +252,16 @@ surfaced at `/workforce/brain` (`GET /api/brain`). **Verified flow:** planning �
 (Mission completed). `computeBrainRuntime` (health) is unchanged; activity is the new
 beside-it signal (D45).
 
-**Next: M2.2** (delegation is real — `spawnAgent()` called during execution, `delegating`
-set, `delegation.*` / `agent.spawned` emitted). Same loop: implement → `tsc` → detached
-build → serve `:3010` → verify → commit (explicit paths, no push).
+**M2.2 status: ✅ DONE — verified e2e** (`a61b550`). Delegation is real: `assignTask`
+emits `delegation.started` (`brain → agent`) and every terminal transition emits
+`delegation.completed`; `materializePlan` gap-fills a missing owner by spawning a
+sub-agent (`agent.spawned`). **Verified flow:** mission with no matching agents →
+1 sub-agent spawned → 3 tasks delegated (`brain → spawned agent`) → mission `COMPLETED`.
+Scope: delegation + spawn only (D46); `communication.*`/`verification.*` emitters deferred.
+
+**Next: M2.3** (scoped permissions & the spawn ceiling — a sub-agent holds ≤ its parent's
+permissions; spawning past the per-mission ceiling gates and pauses). Same loop:
+implement → `tsc` → detached build → serve `:3010` → verify → commit (explicit paths, no push).
 
 > **Pre-existing check failures (not ours):** `scripts/check-node-contrast.ts` and
 > `scripts/check-orb-palette.ts` both abort because a `clean` theme is referenced but

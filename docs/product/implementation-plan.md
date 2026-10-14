@@ -185,15 +185,24 @@ makes the scheduler actually start, so the loop is observable rather than frozen
 - **Edge cases:** E5.
 - **Testing:** integration — event emission; e2e — page updates.
 
-## M2.2 — Delegation is real
+## M2.2 — Delegation is real ✅ DONE
 - **Objective:** the Brain delegates tasks and spawns sub-agents; edges and events are real.
-- **Affected files:** `src/lib/runtime-state.ts` (`spawnAgent` :411, `delegating`),
-  `delegation.*` / `agent.spawned` emitters.
+- **Affected files:** `src/lib/runtime-state.ts` (`spawnAgent :411` now emits
+  `agent.spawned` + takes `missionId`), `src/lib/task-engine.ts` (`assignTask` emits
+  `delegation.started`, every terminal transition emits `delegation.completed`),
+  `src/lib/mission-engine.ts` (`materializePlan` gap-fill spawn; `cancelMission` closes
+  delegation edges).
 - **Dependencies:** M2.1.
 - **Expected behaviour:** delegating a task sets `delegating` and emits `delegation.*`;
   spawning creates a child agent and emits `agent.spawned`; the live graph draws real edges.
-- **Acceptance criteria:** no consumed event lacks an emitter; the live flow shows a real
-  delegation edge during execution.
+- **Design (D46):** the *delegation* edge is `brain → ownerAgent` (`payload.from = "brain"`,
+  `payload.to = ownerAgentId`); the Brain spawns a sub-agent only when **no** existing agent
+  can own a step (gap-fill), parented off a real loaded agent; later steps of the same type
+  reuse it. Scope is **delegation + spawn only** — `communication.*` / `verification.*`
+  emitters are deferred to M2.5 (Live), where those edges are actually rendered.
+- **Acceptance criteria:** ✅ no *delegation-family* consumed event lacks an emitter
+  (`delegation.started`/`delegation.completed`/`agent.spawned` all emitted); ✅ the live
+  flow shows a real delegation edge during execution (verified: `brain → spawned agent` ×3).
 - **Edge cases:** E11.
 - **Testing:** integration — event/payload contract for each consumed event.
 
