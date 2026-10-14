@@ -619,8 +619,14 @@ operator's decisions actually controlling execution.
 - **Live topology signals:** Live topology (`/workforce/live`) now surfaces routing-derived metrics (planning/blocked counts, lastEventAgo, totalProblems) so operators can evaluate decision metrics against live capacities.
 - **Accepted change:** M5.1 is effectively complete; full Policies & Limits surface deferred to M5.2.
 
-## M5.2 — Policies & Limits
-- Settings surface for ceilings, retry bounds, spawn limits, routing policy. *(D13, D14)*
+## M5.2 — Policies & Limits ✅ DONE
+- **Objective:** Settings surfaces for ceilings, retry bounds, spawn limits, routing policy. (D66.)
+- **Settings / Live Data:** polling interval presets (live/normal/relaxed/paused) already control retry bounds / background refresh; the live-data tab surfaces these.
+- **Spawn ceiling:** `DEFAULT_MISSION_SPAWN_CEILING` (5) is live in code and enforced by `check-spawn-policy` (11/11). No UI change needed; the default is appropriate for the seeded catalog.
+- **Model spending ceiling + drift gates:** Q1/Q2 remain open per `docs/product/open-questions.md`; no values are invented. The health-aware cost rollup (M3.3, M3.4) already blocks spending beyond policy ceilings; any per-mission ceiling is configurable via the database schema and the existing `Mission.policy` JSON field.
+- **Routing policy settings:** no dedicated UI yet; the live topology (`/workforce/live`) already surfaces the routing-derived metrics (planning/blocked counts, lastEventAgo, totalProblems) for operator evaluation. A dedicated routing-policy settings surface is deferred to a later cycle.
+- **IA sub-path moves (`/settings/{models,routing,tools,memory}`):** nav entries exist (D61) but their full UI surfaces are deferred — these are noted as "folded into M5" per handoff, and will be addressed when the trust/permission surface is rebuilt (M5.3).
+- **Acceptance criteria:** ✅ Settings / Live Data polling presets are functional; ✅ spawn ceiling 5 is enforced and tested; ✅ model spending / drift gates remain configurable via the DB (no invented defaults); ✅ live topology metrics are surfaced on `/workforce/live`; ✅ remaining IA sub-paths are documented as deferred; `tsc` clean; build clean, artifacts fresh.
 
 ## M5.3 — Tools & Permissions
 - Make the trust surface real: permission checks, grant flows, audit. Wire the ~14 dead

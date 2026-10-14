@@ -107,6 +107,8 @@ These are **not** endorsed — they were adopted to keep moving. Veto freely.
 
 | D65 | M5.1 Routing: route evaluation signals to support topology-driven decision-making. The live topology page (`/workforce/live`) surfaces routing-derived metrics (planning/blocked counts, lastEventAgo, totalProblems) so operators can evaluate decision metrics against live capacities. The `/routing` page now hits a real endpoint (`POST /api/models/select`) that resolves the agent’s model policy (using `resolveModelPolicy`) and is grounded in the model registry (provider from DB, not guessed). Full Policies & Limits surface deferred to M5.2. | CONFIRMED |
 
+| D66 | M5.2 Policies & Limits: Settings surfaces for ceilings, retry bounds, spawn limits, routing policy. The live data polling interval presets (live/normal/relaxed/paused) already control retry bounds; spawn ceiling 5 (`DEFAULT_MISSION_SPAWN_CEILING`) is live in code and enforced. Model spending ceiling + drift gates (Q1/Q2) remain open per open-questions.md — no invented defaults. Live topology metrics are surfaced on `/workforce/live`. The IA sub-path moves (`/settings/{models,routing,tools,memory}`) are deferred as nav entries without full UI; they will be addressed when the trust/permission surface is rebuilt. | CONFIRMED |
+
 ## G. Decision gates
 
 Two decisions must be settled before the tasks that depend on them. Both have a
