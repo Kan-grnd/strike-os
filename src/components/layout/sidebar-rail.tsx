@@ -74,7 +74,7 @@ function PrimaryNavItem({
           )}
           <Icon className="h-[18px] w-[18px]" />
           {/* The open domain is not always the domain of the current route —
-              you can be reading Observatory while browsing the Model Brain
+              you can be reading Activity while browsing the Model Brain
               panel. A second, quieter dot says "this is where you are" without
               competing with the panel that is open. */}
           {isRoute && !open && (

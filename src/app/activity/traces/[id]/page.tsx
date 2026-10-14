@@ -3,9 +3,12 @@
 import useSWR from "swr";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Zap, Target, ListChecks, Bot, Timer } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Zap, Target, ListChecks, Bot, Timer } from "lucide-react";
 import { PageHeader, SectionLabel } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageSkeleton } from "@/components/shared/page-skeleton";
+import { ErrorState } from "@/components/shared/error-state";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -36,17 +39,38 @@ export default function TraceDetailPage({
 }: {
   params: { id: string };
 }) {
-  const { data, isLoading } = useSWR(
+  const { data, error, isLoading, mutate } = useSWR(
     `/api/observability/traces/${params.id}`,
     fetcher
   );
   const trace = data?.trace;
 
   if (isLoading) {
+    return <PageSkeleton kpis={0} rows={4} />;
+  }
+
+  if (error) {
     return (
-      <div className="flex items-center justify-center gap-2 py-24 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading trace…
+      <div className="space-y-6">
+        <PageHeader
+          backHref="/activity/traces"
+          backLabel="Traces"
+          icon={Zap}
+          eyebrow="Activity"
+          title="Trace"
+          description="Execution trace across missions, tasks, and agents."
+        />
+        <ErrorState
+          title="Could not load this trace"
+          description="The trace request failed. Retrying is safe."
+          detail={error.message}
+          onRetry={() => mutate()}
+          secondary={
+            <Button variant="outline" asChild>
+              <a href="/activity/traces">Back to traces</a>
+            </Button>
+          }
+        />
       </div>
     );
   }
@@ -58,7 +82,7 @@ export default function TraceDetailPage({
           backHref="/activity/traces"
           backLabel="Traces"
           icon={Zap}
-          eyebrow="Observability"
+          eyebrow="Activity"
           title="Trace"
           description="Execution trace across missions, tasks, and agents."
         />
@@ -85,7 +109,7 @@ export default function TraceDetailPage({
         backHref="/activity/traces"
         backLabel="Traces"
         icon={Zap}
-        eyebrow="Observability"
+        eyebrow="Activity"
         title={
           <span className="flex items-center gap-2">
             Trace <span className="font-mono text-lg">{params.id.slice(0, 12)}</span>

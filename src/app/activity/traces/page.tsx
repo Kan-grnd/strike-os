@@ -7,6 +7,7 @@ import { motion } from "motion/react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/shared/error-state";
 import { PageHeader, EASE } from "@/components/shared/page-header";
 import { Search, Zap, X } from "lucide-react";
 
@@ -14,7 +15,7 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function TracesPage() {
   const [filter, setFilter] = useState("");
-  const { data, isLoading } = useSWR("/api/observability/traces?limit=50", fetcher);
+  const { data, error, isLoading, mutate } = useSWR("/api/observability/traces?limit=50", fetcher);
 
   const traces = (data?.traces || []).filter(
     (t: any) =>
@@ -27,7 +28,7 @@ export default function TracesPage() {
     <div className="space-y-6">
       <PageHeader
         icon={Zap}
-        eyebrow="Observability"
+        eyebrow="Activity"
         title="Traces"
         description="Execution traces across missions and tasks."
       />
@@ -53,7 +54,14 @@ export default function TracesPage() {
         )}
       </div>
 
-      {isLoading ? (
+      {error ? (
+        <ErrorState
+          title="Could not load traces"
+          description="The traces request failed. Retrying is safe."
+          detail={error.message}
+          onRetry={() => mutate()}
+        />
+      ) : isLoading ? (
         <div className="grid gap-3">
           {[0, 1, 2].map((i) => (
             <Card key={i} className="animate-pulse p-4">

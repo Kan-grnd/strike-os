@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/shared/error-state";
 import { PageHeader, SectionLabel, EASE } from "@/components/shared/page-header";
 import { cn } from "@/lib/utils";
 import {
@@ -100,7 +101,7 @@ function EventsView() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const [events, setEvents] = useState<any[]>([]);
 
-  const { data } = useSWR("/api/events?limit=50", fetcher, { revalidateOnFocus: false });
+  const { data, error, mutate } = useSWR("/api/events?limit=50", fetcher, { revalidateOnFocus: false });
 
   useEffect(() => {
     if (data?.events) setEvents(data.events);
@@ -174,7 +175,14 @@ function EventsView() {
         )}
       </div>
 
-      {visible.length ? (
+      {error && !visible.length ? (
+        <ErrorState
+          title="Could not load events"
+          description="The event stream request failed. You can retry, or connect the live stream directly."
+          detail={error.message}
+          onRetry={() => mutate()}
+        />
+      ) : visible.length ? (
         <Card
           tabIndex={0}
           className="max-h-[640px] overflow-auto p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -236,7 +244,7 @@ function EventsView() {
 function LogsView() {
   const [filter, setFilter] = useState("");
   const [levelFilter, setLevelFilter] = useState("");
-  const { data } = useSWR("/api/observability/logs?limit=200", fetcher);
+  const { data, error, mutate } = useSWR("/api/observability/logs?limit=200", fetcher);
 
   const logs = (data?.logs || []).filter(
     (l: any) =>
@@ -281,7 +289,14 @@ function LogsView() {
         </Select>
       </div>
 
-      {logs.length ? (
+      {error ? (
+        <ErrorState
+          title="Could not load logs"
+          description="The logs request failed. Retrying is safe."
+          detail={error.message}
+          onRetry={() => mutate()}
+        />
+      ) : logs.length ? (
         <Card
           tabIndex={0}
           className="max-h-[640px] overflow-auto p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -318,7 +333,7 @@ function LogsView() {
 /* ── Metrics (folded in) ───────────────────────────────────────────────────── */
 function MetricsView() {
   const [range, setRange] = useState("7d");
-  const { data } = useSWR(`/api/observability/performance?range=${range}`, fetcher);
+  const { data, error, mutate } = useSWR(`/api/observability/performance?range=${range}`, fetcher);
   const stats = data || {};
   const byAgent: any[] = stats.byAgent || [];
 
@@ -349,42 +364,53 @@ function MetricsView() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border lg:grid-cols-4">
-        <Stat icon={Activity} label="Traces" value={stats.totalTraces || 0} />
-        <Stat icon={Clock} label="Avg latency" value={`${stats.avgLatencyMs || 0}ms`} />
-        <Stat
-          icon={TriangleAlert}
-          label="Error rate"
-          value={stats.errorRate ? `${(stats.errorRate * 100).toFixed(1)}%` : "0%"}
+      {error ? (
+        <ErrorState
+          title="Could not load metrics"
+          description="The performance request failed. Try another window or retry."
+          detail={error.message}
+          onRetry={() => mutate()}
         />
-        <Stat icon={CheckCircle2} label="Completed" value={stats.completedTasks || 0} />
-      </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border lg:grid-cols-4">
+            <Stat icon={Activity} label="Traces" value={stats.totalTraces || 0} />
+            <Stat icon={Clock} label="Avg latency" value={`${stats.avgLatencyMs || 0}ms`} />
+            <Stat
+              icon={TriangleAlert}
+              label="Error rate"
+              value={stats.errorRate ? `${(stats.errorRate * 100).toFixed(1)}%` : "0%"}
+            />
+            <Stat icon={CheckCircle2} label="Completed" value={stats.completedTasks || 0} />
+          </div>
 
-      <section className="space-y-3">
-        <SectionLabel>Metrics · by agent</SectionLabel>
-        {byAgent.length === 0 ? (
-          <Card className="p-8 text-center text-sm text-muted-foreground">
-            Per-agent metrics appear here once traces are recorded for the selected window.
-          </Card>
-        ) : (
-          <Card className="divide-y p-2">
-            {byAgent.map((agent: any, i: number) => (
-              <motion.div
-                key={agent.agent}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: Math.min(i * 0.03, 0.3), ease: EASE }}
-                className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"
-              >
-                <span className="truncate font-mono">{agent.agent}</span>
-                <span className="shrink-0 tabular-nums text-muted-foreground">
-                  {agent.count} calls · {agent.avgLatencyMs}ms avg · ${agent.totalCost?.toFixed(3)}
-                </span>
-              </motion.div>
-            ))}
-          </Card>
-        )}
-      </section>
+          <section className="space-y-3">
+            <SectionLabel>Metrics · by agent</SectionLabel>
+            {byAgent.length === 0 ? (
+              <Card className="p-8 text-center text-sm text-muted-foreground">
+                Per-agent metrics appear here once traces are recorded for the selected window.
+              </Card>
+            ) : (
+              <Card className="divide-y p-2">
+                {byAgent.map((agent: any, i: number) => (
+                  <motion.div
+                    key={agent.agent}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: Math.min(i * 0.03, 0.3), ease: EASE }}
+                    className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"
+                  >
+                    <span className="truncate font-mono">{agent.agent}</span>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                      {agent.count} calls · {agent.avgLatencyMs}ms avg · ${agent.totalCost?.toFixed(3)}
+                    </span>
+                  </motion.div>
+                ))}
+              </Card>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }
