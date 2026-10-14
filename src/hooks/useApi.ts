@@ -104,8 +104,9 @@ export function useMissions(options?: { poll?: boolean }) {
   return useSWR<{ missions: any[] }>("/api/missions", fetcher, options?.poll ? pollOptions(rate) : undefined);
 }
 
-export function useApprovals() {
-  return useSWR<{ approvals: any[] }>("/api/approvals", fetcher);
+export function useApprovals(options?: { poll?: boolean }) {
+  const rate = useRefreshRate();
+  return useSWR<{ approvals: any[] }>("/api/approvals", fetcher, options?.poll ? pollOptions(rate) : undefined);
 }
 
 export function useTools() {

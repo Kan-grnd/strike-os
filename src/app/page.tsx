@@ -5,172 +5,92 @@ import { useAgents } from "@/hooks/useAgents";
 import { useMissions } from "@/hooks/useMissions";
 import { useTasks } from "@/hooks/useTasks";
 import { useApprovals } from "@/hooks/useApprovals";
-import { useEvents } from "@/hooks/useEvents";
+import { useEvents } from "@/hooks/useApi";
 import { useStreaming } from "@/components/dashboard/command-center/use-streaming";
-import { parseDateRange, type DateRangeKey } from "@/lib/range";
-import { Hero } from "@/components/dashboard/command-center/hero";
-import { KpiCard } from "@/components/dashboard/command-center/kpi-card";
-import type { ActionItem } from "@/components/dashboard/command-center/adapter";
-import { EventsChart } from "@/components/dashboard/command-center/events-chart";
-import { FleetDonut } from "@/components/dashboard/command-center/fleet-donut";
-import { Actions } from "@/components/dashboard/command-center/actions";
+import { buildAttentionQueue } from "@/lib/attention";
+import { ControlHeader } from "@/components/control-center/control-header";
+import { AttentionQueue } from "@/components/control-center/attention-queue";
+import { MissionHealth } from "@/components/control-center/mission-health";
+import { LiveSummary } from "@/components/control-center/live-summary";
 
-function isoFrom(date: Date) {
-  return date.toISOString();
+const ACTIVE_MISSION = (status: string) => status !== "COMPLETED" && status !== "CANCELLED";
+const AGENT_WORKING = /executing|planning|thinking|delegating|initializing|retrying|running/i;
+
+function isoSince(minutesAgo: number) {
+  return new Date(Date.now() - minutesAgo * 60_000).toISOString();
 }
 
-function addDays(d: Date, n: number) {
-  const x = new Date(d.getTime());
-  x.setDate(x.getDate() + n);
-  return x;
-}
+export default function ControlCenterPage() {
+  const { data: agents, isLoading: agentsLoading, error: agentsError } = useAgents(undefined, { poll: true });
+  const { data: missions, isLoading: missionsLoading, error: missionsError } = useMissions({ poll: true });
+  const { data: tasks, isLoading: tasksLoading, error: tasksError } = useTasks(undefined, { poll: true });
+  const { data: approvals, isLoading: approvalsLoading, error: approvalsError } = useApprovals({ poll: true });
+  const { data: events } = useEvents({ since: isoSince(60), limit: "500" });
 
-function groupByDay(points: Array<{ timestamp: string; type?: string }>, days: number): Record<string, { events: number; problems: number }> {
-  const map: Record<string, { events: number; problems: number }> = {};
-  const start = addDays(new Date(), -days);
-  for (const p of points) {
-    const t = Date.parse(p.timestamp);
-    if (!Number.isFinite(t)) continue;
-    if (t < start.getTime()) continue;
-    const d = new Date(t);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    if (!map[key]) map[key] = { events: 0, problems: 0 };
-    map[key].events += 1;
-    const typ = (p.type || "").toLowerCase();
-    if (typ.includes("fail") || typ.includes("block")) map[key].problems += 1;
-  }
-  return map;
-}
+  const approvalList = approvals?.approvals || [];
+  const missionList = missions?.missions || [];
+  const agentList = agents?.agents || [];
+  const taskList = tasks?.tasks || [];
+  const eventList = (events?.events || []) as Array<{ timestamp: string }>;
 
-function groupByHour(points: Array<{ timestamp: string; type?: string }>): Record<string, { events: number; problems: number }> {
-  const map: Record<string, { events: number; problems: number }> = {};
-  const start = addDays(new Date(), -1);
-  for (const p of points) {
-    const t = Date.parse(p.timestamp);
-    if (!Number.isFinite(t)) continue;
-    if (t < start.getTime()) continue;
-    const d = new Date(t);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}-${String(d.getHours()).padStart(2, "0")}`;
-    if (!map[key]) map[key] = { events: 0, problems: 0 };
-    map[key].events += 1;
-    const typ = (p.type || "").toLowerCase();
-    if (typ.includes("fail") || typ.includes("block")) map[key].problems += 1;
-  }
-  return map;
-}
+  const { streaming, lastEventAt } = useStreaming(eventList, 15000);
 
-function toDaySeries(map: Record<string, { events: number; problems: number }>, days: number) {
-  const out: Array<{ date: Date; events: number; problems: number }> = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const d = addDays(new Date(), -i);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    out.push({ date: d, events: map[key]?.events || 0, problems: map[key]?.problems || 0 });
-  }
-  return out;
-}
+  const queue = useMemo(
+    () => buildAttentionQueue({ approvals: approvalList, missions: missionList }),
+    [approvalList, missionList],
+  );
 
-function toHourSeries(map: Record<string, { events: number; problems: number }>) {
-  const out: Array<{ date: Date; events: number; problems: number }> = [];
-  for (let i = 23; i >= 0; i--) {
-    const d = addDays(new Date(), -1);
-    d.setHours(d.getHours() + (i - 23)); // rough
-  }
-  const start = addDays(new Date(), -1);
-  for (let i = 0; i < 24; i++) {
-    const d = new Date(start.getTime());
-    d.setHours(start.getHours() + i);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}-${String(d.getHours()).padStart(2, "0")}`;
-    out.push({ date: d, events: map[key]?.events || 0, problems: map[key]?.problems || 0 });
-  }
-  return out;
-}
+  const activeMissions = missionList.filter((m: any) => ACTIVE_MISSION(m.status)).length;
+  const activeAgents = agentList.filter((a: any) => AGENT_WORKING.test(a.status || "")).length;
+  const runningTasks = taskList.filter((t: any) => (t.status || "").toUpperCase() === "RUNNING").length;
+  const operationsRunning = missionList.reduce(
+    (n: number, m: any) => n + (m.operations || []).filter((o: any) => o.status === "RUNNING").length,
+    0,
+  );
+  const eventsRecent = eventList.filter(
+    (e) => Date.parse(e.timestamp) > Date.now() - 5 * 60_000,
+  ).length;
+  const costActive = missionList
+    .filter((m: any) => ACTIVE_MISSION(m.status))
+    .reduce((sum: number, m: any) => sum + (m.totalCost || 0), 0);
+  const completedMissions = missionList.filter((m: any) => m.status === "COMPLETED").length;
 
-export default function DashboardPage() {
-  const { data: agents } = useAgents();
-  const { data: missions } = useMissions();
-  const { data: tasks } = useTasks();
-  const { data: approvals } = useApprovals();
-  const { data: events } = useEvents({ since: isoFrom(addDays(new Date(), -90)), limit: "2000" });
-  const evList = (events?.events || []) as Array<{ timestamp: string; type?: string }>;
-  const { streaming, lastEventAt } = useStreaming(evList, 15000);
-  const stale = !streaming;
-  const lastEventAgo = lastEventAt ? "recent" : "NO EVENTS YET";
-
-  const activeAgents = (agents?.agents || []).filter((a: any) => /executing|planning|thinking|delegating|initializing|retrying|running/i.test(a.status || "")).length;
-  const totalAgents = agents?.agents?.length || 0;
-  const activeMissions = (missions?.missions || []).filter((m: any) => m.status !== "completed" && m.status !== "cancelled").length;
-  const runningTasks = (tasks?.tasks || []).filter((t: any) => (t.status || "").toLowerCase() === "running").length;
-  const completed = (tasks?.tasks || []).filter((t: any) => (t.status || "").toLowerCase() === "completed").length;
-  const totalTasks = tasks?.tasks?.length || 0;
-  const successPct = totalTasks === 0 ? "—" : `${Math.round((completed / totalTasks) * 100)}%`;
-  const events24 = evList.filter((e) => Date.parse(e.timestamp) > addDays(new Date(), -1).getTime()).length;
-  const missionsTotal = missions?.missions?.length || 0;
-  const needsYou = (approvals?.approvals || []).length + runningTasks; // rough
-
-  const actions: ActionItem[] = [];
-  for (const a of (approvals?.approvals || [])) {
-    actions.push({
-      id: `ap-${a.id}`,
-      kind: "waiting",
-      title: "Approval required",
-      impact: "Needs your decision",
-      impactTone: "bad",
-      reason: "Waiting on you",
-      priority: "Medium",
-      actionLabel: "Review",
-      href: "/work",
-      detail: { hint: "Approval requested", since: "recent" },
-    });
-  }
-
-  const kpis = [
-    { id: "agents" as const, label: "Agents", value: totalAgents, prev: totalAgents },
-    { id: "tasks" as const, label: "Running tasks", value: runningTasks, prev: runningTasks },
-    { id: "success" as const, label: "Success rate", value: successPct, prev: successPct },
-    { id: "events" as const, label: "Events (24h)", value: events24, prev: events24 },
-    { id: "missions" as const, label: "Missions", value: missionsTotal, prev: missionsTotal },
-  ];
-
-  const hmap = groupByHour(evList);
-  const d7 = groupByDay(evList, 7);
-  const d30 = groupByDay(evList, 30);
-  const d90 = groupByDay(evList, 90);
-  const trend: Record<DateRangeKey, Array<{ date: Date; events: number; problems: number }>> = {
-    "24h": toHourSeries(hmap),
-    "7d": toDaySeries(d7, 7),
-    "30d": toDaySeries(d30, 30),
-    "90d": toDaySeries(d90, 90),
-  };
-
-  const fleet = {
-    executing: (tasks?.tasks || []).filter((t: any) => (t.status || "").toLowerCase() === "running").length,
-    planning: 0,
-    waiting: (tasks?.tasks || []).filter((t: any) => (t.status || "").toLowerCase() === "waiting").length,
-    blocked: 0,
-    idle: Math.max(0, totalAgents - activeAgents),
-  };
+  const queueError = approvalsError || missionsError;
+  const healthError = missionsError;
 
   return (
     <main className="relative mx-auto grid w-full max-w-[1240px] gap-6">
-      <Hero
+      <ControlHeader
         isStreaming={streaming}
-        stale={stale}
-        lastEventAgo={lastEventAgo}
-        activeAgents={activeAgents}
+        lastEventAt={lastEventAt}
+        needsCount={queue.length}
         activeMissions={activeMissions}
-        needsYou={actions.length}
-        actionsCount={actions.length}
       />
-      <section aria-label="Key numbers" className="relative z-10 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
-        {kpis.map((k) => (
-          <KpiCard key={k.id} item={k} />
-        ))}
-      </section>
-      <section aria-label="Trends" className="relative z-10 grid gap-4 xl:grid-cols-12">
-        <EventsChart trend={trend} totalEvents={events24} totalProblems={0} />
-        <FleetDonut fleet={fleet} />
-      </section>
-      <Actions actions={actions} />
+
+      <AttentionQueue
+        items={queue}
+        isLoading={approvalsLoading || missionsLoading}
+        error={queueError}
+      />
+
+      <div className="grid gap-6 xl:grid-cols-12">
+        <div className="xl:col-span-8">
+          <MissionHealth missions={missionList} isLoading={missionsLoading} error={healthError} />
+        </div>
+        <div className="xl:col-span-4">
+          <LiveSummary
+            activeAgents={activeAgents}
+            totalAgents={agentList.length}
+            runningTasks={runningTasks}
+            operationsRunning={operationsRunning}
+            eventsRecent={eventsRecent}
+            costActive={costActive}
+            completedMissions={completedMissions}
+            isLoading={agentsLoading || tasksLoading}
+            error={agentsError || tasksError}
+          />
+        </div>
+      </div>
     </main>
   );
 }
