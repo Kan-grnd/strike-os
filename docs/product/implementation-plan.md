@@ -462,17 +462,35 @@ operator's decisions actually controlling execution.
 
 *[D3, D10, D11, D20–D25]*
 
-## M4.1 — Control Center rebuild
+## M4.1 — Control Center rebuild ✅ DONE
 - **Objective:** `/` becomes the attention-first surface.
-- **Affected files:** `src/app/page.tsx`.
+- **Affected files:** `src/app/page.tsx` (rebuilt); new
+  `src/components/control-center/{control-header,attention-queue,mission-health,live-summary}.tsx`;
+  new pure `src/lib/attention.ts`; `scripts/check-attention.ts`;
+  `src/hooks/useApi.ts` + `src/hooks/useApprovals.ts` (approvals can poll).
 - **Dependencies:** M3.3.
 - **Expected behaviour:** a ranked "Needs you" queue, then mission health, then a live
   summary; each queue item actionable in one click.
-- **Acceptance criteria:** the operator can answer "is it healthy?" in <5s and act without
-  navigating. Hardcoded KPIs, `"recent"`, `toHourSeries` and `NEXT_PUBLIC_DASHBOARD_SAMPLE`
-  are gone.
-- **Edge cases:** E4 (honest error, no sample data).
-- **Testing:** e2e — with a blocked mission, the queue shows it and resolves it.
+- **Design (D59):** the queue is **derived, not stored** (`buildAttentionQueue` over the
+  approvals + missions the API already returns). Items are open gates (ranked by
+  `denyCancelsScope` — blocking = Critical, capability = High) and missions whose health says
+  blocked/failing/degraded; a mission already represented by its gate is not listed twice; ties
+  break longest-waiting first. Each gate row approves/denies **inline** (`POST /api/approvals/[id]`
+  then revalidate) — no navigation. Mission health shows the status + orthogonal health badge and
+  one-line progress; Live now shows real counts (no invented KPIs).
+- **Acceptance criteria:** ✅ the operator can answer "is it healthy?" in <5s (header summary +
+  health list) and act without navigating (inline resolve). ✅ Hardcoded KPIs, `"recent"`,
+  `toHourSeries`, `totalProblems={0}` and `NEXT_PUBLIC_DASHBOARD_SAMPLE` are gone; the entire
+  orphaned `dashboard/command-center` component set (hero, kpi-card, events-chart, fleet-donut,
+  actions, adapter, swarm, y-ticks, section-header, error boundary) is **deleted**.
+- **Edge cases:** E4 (honest error, no sample data) — loading skeletons, explicit error alerts
+  with no fallback data, and partial rendering (each region marks its own failure).
+- **Testing:** pure `check-attention` (14 — ranking, dedupe, health mapping, unknown-trigger
+  fallback); **live e2e** (15) — a gated mission shows in the queue, ranks Critical, links to the
+  mission, reads `BLOCKED`, and resolves via the API; a FAILING mission shows as a mission item;
+  a healthy mission is not queued.
+- **Deferred:** the global command bar exists in the shell (`command-bar.tsx`, IM1); folding chat
+  in as the directing input is later. `/missions` is still a redirect to `/work` until M4.2.
 
 ## M4.2 — Missions list & detail
 - **Objective:** the directing surface.

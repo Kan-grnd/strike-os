@@ -387,10 +387,33 @@ no invented thresholds (Q1/Q2 stay open). **Verified:** pure `check-spend-policy
 > drift-gated mission reads `DEGRADED` (paused, no failing run) — matching state-model §7. No
 > change to `health.ts`/D56 was needed.
 
-> **M3.1 note for the UI:** the control center (`/`) already lists approvals (rough, via
-> `useApprovals`) and `/decisions` exists, but neither can resolve a gate yet — the
-> actionable "Needs you" queue is **M4.1**. Operators resolve via `POST /api/approvals/[id]`
-> until then. This now includes `SPEND_CEILING` and `DRIFT` gates.
+> **M3.1 note for the UI (superseded by M4.1):** the actionable "Needs you" queue now exists.
+> Operators resolve gates inline on `/`; `POST /api/approvals/[id]` remains the underlying call.
+> This includes `SPEND_CEILING` and `DRIFT` gates.
+
+**M4.1 status: ✅ DONE, verified** — commit **`8481339`**. `/` is rebuilt around the operator's
+only real question — *what needs me?* — in three bands: a ranked **Needs you** queue, **Mission
+health**, and a **Live now** summary. The queue is **derived, not stored** (D59): new pure
+`src/lib/attention.ts` `buildAttentionQueue` ranks open gates (blocking trigger → Critical via
+`denyCancelsScope`; capability → High) and unhealthy missions (FAILING/BLOCKED → Critical,
+DEGRADED → Medium), longest-waiting first, and does **not** double-list a mission that already has
+an open gate. Gates resolve **inline** (approve/deny → `POST /api/approvals/[id]` + SWR revalidate
+of `/api/approvals` and `/api/missions`) — no navigation (IM2). New components under
+`src/components/control-center/` (header, attention-queue, mission-health, live-summary).
+**Verified:** pure `check-attention` 14/14; **live e2e** (15) — a gated mission shows in the queue,
+ranks Critical, links to its mission, reads `BLOCKED`, and resolves via the API; a FAILING mission
+shows as a mission item; a healthy mission is not queued. Regressions all green (health 24, spend
+15, drift 16, recovery 15, approvals 10, spawn 11, nav 19, selectors 138); `tsc` clean; build
+clean, artifacts fresh, `/` 200. D59.
+
+> **M4.1 cleanup:** the hardcoded KPIs, the literal `"recent"`, `toHourSeries`,
+> `totalProblems={0}` and the sample-data path are gone, and the whole orphaned
+> `dashboard/command-center` component set (hero, kpi-card, events-chart, fleet-donut, actions,
+> adapter, swarm, y-ticks, section-header, error boundary) was **deleted**. Only `theme-ambient`
+> (used by the shell) and `use-streaming` (used by `/`) remain there.
+
+> **M4.1 deferred:** `/missions` still redirects to `/work` — the real Missions list is **M4.2**.
+> The global command bar already exists in the shell (IM1).
 
 > **Pre-existing check failures (not ours):** `scripts/check-node-contrast.ts` and
 > `scripts/check-orb-palette.ts` both abort because a `clean` theme is referenced but
