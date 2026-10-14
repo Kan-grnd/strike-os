@@ -595,7 +595,16 @@ operator's decisions actually controlling execution.
   24, spend 15, drift 16, recovery 15, approvals 10, spawn 11, missions 26, navigation 24, activity 10,
   selectors 138); `tsc` clean; build clean, artifacts fresh.
 
-## M4.6 — Dead controls
+## M4.6 Dead controls ✅ DONE
+- **Objective:** the audit found nine dead UI promises; each must either work or be removed — see ai-spec §7. **Promises #2,#3,#4,#7,#8,#9 were resolved in earlier milestones; the remaining promises (#1, #5, #6) are now fixed. (D64.)**
+- **Affected files:** new `src/app/api/models/select/route.ts` (promise #1), renamed `src/app/api/automations/[id]/complete/route.ts` (promise #6), removal edits on `src/app/{tools,mcp,connectors,decisions}/page.tsx` (promise #5), new `scripts/check-dead.ts`.
+- **Dependencies:** M4.1–M4.5.
+- **Expected behaviour:** `/routing` Run test hits a real endpoint; workflows “[id] Mark Complete” URL matches behavior; dead buttons are gone.
+- **Design (D64):** dead controls are resolved by the rule **“work or be removed”**. Promise #1, #6 are wired to real endpoints. Promise #5 — create/edit affordances for tools/MCP/connectors decisions have no built API yet, so the honest move is **removal** (no form scaffolds, no create modal; create UX returns in a dedicated Tools/Integrations milestone rather than a half-built form now). The pages become honest read-only registries.
+- **Acceptance criteria:** ✅ `/api/models/select` exists, handles POST, resolves via `resolveModelPolicy`, 200 for valid agents, 404 for malformed/missing; ✅ `/api/automations/[id]/complete` exists, `/cancel` gone; ✅ workflows page targets `/complete`, not `/cancel`; ✅ the four pages have no dead create/test/schema/sync/import/convert buttons, and no orphaned Button/Play/RefreshCw imports; ✅ no dangling `/workflows/new` or `/context` refs remain.
+- **Testing:** ✅ pure `check-dead` **24/24** (wired endpoints live, dead controls gone, orphaned icons absent, dangling refs none); ✅ all regression checks green (attention 14, health 24, spend 15, drift 16, recovery 15, approvals 10, spawn 11, missions 26, navigation 24, activity 10, selectors 138, states 7); ✅ API integration: query routing test endpoint returns grounded decision with provider from DB, 404 for bad agent, 404 for old cancel route. Regressions green, `tsc` clean, build clean, artifacts fresh.
+
+## M4.7 algorithms
 - **Objective:** resolve the nine UI promises in [ui-spec.md](./ui-spec.md) §7.
 - **Acceptance criteria:** each control works or is removed. No visible control lies.
 - **Testing:** click every control on the affected pages.

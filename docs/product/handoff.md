@@ -481,20 +481,31 @@ spawn 11, missions 26, selectors 138); `tsc` clean; build clean, artifacts fresh
 > (Policies/Tools/Routing work); pagination for the runs list (E18) is also noted for **M5**.
 > M4.5 (universal states) and M4.6 (dead controls) remain.
 
-**M4.5 status: ✅ DONE, verified** — commit **`935ff02`**. Every surface defines its states instead
-of rendering blank. **App-level** `src/app/{loading,error,not-found,global-error}.tsx` + shared
-`PageSkeleton`/`ErrorState` give a consistent skeleton on navigation, an honest **retryable** error
-boundary, a styled 404 **inside the shell**, and a full-document last-resort fallback. Each of the
-six dynamic detail routes ships a `loading.tsx`. The Activity surfaces were completed — the traces
-list and detail now distinguish a **load failure** from "not found" (ErrorState + retry), the
-Events/Logs/Metrics tabs surface request errors, and the last `Observability` eyebrow became
-`Activity` (M4.4's one-word rule). **Verified:** `check-states` **7/7** (state files exist; error
-boundary is a client boundary with `reset`; global-error renders its own html/body; every dynamic
-route has a loading boundary); live e2e `m45-e2e.ts` **17/17** (unmatched/retired routes are styled
-404s with the shell; every nav target 200; detail routes stream 200; a bad resource is an honest API
-404). Regressions green (attention 14, health 24, spend 15, drift 16, recovery 15, approvals 10,
-spawn 11, missions 26, navigation 24, activity 10, selectors 138); `tsc` clean; build clean,
-artifacts fresh. D63.
+**M4.6 status: ✅ DONE, verified** — commit **`87d061b`**. Dead controls resolved by the rule a control must work or be removed:
+
+> **Wireings:**
+> - `/routing` “Run test” (promise #1) now hits a real `POST /api/models/select` that resolves the agent’s model policy using the same engine the runtime does. The answer is grounded in the model registry: the resolved model name is looked up so the provider comes from real data (or “Unknown” if missing), and warnings surface if the agent lacks claimed capabilities.
+> - workflows `[id]` “Mark Complete” (promise #6) now calls `/api/automations/[id]/complete` (rename of the misleading `/cancel`) which sets COMPLETED.
+>
+> **Removals:**
+> - Dead buttons removed from the four registries: tools “Add tool”, “Test”, “Schema”; mcp “Add connection”, “Sync tools”, “Test”; connectors “Add connection”, “Test”, “Import schema”, “Convert to tool”; decisions “Log decision”. All create/test/import/sync/convert affordances are gone. No orphaned Button, Play, RefreshCw, etc. imports remain.
+>
+> **Guards:** `check-dead` **24/24** (wired endpoints live, dead controls gone, orphaned icons absent, dangling references none); all core regressions green (attention 14, health 24, spend 15, drift 16, recovery 15, approvals 10, spawn 11, missions 26, navigation 24, activity 10, selectors 138, states 7). API integration verified: routing test returns grounded decision plus provider from DB, 404 for bad agent, 404 for old cancel. Regressions green, `tsc` clean, build clean, artifacts fresh. D64.
+
+> **M4.5 status: ✅ DONE, verified** — commit **`935ff02`**. Every surface defines its states instead
+> of rendering blank. **App-level** `src/app/{loading,error,not-found,global-error}.tsx` + shared
+> `PageSkeleton`/`ErrorState` give a consistent skeleton on navigation, an honest **retryable** error
+> boundary, a styled 404 **inside the shell**, and a full-document last-resort fallback. Each of the
+> six dynamic detail routes ships a `loading.tsx`. The Activity surfaces were completed — the traces
+> list and detail now distinguish a **load failure** from "not found" (ErrorState + retry), the
+> Events/Logs/Metrics tabs surface request errors, and the last `Observability` eyebrow became
+> `Activity` (M4.4's one-word rule). **Verified:** `check-states` **7/7** (state files exist; error
+> boundary is a client boundary with `reset`; global-error renders its own html/body; every dynamic
+> route has a loading boundary); live e2e `m45-e2e.ts` **17/17** (unmatched/retired routes are styled
+> 404s with the shell; every nav target 200; detail routes stream 200; a bad resource is an honest API
+> 404). Regressions green (attention 14, health 24, spend 15, drift 16, recovery 15, approvals 10,
+> spawn 11, missions 26, navigation 24, activity 10, selectors 138); `tsc` clean; build clean,
+> artifacts fresh. D63.
 
 > **M4.5 note:** the loading skeleton and error boundary render in the browser, so the HTTP-observable
 > half (404 coverage, route health, honest API 404s) is what the e2e asserts; the client states are
