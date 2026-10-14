@@ -25,51 +25,45 @@ export class RealTaskRunner implements TaskRunner {
     // Build the prompt from task input
     const prompt = this.buildPrompt(task, agent);
 
-    // Determine model policy from agent
-    const policy = agent ? this.parseAgentPolicy(agent) : null;
+    // Determine model policy from the agent
+    const policy = agent ? this.parseModelPolicy(agent) : null;
     const primaryModelId = policy?.primary || "auto/best-coding";
     const fallbackChain = policy?.fallback || [];
 
-    // Call the model
+    // No silent degradation: if every provider fails the error propagates and
+    // the task is marked FAILED. Recovery is M3.2 — never a fake success.
     const start = Date.now();
-    try {
-      const response = await this.gateway.call(
-        {
-          model: primaryModelId,
-          messages: [
-            { role: "system", content: this.getSystemPrompt(agent) },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.7,
-          maxTokens: 4096,
-        },
-        {
-          primaryModelId,
-          fallbackChain,
-        }
-      );
+    const response = await this.gateway.call(
+      {
+        model: primaryModelId,
+        messages: [
+          { role: "system", content: this.getSystemPrompt(agent) },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.7,
+        maxTokens: 4096,
+      },
+      {
+        primaryModelId,
+        fallbackChain,
+      }
+    );
+    const duration = Date.now() - start;
 
-      // Calculate actual duration
-      const duration = Date.now() - start;
-
-      return {
-        output: {
-          result: response.content,
-          metadata: {
-            model: response.model,
-            provider: response.provider,
-            tokens: response.usage,
-            toolCalls: response.toolCalls,
-          },
+    return {
+      output: {
+        result: response.content,
+        simulated: false,
+        metadata: {
+          model: response.model,
+          provider: response.provider,
+          tokens: response.usage,
+          toolCalls: response.toolCalls,
         },
-        cost: response.cost,
-        duration,
-      };
-    } catch (err) {
-      // If all providers fail, fall back to mock for graceful degradation
-      console.warn("[RealTaskRunner] All providers failed, using mock:", (err as Error).message);
-      return this.mockFallback(task, agent);
-    }
+      },
+      cost: response.cost,
+      duration,
+    };
   }
 
   private buildPrompt(task: any, agent: any | null): string {
@@ -101,26 +95,30 @@ Execute this task and return a structured JSON response with your findings/resul
     return base + "\n" + instructions;
   }
 
-  private parseAgentPolicy(agent: any): { primary: string; fallback: string[] } | null {
-    // Agent's memoryScope field is repurposed for model policy JSON
+  /**
+   * Model choice comes from Agent.modelPolicy (JSON) and Agent.fallbackModelIds
+   * (JSON array). memoryScope is never consulted for model routing.
+   */
+  private parseModelPolicy(agent: any): { primary: string; fallback: string[] } | null {
+    let policy: Record<string, unknown> | null = null;
     try {
-      const policy = JSON.parse(agent.memoryScope || "{}");
-      return policy?.primary || policy?.fallback ? policy : null;
+      const parsed = JSON.parse(agent.modelPolicy || "{}");
+      policy = parsed && typeof parsed === "object" ? parsed : null;
     } catch {
-      return null;
+      policy = null;
     }
-  }
 
-  // Fallback when all real providers fail
-  private mockFallback(task: any, agent: any | null): TaskResult {
-    const delay = 1000 + Math.random() * 4000;
-    const cost = 0.001 + Math.random() * 0.049;
+    const primary = typeof policy?.primary === "string" ? (policy.primary as string) : undefined;
 
-    // This is synchronous but we keep the interface async
-    return {
-      output: { result: "completed (mock fallback)", simulated: true, taskId: task.id },
-      cost,
-      duration: Math.round(delay),
-    };
+    let fallback: string[] = [];
+    try {
+      const ids = JSON.parse(agent.fallbackModelIds || "[]");
+      if (Array.isArray(ids)) fallback = ids.map(String);
+    } catch {
+      fallback = [];
+    }
+
+    if (!primary && fallback.length === 0) return null;
+    return { primary: primary || "auto/best-coding", fallback };
   }
 }

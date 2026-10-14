@@ -10,7 +10,7 @@ import { useMission } from "@/hooks/useApi";
 import { MissionProgressBar } from "@/components/execution/mission-progress-bar";
 import { DataTable, type DataTableColumn } from "@/components/execution/data-table";
 import { safeJson, formatCost, formatDuration } from "@/lib/utils";
-import { MISSION_STATUS_COLOR, TASK_STATUS_COLOR, missionProgress } from "@/lib/execution-meta";
+import { MISSION_STATUS_COLOR, TASK_STATUS_COLOR, missionProgress, taskSimulated } from "@/lib/execution-meta";
 import { parseMissionPlan } from "@/lib/plan";
 import { PageHeader, SectionLabel } from "@/components/shared/page-header";
 
@@ -53,12 +53,15 @@ const TASK_COLUMNS: DataTableColumn<any>[] = [
   {
     header: "Description",
     render: (t) => (
-      <Link
-        href={`/tasks/${t.id}`}
-        className="rounded-xl hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-      >
-        {t.description}
-      </Link>
+      <span className="flex items-center gap-2">
+        <Link
+          href={`/tasks/${t.id}`}
+          className="rounded-xl hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
+          {t.description}
+        </Link>
+        {taskSimulated(t.output) && <Badge className="bg-warning/10 text-warning">Simulated</Badge>}
+      </span>
     ),
   },
   {

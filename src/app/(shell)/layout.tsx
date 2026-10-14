@@ -10,6 +10,7 @@ import { CommandBar } from "@/components/shell/command-bar";
 import { useSettings } from "@/hooks/useApi";
 import { cn } from "@/lib/utils";
 import { ThemeAmbient } from "@/components/dashboard/command-center/theme-ambient";
+import { SystemModeIndicator } from "@/components/shell/system-mode-indicator";
 
 export default function GlobalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -84,6 +85,7 @@ export default function GlobalShell({ children }: { children: React.ReactNode })
             <div />
             <CommandBar />
             <div className="flex items-center justify-end gap-2 shrink-0">
+              <SystemModeIndicator />
               <EditModeToggle />
               <ModeToggle />
             </div>

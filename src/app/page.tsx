@@ -10,8 +10,7 @@ import { useStreaming } from "@/components/dashboard/command-center/use-streamin
 import { parseDateRange, type DateRangeKey } from "@/lib/range";
 import { Hero } from "@/components/dashboard/command-center/hero";
 import { KpiCard } from "@/components/dashboard/command-center/kpi-card";
-import type { DashboardState, ActionItem } from "@/components/dashboard/command-center/adapter";
-import { DASHBOARD_SAMPLE_HEALTHY, DASHBOARD_SAMPLE_PROBLEM } from "@/components/dashboard/command-center/sample";
+import type { ActionItem } from "@/components/dashboard/command-center/adapter";
 import { EventsChart } from "@/components/dashboard/command-center/events-chart";
 import { FleetDonut } from "@/components/dashboard/command-center/fleet-donut";
 import { Actions } from "@/components/dashboard/command-center/actions";
@@ -87,35 +86,6 @@ function toHourSeries(map: Record<string, { events: number; problems: number }>)
 }
 
 export default function DashboardPage() {
-  const scenario = process.env.NEXT_PUBLIC_DASHBOARD_SAMPLE;
-  const useSample = scenario === "healthy" || scenario === "problem";
-  if (useSample) {
-    const s = scenario === "healthy" ? DASHBOARD_SAMPLE_HEALTHY : DASHBOARD_SAMPLE_PROBLEM;
-    return (
-      <main className="relative mx-auto grid w-full max-w-[1240px] gap-6">
-        <Hero
-          isStreaming={s.isStreaming}
-          stale={s.stale}
-          lastEventAgo={s.lastEventAgo}
-          activeAgents={s.agents.active}
-          activeMissions={s.missions.active}
-          needsYou={s.actions.length}
-          actionsCount={s.actions.length}
-        />
-        <section aria-label="Key numbers" className="relative z-10 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
-          {s.kpis.map((k) => (
-            <KpiCard key={k.id} item={k} />
-          ))}
-        </section>
-        <section aria-label="Trends" className="relative z-10 grid gap-4 xl:grid-cols-12">
-          <EventsChart trend={s.trend} totalEvents={s.trend["7d"].reduce((a, b) => a + b.events, 0)} totalProblems={s.trend["7d"].reduce((a, b) => a + b.problems, 0)} />
-          <FleetDonut fleet={s.fleet} />
-        </section>
-        <Actions actions={s.actions} />
-      </main>
-    );
-  }
-
   const { data: agents } = useAgents();
   const { data: missions } = useMissions();
   const { data: tasks } = useTasks();

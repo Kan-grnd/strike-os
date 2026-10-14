@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ListChecks, RefreshCw } from "lucide-react";
 import { useTask } from "@/hooks/useApi";
 import { safeJson, formatCost, formatDuration } from "@/lib/utils";
-import { TASK_STATUS_COLOR } from "@/lib/execution-meta";
+import { TASK_STATUS_COLOR, taskSimulated } from "@/lib/execution-meta";
 import { PageHeader, SectionLabel } from "@/components/shared/page-header";
 
 function Stat({ label, value }: { label: string; value: React.ReactNode }) {
@@ -77,6 +77,7 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
 
   const input = safeJson<unknown>(task.input, {});
   const output = safeJson<unknown>(task.output, {});
+  const simulated = taskSimulated(task.output);
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6">
@@ -88,6 +89,7 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
           <span className="flex flex-wrap items-center gap-2">
             <span className="truncate">{task.description || "Task"}</span>
             <Badge className={TASK_STATUS_COLOR[task.status]}>{task.status}</Badge>
+            {simulated && <Badge className="bg-warning/10 text-warning">Simulated</Badge>}
           </span>
         }
         description={`Task ${params.id.slice(0, 8)}`}
