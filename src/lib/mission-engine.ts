@@ -19,6 +19,7 @@ import { setAgentState, pauseAgent, resumeAgent, spawnAgent } from "./runtime-st
 import { settleMissionIfComplete } from "./completion";
 import { setBrainState, BRAIN_ID } from "./brain";
 import { resolveSpawnCeiling } from "./spawn-policy";
+import { requestApproval } from "./approvals";
 
 export type { PlanStep } from "./plan";
 export { parseMissionPlan, simulatedPlan } from "./plan";
@@ -284,53 +285,6 @@ export class MissionEngine {
         anyAgent ||
         null;
 
-      // No existing agent can take this step — the Brain spawns the capacity it
-      // needs. The sub-agent hangs off the mission's lead agent (if any) and is
-      // reused by later steps of the same type.
-      if (!ownerAgentId) {
-        if (spawnsUsed >= spawnCeiling) {
-          // E12: the ceiling is a hard stop on spawning. We refuse now and record
-          // it; the operator-facing blocking gate and pause arrive in the
-          // approval milestone (M3.1). The step simply runs unowned.
-          await eventBus.emit({
-            type: "spawn.denied",
-            source: "mission-engine",
-            subject: "mission",
-            subjectId: missionId,
-            missionId,
-            payload: {
-              reason: "spawn ceiling reached",
-              ceiling: spawnCeiling,
-              step: step.step,
-              agentType: step.agentType ?? "WORKER",
-            },
-          });
-        } else {
-          try {
-            const spawned = await spawnAgent({
-              name: `${step.agentType || "WORKER"} · ${step.description.slice(0, 40)}`,
-              type: step.agentType || "WORKER",
-              description: `Sub-agent spawned for mission step ${step.step}`,
-              /* Parent off a real, loaded agent only — `agentIds` may name agents
-               * that do not exist, and a bad parentId is an FK violation. */
-              parentId: anyAgent || undefined,
-              missionId,
-              source: "mission-engine",
-            });
-            ownerAgentId = spawned?.id ?? null;
-            if (ownerAgentId) {
-              (byType[step.agentType] ||= []).push(ownerAgentId);
-              anyAgent = anyAgent ?? ownerAgentId;
-              spawnsUsed += 1;
-            }
-          } catch (err) {
-            // A spawn failure must not abort the mission — the step just runs
-            // unowned, exactly as it would have without the spawn attempt.
-            console.error("[mission-engine] sub-agent spawn failed:", err);
-          }
-        }
-      }
-
       const task = await db.task.create({
         data: {
           missionId,
@@ -350,6 +304,66 @@ export class MissionEngine {
       });
 
       created.push({ id: task.id, step: step.step });
+
+      // No existing agent can take this step — the Brain spawns the capacity it
+      // needs up to the mission's ceiling. Past the ceiling it does not silently
+      // give up: the spawn becomes a real gate (D17/M3.1) — the affected
+      // operation pauses and the operator is asked to allow the extra worker.
+      if (!ownerAgentId) {
+        if (spawnsUsed >= spawnCeiling) {
+          await eventBus.emit({
+            type: "spawn.denied",
+            source: "mission-engine",
+            subject: "mission",
+            subjectId: missionId,
+            missionId,
+            taskId: task.id,
+            payload: {
+              reason: "spawn ceiling reached",
+              ceiling: spawnCeiling,
+              step: step.step,
+              agentType: step.agentType ?? "WORKER",
+            },
+          });
+          await requestApproval(db, {
+            trigger: "SPAWN_CEILING",
+            scope: "OPERATION",
+            missionId,
+            operationId,
+            taskId: task.id,
+            description: `Step ${step.step} needs a sub-agent, but the mission's spawn ceiling (${spawnCeiling}) is reached.`,
+            metadata: {
+              step: step.step,
+              agentType: step.agentType ?? "WORKER",
+              parentAgentId: anyAgent ?? null,
+            },
+          }).catch((err) => console.error("[mission-engine] spawn gate failed:", err));
+        } else {
+          try {
+            const spawned = await spawnAgent({
+              name: `${step.agentType || "WORKER"} · ${step.description.slice(0, 40)}`,
+              type: step.agentType || "WORKER",
+              description: `Sub-agent spawned for mission step ${step.step}`,
+              /* Parent off a real, loaded agent only — `agentIds` may name agents
+               * that do not exist, and a bad parentId is an FK violation. */
+              parentId: anyAgent || undefined,
+              missionId,
+              source: "mission-engine",
+            });
+            ownerAgentId = spawned?.id ?? null;
+            if (ownerAgentId) {
+              (byType[step.agentType] ||= []).push(ownerAgentId);
+              anyAgent = anyAgent ?? ownerAgentId;
+              spawnsUsed += 1;
+              await db.task.update({ where: { id: task.id }, data: { ownerAgentId } });
+            }
+          } catch (err) {
+            // A spawn failure must not abort the mission — the step just runs
+            // unowned, exactly as it would have without the spawn attempt.
+            console.error("[mission-engine] sub-agent spawn failed:", err);
+          }
+        }
+      }
 
       await eventBus.emit({
         type: "task.created",
@@ -375,15 +389,30 @@ export class MissionEngine {
     // and open its run (Operation).
     const { operationId, createdTasks } = await this.ensureOperationAndTasks(db, mission);
 
-    await db.operation.update({
-      where: { id: operationId },
-      data: { status: "RUNNING", startedAt: new Date() },
-    });
+    // A gate may have fired during materialization (e.g. a spawn past the
+    // ceiling). If so the run starts paused, awaiting the operator — do not
+    // force it RUNNING over an outstanding approval.
+    const gated =
+      (await db.approval.count({
+        where: {
+          status: "PENDING",
+          OR: [{ operationId }, { missionId }],
+        },
+      })) > 0;
 
-    await db.mission.update({
-      where: { id: missionId },
-      data: { status: "RUNNING" },
-    });
+    if (gated) {
+      await db.mission.update({ where: { id: missionId }, data: { status: "PAUSED" } });
+    } else {
+      await db.operation.update({
+        where: { id: operationId },
+        data: { status: "RUNNING", startedAt: new Date() },
+      });
+
+      await db.mission.update({
+        where: { id: missionId },
+        data: { status: "RUNNING" },
+      });
+    }
 
     await eventBus.emit({
       type: "mission.started",

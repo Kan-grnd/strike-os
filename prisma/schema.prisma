@@ -178,7 +178,7 @@ model Operation {
   id          String    @id @default(cuid())
   missionId   String
   mission     Mission   @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  status      String    @default("PLANNING") // PLANNING | RUNNING | COMPLETED | FAILED | CANCELLED
+  status      String    @default("PLANNING") // PLANNING | RUNNING | PAUSED | COMPLETED | FAILED | CANCELLED
   plan        String    @default("{}") // snapshot of the plan for this run
   policy      String    @default("{}") // model policy for this run
   priority    Int       @default(0)
@@ -433,18 +433,27 @@ model Secret {
 
 model Approval {
   id          String   @id @default(cuid())
-  type        String
+  type        String // human-facing label; mirrors `trigger` for new gates
+  trigger     String   @default("ESCALATION") // TOOL_PERMISSION | SPEND_CEILING | MODEL_FALLBACK | DRIFT | SPAWN_CEILING | ESCALATION
+  scope       String   @default("OPERATION") // OPERATION | MISSION
   description String
   policy      String   @default("ALWAYS_ASK")
-  status      String   @default("PENDING")
+  status      String   @default("PENDING") // PENDING | APPROVED | DENIED
+  missionId   String?
+  operationId String?
+  taskId      String?
   createdBy   String?
+  requestedBy String?
   resolvedBy  String?
+  resolutionNote String?
   metadata    String   @default("{}")
 
   createdAt  DateTime @default(now())
   resolvedAt DateTime?
 
   @@index([status])
+  @@index([missionId])
+  @@index([operationId])
   @@map("approvals")
 }
 

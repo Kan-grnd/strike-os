@@ -65,12 +65,27 @@ export class TaskEngine {
 
   private async tick() {
     try {
+      // Work gated by an outstanding approval is not schedulable until the
+      // operator decides. Derive the gated scopes from PENDING approvals so a
+      // gate that fired before a run's status settled still holds the work.
+      const pending = await this.db.approval.findMany({
+        where: { status: "PENDING" },
+        select: { missionId: true, operationId: true },
+      });
+      const gatedOperations = new Set(pending.map((a) => a.operationId).filter(Boolean) as string[]);
+      const gatedMissions = new Set(pending.map((a) => a.missionId).filter(Boolean) as string[]);
+      const isGated = (task: { parentOperationId: string | null; missionId: string }) =>
+        (task.parentOperationId ? gatedOperations.has(task.parentOperationId) : false) ||
+        gatedMissions.has(task.missionId);
+
       // 1. Find QUEUED tasks whose dependencies are all COMPLETED
       const queued = await this.db.task.findMany({
         where: { status: "QUEUED" },
       });
 
       for (const task of queued) {
+        if (isGated(task)) continue;
+
         const deps = JSON.parse(task.dependencies || "[]") as string[];
         const allDone = deps.length === 0 ? true : await this.dependenciesComplete(deps);
 
@@ -80,12 +95,15 @@ export class TaskEngine {
             ? await this.agentBlockedFromWork(task.ownerAgentId)
             : false;
           if (blockedOwnerState) {
-            await setAgentState(task.ownerAgentId!, blockedOwnerState === "blocked" ? "blocked" : "waiting", {
-              reason: `waiting for agent capacity (state ${blockedOwnerState})`,
-              taskId: task.id,
-              missionId: task.missionId,
-              source: "task-engine",
-            }).catch(() => undefined);
+            // A gated agent is already in the right state — don't downgrade it.
+            if (blockedOwnerState !== "waiting_for_approval") {
+              await setAgentState(task.ownerAgentId!, blockedOwnerState === "blocked" ? "blocked" : "waiting", {
+                reason: `waiting for agent capacity (state ${blockedOwnerState})`,
+                taskId: task.id,
+                missionId: task.missionId,
+                source: "task-engine",
+              }).catch(() => undefined);
+            }
             continue;
           }
           await this.assignTask(task);
@@ -109,6 +127,7 @@ export class TaskEngine {
       });
 
       for (const task of assigned) {
+        if (isGated(task)) continue;
         await this.runTask(task);
       }
 
@@ -177,7 +196,13 @@ export class TaskEngine {
   private async agentBlockedFromWork(agentId: string): Promise<string | null> {
     const agent = await this.db.agent.findUnique({ where: { id: agentId }, select: { runtimeState: true } });
     if (!agent) return null;
-    if (["paused", "stopped", "cancelled", "failed", "blocked"].includes(agent.runtimeState)) return agent.runtimeState;
+    if (
+      ["paused", "stopped", "cancelled", "failed", "blocked", "waiting_for_approval"].includes(
+        agent.runtimeState,
+      )
+    ) {
+      return agent.runtimeState;
+    }
     return null;
   }
 

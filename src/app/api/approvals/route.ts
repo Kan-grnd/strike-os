@@ -3,8 +3,10 @@ import prisma from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const status = new URL(req.url).searchParams.get("status") ?? undefined;
   const approvals = await prisma.approval.findMany({
+    where: status ? { status } : undefined,
     orderBy: { createdAt: "desc" },
   });
 

@@ -5,6 +5,7 @@
 
 import { eventBus } from "./events";
 import prisma from "@/lib/db";
+import { requestApproval } from "./approvals";
 
 export interface ToolExecutionResult {
   success: boolean;
@@ -42,6 +43,9 @@ export async function executeTool(
         // In Phase 8 basic model: agent must have tool in its tools array
         // Full permission matrix in Phase 9
         if (!allowedTools.includes(tool.name) && !allowedTools.includes(toolId)) {
+          // The agent is reaching for a tool it has not been granted — the trust
+          // boundary. Raise a real gate: the agent pauses and the operator is
+          // asked (M3.1). Approving grants the tool; denying leaves it refused.
           await eventBus.emit({
             type: "tool.failed",
             source: "tool-fabric",
@@ -49,6 +53,12 @@ export async function executeTool(
             subjectId: tool.id,
             payload: { error: "Permission denied", agentId, toolId },
           });
+          await requestApproval(prisma, {
+            trigger: "TOOL_PERMISSION",
+            description: `${agent.name} requested the "${tool.name}" tool, which it has not been granted.`,
+            pauseAgents: [agentId],
+            metadata: { agentId, toolName: tool.name, toolId },
+          }).catch((err) => console.error("[tool-fabric] permission gate failed:", err));
           return { success: false, error: "Agent lacks permission for this tool", duration: Date.now() - start, cost: 0 };
         }
       }

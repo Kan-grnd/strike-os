@@ -104,6 +104,10 @@ export type EventType =
   | "recovery.started"
   | "recovery.succeeded"
   | "recovery.failed"
+  // Approval — the intervention contract. A gate is a hard pause, not a notice.
+  | "approval.requested"
+  | "approval.approved"
+  | "approval.denied"
   // System
   | "system.started"
   | "system.error"
