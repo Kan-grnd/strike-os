@@ -140,7 +140,13 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
 
   const handleStatus = async (action: "start" | "pause" | "resume" | "cancel") => {
     if (busy) return;
-    if (action === "cancel" && !window.confirm("Cancel this mission? Running tasks will be cancelled.")) return;
+    if (action === "cancel") {
+      const draft = mission && ["PLANNING", "READY"].includes(mission.status);
+      const msg = draft
+        ? "Abandon this mission? Nothing has been run."
+        : "Cancel this mission? Running tasks will be cancelled.";
+      if (!window.confirm(msg)) return;
+    }
     setBusy(action);
     setActionError("");
     try {
@@ -165,7 +171,7 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
       const res = await fetch(`/api/missions/${params.id}/plan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ llm: false }),
+        body: JSON.stringify({}),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -236,14 +242,34 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
         actions={
           <>
             {mission.status === "PLANNING" && (
-              <Button onClick={genPlan} disabled={busy !== null} className="gap-2">
-                <Sparkles className="h-3.5 w-3.5" /> {busy === "start" ? "Planning…" : "Generate Plan"}
-              </Button>
+              <>
+                <Button onClick={genPlan} disabled={busy !== null} className="gap-2">
+                  <Sparkles className="h-3.5 w-3.5" /> {busy === "start" ? "Planning…" : "Generate Plan"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleStatus("cancel")}
+                  disabled={busy !== null}
+                  className="gap-2"
+                >
+                  <Square className="h-3.5 w-3.5" /> Abandon
+                </Button>
+              </>
             )}
             {mission.status === "READY" && (
-              <Button onClick={() => handleStatus("start")} disabled={busy !== null} className="gap-2">
-                <Play className="h-3.5 w-3.5" /> {busy === "start" ? "Starting…" : "Start"}
-              </Button>
+              <>
+                <Button onClick={() => handleStatus("start")} disabled={busy !== null} className="gap-2">
+                  <Play className="h-3.5 w-3.5" /> {busy === "start" ? "Starting…" : "Approve & launch"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleStatus("cancel")}
+                  disabled={busy !== null}
+                  className="gap-2"
+                >
+                  <Square className="h-3.5 w-3.5" /> Abandon
+                </Button>
+              </>
             )}
             {mission.status === "RUNNING" && (
               <>

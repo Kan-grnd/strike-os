@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Clock, DollarSign, Zap, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import { Sparkles, Clock, DollarSign, Zap, CheckCircle2, AlertCircle, RefreshCw, Info, XCircle } from "lucide-react";
 import { cn, formatCost, formatDuration } from "@/lib/utils";
 import { PageHeader, SectionLabel, EASE } from "@/components/shared/page-header";
 
@@ -29,11 +29,14 @@ export default function NewMissionPage() {
   const [missionId, setMissionId] = useState<string | null>(null);
   const [planSteps, setPlanSteps] = useState<PlanStep[] | null>(null);
   const [planSimulated, setPlanSimulated] = useState(false);
+  const [abandoning, setAbandoning] = useState(false);
+  const [notice, setNotice] = useState("");
 
   const planMission = async () => {
     if (!goal.trim() || planning) return;
     setPlanning(true);
     setError("");
+    setNotice("");
     try {
       let id = missionId;
       if (!id) {
@@ -81,6 +84,7 @@ export default function NewMissionPage() {
     if (!missionId || launching) return;
     setLaunching(true);
     setError("");
+    setNotice("");
     try {
       const res = await fetch(`/api/missions/${missionId}`, {
         method: "PATCH",
@@ -95,6 +99,38 @@ export default function NewMissionPage() {
     } catch (e: any) {
       setError(e?.message || "Failed to launch mission.");
       setLaunching(false);
+    }
+  };
+
+  const abandon = async () => {
+    if (abandoning) return;
+    // No mission row yet — just clear the draft in the form.
+    if (!missionId) {
+      setGoal("");
+      setPlanSteps(null);
+      setPlanSimulated(false);
+      setNotice("Draft cleared — nothing was run.");
+      return;
+    }
+    if (!window.confirm("Abandon this draft mission? Nothing has been run.")) return;
+    setAbandoning(true);
+    setError("");
+    setNotice("");
+    try {
+      const res = await fetch(`/api/missions/${missionId}/cancel`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Failed to abandon: ${res.status}`);
+      }
+      // The mission row is kept for history, marked CANCELLED; no tasks were created.
+      setNotice("Draft mission abandoned — no work was run.");
+      setMissionId(null);
+      setPlanSteps(null);
+      setPlanSimulated(false);
+    } catch (e: any) {
+      setError(e?.message || "Failed to abandon the mission.");
+    } finally {
+      setAbandoning(false);
     }
   };
 
@@ -128,19 +164,34 @@ export default function NewMissionPage() {
             <Sparkles className="h-4 w-4" />
             {planning ? "Planning…" : planSteps ? "Re-plan" : "Plan mission"}
           </Button>
-          <Button
-            onClick={launch}
-            disabled={launching || !missionId || !planSteps}
-            variant="outline"
-            className="gap-2"
-          >
+          <Button onClick={launch} disabled={launching || !missionId || !planSteps} className="gap-2">
             <Zap className="h-4 w-4" />
-            {launching ? "Launching…" : "Launch mission"}
+            {launching ? "Launching…" : "Approve & launch"}
           </Button>
+          {(missionId || goal.trim()) && (
+            <Button
+              onClick={abandon}
+              disabled={abandoning || launching || planning}
+              variant="ghost"
+              className="gap-2 text-muted-foreground hover:text-destructive"
+            >
+              <XCircle className="h-4 w-4" />
+              {abandoning ? "Abandoning…" : "Abandon"}
+            </Button>
+          )}
         </div>
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Info className="h-3.5 w-3.5 shrink-0" />
+          Nothing runs until you approve the plan. Abandoning leaves no work behind.
+        </p>
         {error && (
           <p className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
             <AlertCircle className="h-4 w-4 shrink-0" /> {error}
+          </p>
+        )}
+        {notice && (
+          <p className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+            <Info className="h-4 w-4 shrink-0" /> {notice}
           </p>
         )}
       </Card>
