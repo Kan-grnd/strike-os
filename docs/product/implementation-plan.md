@@ -206,16 +206,31 @@ makes the scheduler actually start, so the loop is observable rather than frozen
 - **Edge cases:** E11.
 - **Testing:** integration — event/payload contract for each consumed event.
 
-## M2.3 — Scoped permissions & the spawn ceiling
+## M2.3 — Scoped permissions & the spawn ceiling ✅ DONE
 - **Objective:** enforce scoped subset inheritance and the per-mission spawn ceiling.
-- **Affected files:** tool-permission layer, `runtime-state.ts`, mission policy.
+- **Affected files:** new `src/lib/spawn-policy.ts` (`DEFAULT_MISSION_SPAWN_CEILING`,
+  `resolveSpawnCeiling`, `intersectGrants`); `src/lib/runtime-state.ts` (`spawnAgent`
+  intersects grants with the parent + emits `permission.denied`); `src/lib/mission-engine.ts`
+  (`materializePlan` enforces the ceiling + emits `spawn.denied`); `src/lib/events.ts`
+  (`spawn.denied`, `permission.denied`); new `scripts/check-spawn-policy.ts`.
 - **Dependencies:** M2.2.
 - **Expected behaviour:** a sub-agent holds ≤ its parent's permissions; spawning past the
-  ceiling creates a gate and pauses (M3.1).
-- **Acceptance criteria:** a sub-agent requesting a permission its parent lacks is denied;
-  exceeding the ceiling gates.
+  ceiling is refused and recorded, and work continues unowned.
+- **Design (D47):** the ceiling is a code default (`5`) overridable per mission via
+  `Mission.policy.spawnCeiling` (operator config surface deferred to Policies & Limits).
+  Scoped inheritance is **intersection**: a child inherits the parent's grants when it asks
+  for nothing; a requested grant the parent lacks is denied (dropped + `permission.denied`),
+  so a child's grants are always a subset of its parent's. Ceiling enforcement is immediate
+  (refuse + `spawn.denied`, step runs unowned); the operator-facing **blocking gate and
+  pause** arrive with approvals in M3.1 — we refuse honestly now rather than fake a gate.
+- **Acceptance criteria:** ✅ a sub-agent requesting a permission its parent lacks is denied
+  (unit-verified); ✅ exceeding the ceiling is refused and recorded (e2e: ceiling 0 → 3
+  `spawn.denied`, 0 spawned, 3 unowned tasks, mission COMPLETED). Ceiling *gate/pause* is
+  M3.1.
 - **Edge cases:** E12.
-- **Testing:** unit — permission intersection; integration — ceiling gate.
+- **Testing:** unit — `check-spawn-policy.ts` (11 checks: ceiling resolution + intersection);
+  integration — ceiling-0 mission refuses spawns and still completes; default ceiling still
+  spawns (regression).
 
 ## M2.4 — Specialists actually work
 - **Objective:** fix the permanent 403, add the page, make install usable.

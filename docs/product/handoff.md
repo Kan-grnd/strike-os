@@ -259,9 +259,20 @@ sub-agent (`agent.spawned`). **Verified flow:** mission with no matching agents 
 1 sub-agent spawned → 3 tasks delegated (`brain → spawned agent`) → mission `COMPLETED`.
 Scope: delegation + spawn only (D46); `communication.*`/`verification.*` emitters deferred.
 
-**Next: M2.3** (scoped permissions & the spawn ceiling — a sub-agent holds ≤ its parent's
-permissions; spawning past the per-mission ceiling gates and pauses). Same loop:
-implement → `tsc` → detached build → serve `:3010` → verify → commit (explicit paths, no push).
+**M2.3 status: ✅ DONE — verified** (`c2feedf`). New `src/lib/spawn-policy.ts`:
+`DEFAULT_MISSION_SPAWN_CEILING` (5), `resolveSpawnCeiling` (policy override via
+`Mission.policy.spawnCeiling`), `intersectGrants` (pure). `spawnAgent` now intersects the
+child's requested grants with the parent's — it inherits the parent's when it asks for
+nothing, and a requested grant the parent lacks is denied and recorded
+(`permission.denied`). `materializePlan` enforces the per-mission ceiling (counting
+`agent.spawned` for the mission); past it the spawn is refused and recorded (`spawn.denied`)
+and the step runs unowned. **Verified:** e2e ceiling 0 → 3 `spawn.denied`, 0 spawned, 3
+unowned tasks, mission `COMPLETED`; default ceiling → 1 spawned, 3 owned, `COMPLETED`;
+`check-spawn-policy` 11/11. The operator-facing blocking gate + pause is M3.1 (D47).
+
+**Next: M2.4** (Specialists actually work — fix the permanent 403, add
+`/workforce/specialists`, make install usable against Postgres). Same loop: implement →
+`tsc` → detached build → serve `:3010` → verify → commit (explicit paths, no push).
 
 > **Pre-existing check failures (not ours):** `scripts/check-node-contrast.ts` and
 > `scripts/check-orb-palette.ts` both abort because a `clean` theme is referenced but
