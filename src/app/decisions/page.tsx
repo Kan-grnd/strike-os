@@ -4,7 +4,6 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import {
   Search,
-  BookOpen,
   Brain,
   Calendar,
   Scale,
@@ -12,7 +11,6 @@ import {
   Building2,
   X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -55,11 +53,6 @@ export default function DecisionsPage() {
         eyebrow="Intelligence"
         title="Decisions"
         description="Recorded decisions and their reasoning across the workforce."
-        actions={
-          <Button className="gap-2">
-            <BookOpen className="h-4 w-4" /> Log decision
-          </Button>
-        }
       />
 
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border lg:grid-cols-4">

@@ -5,7 +5,6 @@ import useSWR from "swr";
 import { motion } from "motion/react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -17,7 +16,7 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader, EASE } from "@/components/shared/page-header";
 import { cn } from "@/lib/utils";
-import { Search, Wrench, ExternalLink, Play, Layers, HeartPulse, Phone, X } from "lucide-react";
+import { Search, Wrench, Layers, HeartPulse, Phone, X } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -86,11 +85,6 @@ export default function ToolsPage() {
         eyebrow="Registry"
         title="Tools"
         description="Tool Fabric registry — standardized external actions."
-        actions={
-          <Button variant="outline" className="gap-2">
-            <Wrench className="h-4 w-4" /> Add tool
-          </Button>
-        }
       />
 
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border lg:grid-cols-4">
@@ -184,15 +178,6 @@ export default function ToolsPage() {
                     <Badge variant="outline" className="text-[11px]">
                       Calls: {t.totalCalls || 0}
                     </Badge>
-                  </div>
-
-                  <div className="mt-auto flex gap-2 border-t pt-3">
-                    <Button size="sm" variant="outline" className="flex-1 gap-1">
-                      <Play className="h-3.5 w-3.5" /> Test
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1 gap-1">
-                      <ExternalLink className="h-3.5 w-3.5" /> Schema
-                    </Button>
                   </div>
                 </Card>
               </motion.div>

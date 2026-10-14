@@ -415,6 +415,6 @@ const resumeRoute = async (id: string) => {
   if (!res.ok) throw new Error("Failed to resume");
 };
 const completeRoute = async (id: string) => {
-  const res = await fetch(`/api/automations/${id}/cancel`, { method: "POST" });
+  const res = await fetch(`/api/automations/${id}/complete`, { method: "POST" });
   if (!res.ok) throw new Error("Failed to mark complete");
 };

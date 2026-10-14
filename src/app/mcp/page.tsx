@@ -4,10 +4,9 @@ import useSWR from "swr";
 import { motion } from "motion/react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader, EASE } from "@/components/shared/page-header";
-import { Plug, Play, RefreshCw, Plus, Wrench, CircleCheck, CircleDashed } from "lucide-react";
+import { Plug, Wrench, CircleCheck, CircleDashed } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -60,11 +59,6 @@ export default function McpPage() {
         eyebrow="Integrations"
         title="MCP"
         description="Model Context Protocol servers that extend workforce capabilities."
-        actions={
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" /> Add connection
-          </Button>
-        }
       />
 
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border lg:grid-cols-4">
@@ -87,11 +81,6 @@ export default function McpPage() {
           icon={Plug}
           title="No MCP connections yet"
           description="Add an MCP server to extend your workforce's capabilities."
-          action={
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" /> Add connection
-            </Button>
-          }
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -125,14 +114,6 @@ export default function McpPage() {
                     <span className="inline-flex items-center gap-1">
                       <Wrench className="h-3 w-3" /> {tools.length} tools
                     </span>
-                  </div>
-                  <div className="mt-auto flex gap-2 border-t pt-3">
-                    <Button size="sm" variant="outline" className="flex-1 gap-1">
-                      <Play className="h-3.5 w-3.5" /> Test
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1 gap-1">
-                      <RefreshCw className="h-3.5 w-3.5" /> Sync tools
-                    </Button>
                   </div>
                 </Card>
               </motion.div>

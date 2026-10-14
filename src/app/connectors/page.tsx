@@ -5,17 +5,12 @@ import useSWR from "swr";
 import { motion } from "motion/react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader, EASE } from "@/components/shared/page-header";
 import {
   Globe,
-  Cpu,
   Zap,
-  Play,
-  Plus,
-  Wrench,
   Network,
   Webhook,
   Cable,
@@ -70,11 +65,6 @@ export default function ConnectorsPage() {
         eyebrow="Integrations"
         title="Connectors"
         description="External API integrations, endpoints, and webhooks."
-        actions={
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" /> Add connection
-          </Button>
-        }
       />
 
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border lg:grid-cols-4">
@@ -110,11 +100,6 @@ export default function ConnectorsPage() {
               icon={Globe}
               title="No API connections yet"
               description="Add an external API to convert its endpoints into tools."
-              action={
-                <Button className="gap-2">
-                  <Plus className="h-4 w-4" /> Add connection
-                </Button>
-              }
             />
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -141,17 +126,9 @@ export default function ConnectorsPage() {
                       <p className="mb-3 truncate font-mono text-xs text-muted-foreground">
                         {c.baseUrl}
                       </p>
-                      <div className="mb-3 flex items-center gap-2 text-xs">
+                      <div className="mb-1 flex items-center gap-2 text-xs">
                         <Badge variant="outline">{c.endpoints || 0} endpoints</Badge>
                         <Badge variant="outline">{c.webhooks || 0} webhooks</Badge>
-                      </div>
-                      <div className="mt-auto flex gap-2 border-t pt-3">
-                        <Button size="sm" variant="outline" className="flex-1 gap-1">
-                          <Play className="h-3.5 w-3.5" /> Test
-                        </Button>
-                        <Button size="sm" variant="outline" className="flex-1 gap-1">
-                          <Cpu className="h-3.5 w-3.5" /> Import schema
-                        </Button>
                       </div>
                     </Card>
                   </motion.div>
@@ -179,9 +156,6 @@ export default function ConnectorsPage() {
                       <span className="truncate font-mono text-sm">{e.path}</span>
                       <Badge variant="outline">{e.connectionName || "Unknown"}</Badge>
                     </div>
-                    <Button variant="outline" size="sm" className="gap-1">
-                      <Wrench className="h-3.5 w-3.5" /> Convert to tool
-                    </Button>
                   </Card>
                 </motion.div>
               ))}
