@@ -7,9 +7,14 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
+  const missionId = searchParams.get("missionId");
+
+  const where: Record<string, unknown> = {};
+  if (status) where.status = status;
+  if (missionId) where.missionId = missionId;
 
   const automations = await prisma.automation.findMany({
-    where: status ? { status } : undefined,
+    where: Object.keys(where).length ? where : undefined,
     include: {
       runs: { orderBy: { startedAt: "desc" }, take: 3 },
     },
@@ -32,6 +37,7 @@ export async function POST(req: Request) {
         actions: JSON.stringify(body.actions || []),
         status: body.status || "DRAFT",
         nextRun: body.nextRun ? new Date(body.nextRun) : undefined,
+        missionId: body.missionId || undefined,
       },
     });
 

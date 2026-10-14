@@ -152,6 +152,7 @@ export async function createAutomation(data: {
   conditions?: Record<string, unknown>;
   actions: Record<string, unknown>[];
   status?: string;
+  missionId?: string;
 }) {
   return fetch("/api/automations", {
     method: "POST",

@@ -9,6 +9,16 @@ export const MISSION_STATUS_COLOR: Record<string, string> = {
   CANCELLED: "bg-muted text-muted-foreground",
 };
 
+/** A run's lifecycle (M1). Independent of health, like a mission's status. */
+export const OPERATION_STATUS_COLOR: Record<string, string> = {
+  PLANNING: "bg-muted text-muted-foreground",
+  RUNNING: "bg-success/10 text-success",
+  PAUSED: "bg-info/10 text-info",
+  COMPLETED: "bg-success/10 text-success",
+  FAILED: "bg-destructive/10 text-destructive",
+  CANCELLED: "bg-muted text-muted-foreground",
+};
+
 /** Health is orthogonal to lifecycle (M3.3): it answers "does this need the
  * operator?" independently of the mission's state label. */
 export const HEALTH_COLOR: Record<string, string> = {

@@ -26,6 +26,9 @@ export async function GET(req: Request) {
       operations: {
         select: { id: true, status: true },
       },
+      automations: {
+        select: { id: true, status: true, nextRun: true, lastRun: true },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -50,6 +53,7 @@ export async function POST(req: Request) {
         plan: JSON.stringify(body.plan || {}),
         agentIds: JSON.stringify(body.agentIds || []),
         priority: body.priority || 0,
+        ...(body.cadence ? { cadence: JSON.stringify(body.cadence) } : {}),
       },
     });
 

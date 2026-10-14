@@ -9,8 +9,9 @@ import { Play, Pause, Square, RefreshCw, Sparkles, AlertCircle, Target } from "l
 import { useMission } from "@/hooks/useApi";
 import { MissionProgressBar } from "@/components/execution/mission-progress-bar";
 import { DataTable, type DataTableColumn } from "@/components/execution/data-table";
+import { MissionTriggers } from "@/components/missions/mission-triggers";
 import { safeJson, formatCost, formatDuration } from "@/lib/utils";
-import { MISSION_STATUS_COLOR, TASK_STATUS_COLOR, HEALTH_COLOR, HEALTH_LABEL, missionProgress, taskSimulated } from "@/lib/execution-meta";
+import { MISSION_STATUS_COLOR, OPERATION_STATUS_COLOR, TASK_STATUS_COLOR, HEALTH_COLOR, HEALTH_LABEL, missionProgress, taskSimulated } from "@/lib/execution-meta";
 import { parseMissionPlan } from "@/lib/plan";
 import { PageHeader, SectionLabel } from "@/components/shared/page-header";
 
@@ -72,6 +73,55 @@ const TASK_COLUMNS: DataTableColumn<any>[] = [
         {t.ownerAgentId ? t.ownerAgentId.slice(0, 8) : "—"}
       </span>
     ),
+  },
+];
+
+const OPERATION_COLUMNS: DataTableColumn<any>[] = [
+  {
+    header: "Run",
+    width: "100px",
+    render: (op) => <span className="font-mono text-xs text-muted-foreground">{op.id.slice(0, 8)}</span>,
+  },
+  {
+    header: "Status",
+    width: "120px",
+    render: (op) => <Badge className={OPERATION_STATUS_COLOR[op.status] || "bg-muted text-muted-foreground"}>{op.status}</Badge>,
+  },
+  {
+    header: "Health",
+    width: "110px",
+    render: (op) =>
+      op.health ? (
+        <Badge className={HEALTH_COLOR[op.health] || "bg-muted text-muted-foreground"}>{HEALTH_LABEL[op.health] || op.health}</Badge>
+      ) : (
+        <span className="text-xs text-muted-foreground">—</span>
+      ),
+  },
+  {
+    header: "Started",
+    width: "180px",
+    render: (op) => (
+      <span className="whitespace-nowrap text-xs text-muted-foreground">
+        {op.startedAt ? new Date(op.startedAt).toLocaleString() : "—"}
+      </span>
+    ),
+  },
+  {
+    header: "Duration",
+    width: "110px",
+    align: "right",
+    render: (op) => {
+      const ms = op.completedAt && op.startedAt
+        ? new Date(op.completedAt).getTime() - new Date(op.startedAt).getTime()
+        : null;
+      return <span className="text-xs tabular-nums text-muted-foreground">{ms != null ? formatDuration(ms) : "—"}</span>;
+    },
+  },
+  {
+    header: "Cost",
+    width: "100px",
+    align: "right",
+    render: (op) => <span className="text-sm tabular-nums">{formatCost(op.cost)}</span>,
   },
 ];
 
@@ -228,7 +278,7 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
-        backHref="/work?type=missions"
+        backHref="/missions"
         icon={Target}
         eyebrow="Mission"
         title={
@@ -371,6 +421,23 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
       </section>
 
       <section className="space-y-3">
+        <SectionLabel>Operations</SectionLabel>
+        {(mission.operations || []).length > 0 ? (
+          <DataTable
+            columns={OPERATION_COLUMNS}
+            rows={[...(mission.operations || [])].sort(
+              (a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+            )}
+            rowKey={(op: any) => op.id}
+            minWidth="700px"
+            caption="Mission runs, oldest first"
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">No runs yet.</p>
+        )}
+      </section>
+
+      <section className="space-y-3">
         <SectionLabel>Tasks</SectionLabel>
         {prog.total > 0 ? (
           <DataTable
@@ -399,6 +466,13 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
           <p className="text-sm text-muted-foreground">No events recorded yet.</p>
         )}
       </section>
+
+      <MissionTriggers
+        missionId={mission.id}
+        cadence={mission.cadence}
+        triggers={mission.automations || []}
+        onChanged={mutate}
+      />
     </div>
   );
 }

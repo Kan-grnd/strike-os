@@ -99,13 +99,15 @@ export const NAV_DOMAINS: NavigationDomain[] = [
     label: "Execution",
     icon: Target,
     children: [
+      /* Missions is a real surface again as of M4.2 — the directing input. The
+       * merged /work page still exists for workflows/automations until M4.3. */
+      { label: "Missions", href: "/missions", matches: ["/missions"] },
       {
         label: "Work",
         href: "/work",
-        /* The legacy list routes redirect to /work; matching them keeps a
-         * mission/workflow detail page (or an old bookmark) lighting up the
-         * same item instead of going dark while the panel stays put. */
-        matches: ["/work", "/missions", "/workflows"],
+        /* The legacy workflow list redirects to /work; matching it keeps a
+         * workflow detail page (or an old bookmark) lighting up the same item. */
+        matches: ["/work", "/workflows"],
       },
       { label: "Tasks", href: "/tasks", matches: ["/tasks"] },
     ],
@@ -175,6 +177,7 @@ const CHILD_ICONS: Record<string, IconComponent> = {
   "/colonies": Boxes,
   "/architect": Sparkles,
   "/capabilities": Target,
+  "/missions": Target,
   "/work": Briefcase,
   "/tasks": ListTodo,
   "/memory": Database,

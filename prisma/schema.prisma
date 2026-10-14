@@ -122,14 +122,18 @@ model Mission {
   priority    Int      @default(0)
   totalCost   Float    @default(0)
   duration    Int?
+  // Optional recurrence for a standing mission (e.g. {"every":"1d"}). Null =
+  // manual / one-shot. Triggers (linked automations) are the event sources.
+  cadence     String?
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   completedAt DateTime?
 
-  tasks      Task[]
-  operations Operation[]
-  memories   Memory[]
+  tasks       Task[]
+  operations  Operation[]
+  memories    Memory[]
+  automations Automation[]
 
   @@index([status])
   @@map("missions")
@@ -296,6 +300,11 @@ model Automation {
 
   runs AutomationRun[]
 
+  // A trigger for a mission (M4.2). Null = a standalone automation (legacy).
+  mission   Mission? @relation(fields: [missionId], references: [id], onDelete: SetNull)
+  missionId String?
+
+  @@index([missionId])
   @@map("automations")
 }
 

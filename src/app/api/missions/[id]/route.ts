@@ -19,6 +19,10 @@ export async function GET(req: Request, { params }: { params: Params }) {
         operations: {
           orderBy: { createdAt: "asc" },
         },
+        automations: {
+          orderBy: { createdAt: "asc" },
+          include: { runs: { orderBy: { startedAt: "desc" }, take: 5 } },
+        },
       },
     });
 
@@ -90,6 +94,9 @@ export async function PATCH(req: Request, { params }: { params: Params }) {
         ...(body.status ? { status: body.status } : {}),
         ...(body.goal ? { goal: body.goal } : {}),
         ...(body.plan ? { plan: JSON.stringify(body.plan) } : {}),
+        ...(body.cadence !== undefined
+          ? { cadence: body.cadence ? JSON.stringify(body.cadence) : null }
+          : {}),
         ...(statusChange?.completedAt ? { completedAt: statusChange.completedAt } : {}),
       },
     });

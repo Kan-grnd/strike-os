@@ -8,12 +8,11 @@ const nextConfig = {
   },
   async redirects() {
     return [
-      /* Missions, Workflows and the duplicate Automations surface all live
-       * under the merged /work page now, where the canonical type facet is
-       * `automations`. Automation detail keeps the /workflows route (a
-       * workflow is its step flow). 308 so a POST to any legacy list route
-       * keeps its method and payload. */
-      { source: "/missions", destination: "/work", statusCode: 308 },
+      /* Workflows and the duplicate Automations surface still live under the
+       * merged /work page for now; M4.3 retires them when the five-domain IA
+       * lands. Missions is a real page again as of M4.2 (the redirect had to go
+       * or the page could never serve — redirects run before routing. 308 so a
+       * POST to a legacy list route keeps its method and payload. */
       { source: "/workflows", destination: "/work", statusCode: 308 },
       { source: "/automations", destination: "/work?type=automations", statusCode: 308 },
       { source: "/automations/:path*", destination: "/workflows/:path*", statusCode: 308 },
