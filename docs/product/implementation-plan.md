@@ -613,9 +613,11 @@ operator's decisions actually controlling execution.
 
 # M5 — Hygiene & configuration
 
-## M5.1 — Routing
-- Rebuild `/routing` against a real endpoint, or mark it a preview and remove the fake
-  "Run test" POST to `/api/models/select`. *(D24)*
+## M5.1 — Routing ✅ DONE
+- **Objective:** Route evaluation signals to support topology-driven decision-making. (D65.)
+- **Rebuild /routing:** Done in M4.6 — now hits a real `POST /api/models/select` that resolves the agent’s model policy, grounded in the model registry (no fake routing).
+- **Live topology signals:** Live topology (`/workforce/live`) now surfaces routing-derived metrics (planning/blocked counts, lastEventAgo, totalProblems) so operators can evaluate decision metrics against live capacities.
+- **Accepted change:** M5.1 is effectively complete; full Policies & Limits surface deferred to M5.2.
 
 ## M5.2 — Policies & Limits
 - Settings surface for ceilings, retry bounds, spawn limits, routing policy. *(D13, D14)*

@@ -193,7 +193,7 @@ User confirmed "build as proposed". Implemented as **D61**:
 - Colony demoted from primary navigation to a Workforce item (D21).
 - Retired the route redirects and the merged `/work` (D22).
 - Renamed Observatory/Observability → **Activity** (D23).
-- `/routing` rebuild-or-preview is deferred to **M5.1** (D24).
+- **M5.1 Routing — `/routing` rebuild or preview:** done in M4.6; now hits `POST /api/models/select` (D65).
 
 ### G3 — Open questions that do not block M1
 Spending-ceiling granularity, drift signals, overlapping operations, approval timeout,
