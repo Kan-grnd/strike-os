@@ -292,10 +292,36 @@ a ghost-agent mission spawned 1 sub-agent and emitted 3 `delegation.started`
 The planned `/workforce/live` is a *relocation* (unconfirmed five-domain IA, G2) → deferred
 to M4.3. D49.
 
-**M2 complete.** Next block: **M3 — the intervention contract** (M3.1 approvals: a real
-blocking gate that pauses work and is resolvable). M2.3's spawn ceiling and M2.4's
-permission-prompt both land there. Same loop: implement → `tsc` → detached build → serve
-`:3010` → verify → commit (explicit paths, no push).
+**M2 complete.**
+
+**M3.1 status: ✅ DONE, verified** — commit **`6541559`**. Approvals are now a real gate.
+New `src/lib/approval-policy.ts` (the six intervention triggers, default pause scope per
+D29, deny meaning per E10) + `src/lib/approvals.ts` (`requestApproval` creates a PENDING
+gate and pauses the scope; `resolveApproval` is idempotent — the first decision wins, a
+raced second resolve returns the existing outcome with no repeat effect, never auto-expires
+to approved). `Approval` gained `trigger`/`scope`/`missionId`/`operationId`/`taskId`/
+`requestedBy`/`resolutionNote` + the `m3_approval_scope` migration. The task engine skips
+work in a gated operation/mission (derived from PENDING approvals) and `agentBlockedFromWork`
+now treats `waiting_for_approval` as blocking; owning agents move there when a gate fires.
+Two triggers are wired live (D50): **spawn-past-ceiling** (mission-engine — the run starts
+`PAUSED`; approving spawns the sub-agent and assigns the step) and **new-tool-permission**
+(tool-fabric — approving grants the tool). `POST /api/approvals/[id]` resolves. Deny is
+trigger-aware (D52): blocking gates cancel the scope (partial), capability gates let the
+work continue. **Verified 45 checks:** pure policy (10); all six triggers pause +
+idempotency + deny matrix (20); live wiring via HTTP + tool fabric (13); scheduler
+**holds** a gated QUEUED task then runs it on release (2). `tsc` clean; nav 19/19;
+selectors 138/138; spawn-policy 11/11; graph 64/0; build clean.
+
+**Next: M3.2 — Failure recovery** (bounded retry already exists → reassign → fallback model
+within policy → spawn replacement; if all fail, escalate with context; health degrades.
+Outside-policy fallback is a gate — call the M3.1 `requestApproval` primitive here). Same
+loop: implement → `tsc` → detached build → serve `:3010` → verify → commit (explicit paths,
+no push).
+
+> **M3.1 note for the UI:** the control center (`/`) already lists approvals (rough, via
+> `useApprovals`) and `/decisions` exists, but neither can resolve a gate yet — the
+> actionable "Needs you" queue is **M4.1**. Operators resolve via `POST /api/approvals/[id]`
+> until then.
 
 > **Pre-existing check failures (not ours):** `scripts/check-node-contrast.ts` and
 > `scripts/check-orb-palette.ts` both abort because a `clean` theme is referenced but

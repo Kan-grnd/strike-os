@@ -288,17 +288,38 @@ makes the scheduler actually start, so the loop is observable rather than frozen
 
 *[D14, D15, D16, D17, D18]*
 
-## M3.1 — Approvals: create, block, resolve
+## M3.1 — Approvals: create, block, resolve ✅ DONE
 - **Objective:** gates really pause work and are resolvable.
-- **Affected files:** `src/app/api/approvals/route.ts` (nothing blocks / no resolve),
-  `runtime-state.ts` (`waiting_for_approval`), the engine.
+- **Affected files:** `src/lib/approval-policy.ts` (new), `src/lib/approvals.ts` (new),
+  `prisma/schema.prisma` (Approval scope fields + `m3_approval_scope`), `events.ts`,
+  `task-engine.ts`, `mission-engine.ts`, `tool-fabric.ts`,
+  `src/app/api/approvals/[id]/route.ts` (new resolve endpoint), `src/app/api/approvals/route.ts`.
 - **Dependencies:** M2.3.
 - **Expected behaviour:** a gate creates a `PENDING` approval, sets `waiting_for_approval`
   and pauses the affected scope; resolve resumes or rolls back; resolution is idempotent.
-- **Acceptance criteria:** the six trigger types [D14] each create a gate; the affected
-  work is observably paused; a second resolve is a no-op; deny ends cleanly.
-- **Edge cases:** E6–E10.
-- **Testing:** integration — each trigger pauses; idempotent resolve; deny rollback.
+- **Design (D50–D52):**
+  - **Mechanism + reachable triggers now (D50):** the generic gate primitive supports all
+    six intervention triggers (permissions.md §4), but only the two live sources are wired:
+    **spawn-past-ceiling** (mission-engine) and **new-tool-permission** (tool-fabric). The
+    auto-wiring for fallback/escalation arrives in M3.2, spend/drift in M3.4 — each calls the
+    same primitive.
+  - **Pause scope (D51):** explicit per approval; execution gates default to `OPERATION`,
+    mission-wide signals (drift, escalation) to `MISSION`. A gated scope is un-schedulable
+    two ways: the task engine skips work in a gated operation/mission (derived from PENDING
+    approvals) and owning agents move to `waiting_for_approval`.
+  - **Deny (D52):** blocking triggers deny the *work* — the affected scope's in-flight tasks
+    are cancelled and the operation/mission is marked `CANCELLED` (partial), never a silent
+    failure. Capability triggers (tool, spawn) deny only the *capability*; the work continues
+    without it and the refusal is recorded.
+- **Acceptance criteria:** ✅ the six trigger types each create a gate (verified, 20 checks);
+  ✅ the affected work is observably paused (scheduler holds a gated QUEUED task, then runs it
+  on release); ✅ a second resolve is a no-op (atomic claim; `alreadyResolved:true`); ✅ deny
+  ends cleanly (blocking → CANCELLED; capability → work continues).
+- **Edge cases:** E6–E10 (E7 idempotent resolve, E8 all gates must resolve, E9 never
+  auto-expires, E10 deny records cleanly).
+- **Testing:** pure `scripts/check-approvals.ts` (10); integration — all six triggers pause +
+  idempotency + deny matrix (20); live wiring — mission-engine spawn gate resolved via HTTP,
+  tool-fabric permission gate (13); scheduler hold/release (2).
 
 ## M3.2 — Failure recovery
 - **Objective:** retry → Brain recovers → escalate, using the declared policies.
