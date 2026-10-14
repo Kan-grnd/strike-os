@@ -144,12 +144,15 @@ model Task {
   parentOperationId String?
   parentOperation   Operation? @relation(fields: [parentOperationId], references: [id])
   description       String
+  // QUEUED | ASSIGNED | RUNNING | WAITING | ESCALATED (non-terminal) | COMPLETED | FAILED | CANCELLED
   status            String     @default("QUEUED")
 
   input             String     @default("{}")
   output            String     @default("{}")
   trace             String     @default("[]")
   policy            String     @default("{}")
+  // Recovery bookkeeping (M3.2): { tried: stage[], lastError?: string }
+  recovery          String     @default("{}")
   simulated         Boolean    @default(false)
 
   ownerAgentId      String?

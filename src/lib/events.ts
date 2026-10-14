@@ -55,6 +55,8 @@ export type EventType =
   | "task.completed"
   | "task.failed"
   | "task.retried"
+  | "task.recovered"
+  | "task.escalated"
   | "task.cancelled"
   // Automation
   | "automation.created"

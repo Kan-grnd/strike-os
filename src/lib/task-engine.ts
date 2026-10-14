@@ -9,6 +9,7 @@ import { eventBus } from "./events";
 import { setAgentState } from "./runtime-state";
 import { settleMissionIfComplete } from "./completion";
 import { setBrainState, BRAIN_ID } from "./brain";
+import { recoverTask } from "./recovery";
 import { PrismaClient } from "@prisma/client";
 
 export interface TaskResult {
@@ -159,24 +160,12 @@ export class TaskEngine {
             await this.retryTask(task);
           }
         } else {
-          // Exhausted retries — emit event, leave FAILED
-          await eventBus.emit({
-            type: "task.failed",
-            source: "task-engine",
-            subject: "task",
-            subjectId: task.id,
-            taskId: task.id,
-            missionId: task.missionId,
-            agentId: task.ownerAgentId || undefined,
-            payload: {
-              description: task.description,
-              retryExhausted: true,
-              retriesUsed: task.retryCount,
-              maxRetries: task.maxRetries,
-            },
+          // Retries exhausted — run the recovery ladder (M3.2):
+          // reassign → fallback → replacement → escalate. A task that cannot be
+          // recovered is escalated to the operator, never left as a silent FAILED.
+          await recoverTask(this.db, task.id, "retries exhausted").catch((err) => {
+            console.error("[TaskEngine] recovery failed:", err);
           });
-          // Terminal (retries exhausted) — let the mission/operation settle.
-          await settleMissionIfComplete(this.db, task.missionId).catch(() => undefined);
         }
       }
     } catch (err) {

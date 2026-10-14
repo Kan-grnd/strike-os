@@ -21,6 +21,7 @@ import { PrismaClient, Approval } from "@prisma/client";
 import { eventBus } from "./events";
 import { setAgentState, spawnAgent } from "./runtime-state";
 import { resolveSpawnCeiling } from "./spawn-policy";
+import { DEFAULT_PRIMARY } from "./model-policy";
 import {
   ApprovalDecision,
   ApprovalScope,
@@ -295,9 +296,19 @@ async function onApprove(db: PrismaClient, approval: Approval): Promise<void> {
     case "TOOL_PERMISSION":
       await approveToolPermission(db, approval);
       break;
+    case "MODEL_FALLBACK":
+      // Operator authorised a fallback outside policy → switch to the default
+      // model and re-queue. The recovery stage is already recorded, so the task
+      // continues at the replacement stage if it fails again.
+      await requeueTaskForRecovery(db, approval, { model: DEFAULT_PRIMARY });
+      break;
+    case "ESCALATION":
+      // Operator took the escalated task on: start a fresh recovery cycle.
+      await requeueTaskForRecovery(db, approval, { resetRecovery: true });
+      break;
     default:
-      // Blocking gates (spend, drift, fallback, escalation) need no grant —
-      // approving simply lifts the pause and the work resumes.
+      // Blocking gates (spend, drift) need no grant — approving simply lifts the
+      // pause and the work resumes.
       break;
   }
 }
@@ -380,6 +391,32 @@ async function approveSpawnCeiling(db: PrismaClient, approval: Approval): Promis
   } catch (err) {
     console.error("[approvals] approved spawn failed:", err);
   }
+}
+
+/**
+ * Re-queue a task after a recovery gate is approved (M3.2). MODEL_FALLBACK may
+ * switch the model; ESCALATION starts a fresh recovery cycle.
+ */
+async function requeueTaskForRecovery(
+  db: PrismaClient,
+  approval: Approval,
+  opts: { model?: string; resetRecovery?: boolean } = {},
+): Promise<void> {
+  const meta = safeJson(approval.metadata);
+  const taskId = approval.taskId ?? (typeof meta.taskId === "string" ? meta.taskId : null);
+  if (!taskId) return;
+
+  const task = await db.task.findUnique({ where: { id: taskId } });
+  if (!task) return;
+
+  const data: Record<string, unknown> = { status: "QUEUED", retryCount: 0 };
+  if (opts.resetRecovery) data.recovery = "{}";
+  if (opts.model) {
+    const policy = safeJson(task.policy);
+    policy.primary = opts.model;
+    data.policy = JSON.stringify(policy);
+  }
+  await db.task.update({ where: { id: task.id }, data }).catch(() => undefined);
 }
 
 /** Approving a tool-permission gate grants the tool to the requesting agent. */

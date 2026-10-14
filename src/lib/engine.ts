@@ -11,6 +11,7 @@ import { MissionEngine } from "./mission-engine";
 import { ModelGateway } from "./model-gateway";
 import { RealTaskRunner } from "./task-runner-real";
 import { hasConfiguredProvider } from "./providers/config";
+import { requeueOrphanedTasks } from "./recovery";
 
 let _taskEngine: TaskEngine | null = null;
 let _missionEngine: MissionEngine | null = null;
@@ -62,6 +63,11 @@ export function getModelGateway(): ModelGateway {
 }
 
 export async function startEngine() {
+  // E3: a RUNNING task orphaned by a crash/restart is re-queued (bounded) on boot.
+  const requeued = await requeueOrphanedTasks(getDb()).catch(() => 0);
+  if (requeued > 0) {
+    console.log(`[Engine] Re-queued ${requeued} orphaned RUNNING task(s) after restart`);
+  }
   const engine = await getTaskEngine();
   engine.start();
   console.log("[Engine] Task engine started");

@@ -8,7 +8,7 @@
  * optional JSON policy string shaped `{ "primary": "<model>", "fallback": ["<model>", …] }`.
  */
 
-const DEFAULT_PRIMARY = "auto/best-coding";
+export const DEFAULT_PRIMARY = "auto/best-coding";
 
 export interface ParsedPolicy {
   primary?: string;

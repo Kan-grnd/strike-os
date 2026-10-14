@@ -84,5 +84,6 @@ export function scopeCanResume(remainingPending: number): boolean {
   return remainingPending <= 0;
 }
 
-/** Task statuses that count as "still in flight" for pause/deny purposes. */
-export const NON_TERMINAL_TASK_STATUSES = ["QUEUED", "ASSIGNED", "RUNNING", "WAITING"] as const;
+/** Task statuses that count as "still in flight" for pause/deny purposes.
+ *  `ESCALATED` is non-terminal (M3.2) — the task is waiting on the operator. */
+export const NON_TERMINAL_TASK_STATUSES = ["QUEUED", "ASSIGNED", "RUNNING", "WAITING", "ESCALATED"] as const;
