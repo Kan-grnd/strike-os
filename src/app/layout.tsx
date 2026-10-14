@@ -28,6 +28,17 @@ export const metadata: Metadata = {
   },
   description: "Strike OS — adaptive AI workforce operating system.",
   applicationName: "Strike OS",
+  metadataBase: new URL("https://strike-os-mu.vercel.app"),
+  alternates: {
+    canonical: "https://strike-os-mu.vercel.app",
+  },
+  openGraph: {
+    url: "https://strike-os-mu.vercel.app",
+    siteName: "Strike OS",
+    title: "Strike OS",
+    description: "Strike OS — adaptive AI workforce operating system.",
+    type: "website",
+  },
   robots: {
     index: false,
     follow: false,
