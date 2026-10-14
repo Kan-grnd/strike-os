@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Next 14 keeps the instrumentation hook behind this flag; without it
+  // src/instrumentation.ts never runs, so the task scheduler never starts.
+  experimental: {
+    instrumentationHook: true,
+  },
   async redirects() {
     return [
       /* Missions, Workflows and the duplicate Automations surface all live

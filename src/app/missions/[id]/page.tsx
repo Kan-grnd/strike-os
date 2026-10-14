@@ -60,7 +60,7 @@ const TASK_COLUMNS: DataTableColumn<any>[] = [
         >
           {t.description}
         </Link>
-        {taskSimulated(t.output) && <Badge className="bg-warning/10 text-warning">Simulated</Badge>}
+        {taskSimulated(t) && <Badge className="bg-warning/10 text-warning">Simulated</Badge>}
       </span>
     ),
   },

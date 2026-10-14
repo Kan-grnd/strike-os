@@ -84,13 +84,17 @@ export function missionProgress(m: { tasks?: Array<{ status: string }> } | null 
 }
 
 /**
- * True when a task's stored output was produced by a simulated (mock) runner.
- * Reads Task.output JSON, tolerating both a raw object and a JSON string.
+ * True when a task was produced by a simulated (mock) runner.
+ * Prefers the persisted `simulated` column; falls back to reading Task.output
+ * JSON tolerating both a raw object and a JSON string.
  */
-export function taskSimulated(output: unknown): boolean {
-  let value: unknown = output;
-  if (typeof output === "string") {
-    const trimmed = output.trim();
+export function taskSimulated(task: { simulated?: boolean; output?: unknown } | null | undefined): boolean {
+  if (!task) return false;
+  if (task.simulated === true) return true;
+
+  let value: unknown = task.output;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
     if (!trimmed) return false;
     try {
       value = JSON.parse(trimmed);

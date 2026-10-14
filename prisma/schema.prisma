@@ -117,6 +117,7 @@ model Mission {
   goal        String
   status      String   @default("PLANNING")
   plan        String   @default("{}")
+  policy      String   @default("{}")
   agentIds    String   @default("[]")
   priority    Int      @default(0)
   totalCost   Float    @default(0)
@@ -126,8 +127,9 @@ model Mission {
   updatedAt   DateTime @updatedAt
   completedAt DateTime?
 
-  tasks Task[]
-  memories Memory[]
+  tasks      Task[]
+  operations Operation[]
+  memories   Memory[]
 
   @@index([status])
   @@map("missions")
@@ -136,36 +138,62 @@ model Mission {
 // ─── Task ────────────────────────────────────────────────
 
 model Task {
-  id            String   @id @default(cuid())
-  missionId     String
-  mission       Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  description   String
-  status        String   @default("QUEUED")
+  id                String     @id @default(cuid())
+  missionId         String
+  mission           Mission    @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  parentOperationId String?
+  parentOperation   Operation? @relation(fields: [parentOperationId], references: [id])
+  description       String
+  status            String     @default("QUEUED")
 
-  input         String   @default("{}")
-  output        String   @default("{}")
-  trace         String   @default("[]")
+  input             String     @default("{}")
+  output            String     @default("{}")
+  trace             String     @default("[]")
+  policy            String     @default("{}")
+  simulated         Boolean    @default(false)
 
-  ownerAgentId  String?
-  dependencies  String   @default("[]")
+  ownerAgentId      String?
+  dependencies      String     @default("[]")
 
-  priority      Int      @default(0)
-  retryCount    Int      @default(0)
-  maxRetries    Int      @default(3)
-  timeout       Int      @default(60000)
-  cost          Float    @default(0)
+  priority          Int        @default(0)
+  retryCount        Int        @default(0)
+  maxRetries        Int        @default(3)
+  timeout           Int        @default(60000)
+  cost              Float      @default(0)
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  completedAt   DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  completedAt       DateTime?
 
   @@index([missionId])
+  @@index([parentOperationId])
   @@index([status])
   @@index([ownerAgentId])
   @@map("tasks")
 }
 
 // ─── Tool ────────────────────────────────────────────────
+
+model Operation {
+  id          String    @id @default(cuid())
+  missionId   String
+  mission     Mission   @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  status      String    @default("PLANNING") // PLANNING | RUNNING | COMPLETED | FAILED | CANCELLED
+  plan        String    @default("{}") // snapshot of the plan for this run
+  policy      String    @default("{}") // model policy for this run
+  priority    Int       @default(0)
+  cost        Float     @default(0)
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tasks Task[]
+
+  @@index([missionId])
+  @@index([status])
+  @@map("operations")
+}
 
 model Tool {
   id          String   @id @default(cuid())

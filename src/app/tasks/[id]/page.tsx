@@ -77,7 +77,7 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
 
   const input = safeJson<unknown>(task.input, {});
   const output = safeJson<unknown>(task.output, {});
-  const simulated = taskSimulated(task.output);
+  const simulated = taskSimulated(task);
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6">

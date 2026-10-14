@@ -6,6 +6,7 @@
 import { ModelGateway } from "./model-gateway";
 import { TaskRunner, TaskResult } from "./task-engine";
 import prisma from "@/lib/db";
+import { resolveModelPolicy } from "./model-policy";
 
 export class RealTaskRunner implements TaskRunner {
   private gateway: ModelGateway;
@@ -25,10 +26,16 @@ export class RealTaskRunner implements TaskRunner {
     // Build the prompt from task input
     const prompt = this.buildPrompt(task, agent);
 
-    // Determine model policy from the agent
-    const policy = agent ? this.parseModelPolicy(agent) : null;
-    const primaryModelId = policy?.primary || "auto/best-coding";
-    const fallbackChain = policy?.fallback || [];
+    // Resolve the model policy down the task → operation → mission → agent chain.
+    const [operation, mission] = await Promise.all([
+      task.parentOperationId
+        ? prisma.operation.findUnique({ where: { id: task.parentOperationId } })
+        : Promise.resolve(null),
+      prisma.mission.findUnique({ where: { id: task.missionId } }),
+    ]);
+    const policy = resolveModelPolicy({ task, operation, mission, agent });
+    const primaryModelId = policy.primary;
+    const fallbackChain = policy.fallback;
 
     // No silent degradation: if every provider fails the error propagates and
     // the task is marked FAILED. Recovery is M3.2 — never a fake success.
@@ -93,32 +100,5 @@ Execute this task and return a structured JSON response with your findings/resul
 - If uncertain, note assumptions in your response
 `.trim();
     return base + "\n" + instructions;
-  }
-
-  /**
-   * Model choice comes from Agent.modelPolicy (JSON) and Agent.fallbackModelIds
-   * (JSON array). memoryScope is never consulted for model routing.
-   */
-  private parseModelPolicy(agent: any): { primary: string; fallback: string[] } | null {
-    let policy: Record<string, unknown> | null = null;
-    try {
-      const parsed = JSON.parse(agent.modelPolicy || "{}");
-      policy = parsed && typeof parsed === "object" ? parsed : null;
-    } catch {
-      policy = null;
-    }
-
-    const primary = typeof policy?.primary === "string" ? (policy.primary as string) : undefined;
-
-    let fallback: string[] = [];
-    try {
-      const ids = JSON.parse(agent.fallbackModelIds || "[]");
-      if (Array.isArray(ids)) fallback = ids.map(String);
-    } catch {
-      fallback = [];
-    }
-
-    if (!primary && fallback.length === 0) return null;
-    return { primary: primary || "auto/best-coding", fallback };
   }
 }

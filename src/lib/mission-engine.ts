@@ -16,6 +16,7 @@ import { ModelGateway } from "./model-gateway";
 import { hasConfiguredProvider } from "./providers/config";
 import { PlanStep, MissionPlan, parseMissionPlan, normalizeSteps, simulatedPlan } from "./plan";
 import { setAgentState, pauseAgent, resumeAgent } from "./runtime-state";
+import { settleMissionIfComplete } from "./completion";
 
 export type { PlanStep } from "./plan";
 export { parseMissionPlan, simulatedPlan } from "./plan";
@@ -147,7 +148,61 @@ export class MissionEngine {
     };
   }
 
-  /** Create a mission and materialize its plan into tasks immediately. */
+  /** Parse the mission's agentIds JSON into a string[]. */
+  private agentIdsFromMission(mission: { agentIds?: string | null }): string[] {
+    try {
+      const ids = JSON.parse(mission.agentIds || "[]");
+      return Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string") : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Ensure the mission has a run (Operation) and its plan materialized into
+   * tasks. Idempotent: reuses the latest operation, and only creates tasks when
+   * none exist yet (materialize-at-start).
+   */
+  private async ensureOperationAndTasks(
+    db: PrismaClient,
+    mission: { id: string; plan: string; policy: string; agentIds?: string | null; priority: number },
+  ): Promise<{ operationId: string; createdTasks: number }> {
+    let operation = await db.operation.findFirst({
+      where: { missionId: mission.id },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!operation) {
+      operation = await db.operation.create({
+        data: {
+          missionId: mission.id,
+          status: "PLANNING",
+          plan: mission.plan,
+          policy: mission.policy,
+          priority: mission.priority,
+        },
+      });
+    }
+
+    let createdTasks = 0;
+    const existing = await db.task.count({ where: { missionId: mission.id } });
+    if (existing === 0) {
+      const plan: MissionPlan = parseMissionPlan(mission.plan);
+      if (plan.steps.length > 0) {
+        createdTasks = await this.materializePlan(
+          db,
+          mission.id,
+          operation.id,
+          plan.steps,
+          this.agentIdsFromMission(mission),
+          mission.priority,
+        );
+      }
+    }
+
+    return { operationId: operation.id, createdTasks };
+  }
+
+  /** Create a mission (READY) and materialize its plan into an operation + tasks. */
   async createMission(
     db: PrismaClient,
     goal: string,
@@ -165,7 +220,7 @@ export class MissionEngine {
       },
     });
 
-    const created = await this.materializePlan(db, mission.id, planSteps, agentIds, priority);
+    const { createdTasks: created } = await this.ensureOperationAndTasks(db, mission);
 
     await eventBus.emit({
       type: "mission.created",
@@ -180,13 +235,15 @@ export class MissionEngine {
   }
 
   /**
-   * Create tasks for a plan. Returns the number of tasks created.
+   * Create tasks for a plan, linked to the operation (run) they belong to.
+   * Returns the number of tasks created.
    * Owners are resolved by matching step.agentType to an available agent;
    * steps with no matching agent run unowned (the runner does not require one).
    */
   private async materializePlan(
     db: PrismaClient,
     missionId: string,
+    operationId: string,
     steps: PlanStep[],
     agentIds: string[] = [],
     priority = 0,
@@ -212,6 +269,7 @@ export class MissionEngine {
       const task = await db.task.create({
         data: {
           missionId,
+          parentOperationId: operationId,
           description: step.description,
           status: "QUEUED",
           input: JSON.stringify({ step: step.step, estimatedDuration: step.estimatedDuration }),
@@ -248,23 +306,14 @@ export class MissionEngine {
     if (!mission) throw new Error("Mission not found");
     if (!["READY", "PLANNING"].includes(mission.status)) throw new Error(`Mission is ${mission.status}, cannot start`);
 
-    // Materialize the stored plan into tasks the first time the mission runs.
-    let createdTasks = 0;
-    const existing = await db.task.count({ where: { missionId } });
-    if (existing === 0) {
-      const plan: MissionPlan = parseMissionPlan(mission.plan);
-      if (plan.steps.length > 0) {
-        const agentIds = (() => {
-          try {
-            const ids = JSON.parse(mission.agentIds || "[]");
-            return Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string") : [];
-          } catch {
-            return [];
-          }
-        })();
-        createdTasks = await this.materializePlan(db, missionId, plan.steps, agentIds, mission.priority);
-      }
-    }
+    // Materialize the stored plan into tasks the first time the mission runs,
+    // and open its run (Operation).
+    const { operationId, createdTasks } = await this.ensureOperationAndTasks(db, mission);
+
+    await db.operation.update({
+      where: { id: operationId },
+      data: { status: "RUNNING", startedAt: new Date() },
+    });
 
     await db.mission.update({
       where: { id: missionId },
@@ -277,7 +326,7 @@ export class MissionEngine {
       subject: "mission",
       subjectId: mission.id,
       missionId: mission.id,
-      payload: { goal: mission.goal, taskCount: createdTasks },
+      payload: { goal: mission.goal, taskCount: createdTasks, operationId },
     });
   }
 
@@ -368,6 +417,11 @@ export class MissionEngine {
       data: { status: "CANCELLED", completedAt: new Date() },
     });
 
+    await db.operation.updateMany({
+      where: { missionId, status: { in: ["PLANNING", "RUNNING"] } },
+      data: { status: "CANCELLED", completedAt: new Date() },
+    });
+
     for (const t of cancelledTasks) {
       if (t.ownerAgentId) {
         await setAgentState(t.ownerAgentId, "cancelled", {
@@ -390,59 +444,6 @@ export class MissionEngine {
   }
 
   async checkCompletion(db: PrismaClient, missionId: string) {
-    const mission = await db.mission.findUnique({ where: { id: missionId } });
-    if (!mission || mission.status !== "RUNNING") return;
-
-    const tasks = await db.task.findMany({ where: { missionId } });
-    if (tasks.length === 0) return;
-    const allDone = tasks.every((t) => ["COMPLETED", "FAILED", "CANCELLED"].includes(t.status));
-    const anyFailed = tasks.some((t) => t.status === "FAILED");
-    const allCancelled = tasks.every((t) => t.status === "CANCELLED");
-
-    if (allDone) {
-      const status = anyFailed ? "FAILED" : allCancelled ? "CANCELLED" : "COMPLETED";
-      const totalCost = tasks.reduce((sum, t) => sum + t.cost, 0);
-
-      await db.mission.update({
-        where: { id: missionId },
-        data: {
-          status,
-          completedAt: new Date(),
-          totalCost,
-        },
-      });
-
-      // Reflect completion in agent lifecycle (only for the executors)
-      const executors = await db.task.findMany({
-        where: { missionId, ownerAgentId: { not: null } },
-        select: { ownerAgentId: true },
-        distinct: ["ownerAgentId"],
-      });
-      for (const t of executors) {
-        if (!t.ownerAgentId) continue;
-        if (status === "COMPLETED") {
-          await setAgentState(t.ownerAgentId, "completed", {
-            reason: "mission completed",
-            missionId,
-            source: "mission-engine",
-          }).catch(() => undefined);
-        } else {
-          await setAgentState(t.ownerAgentId, "failed", {
-            reason: "mission ended with failures",
-            missionId,
-            source: "mission-engine",
-          }).catch(() => undefined);
-        }
-      }
-
-      await eventBus.emit({
-        type: status === "COMPLETED" ? "mission.completed" : "mission.failed",
-        source: "mission-engine",
-        subject: "mission",
-        subjectId: mission.id,
-        missionId: mission.id,
-        payload: { goal: mission.goal, totalCost, taskCount: tasks.length },
-      });
-    }
+    await settleMissionIfComplete(db, missionId);
   }
 }

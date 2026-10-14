@@ -7,6 +7,7 @@
 
 import { eventBus } from "./events";
 import { setAgentState } from "./runtime-state";
+import { settleMissionIfComplete } from "./completion";
 import { PrismaClient } from "@prisma/client";
 
 export interface TaskResult {
@@ -154,6 +155,8 @@ export class TaskEngine {
               maxRetries: task.maxRetries,
             },
           });
+          // Terminal (retries exhausted) — let the mission/operation settle.
+          await settleMissionIfComplete(this.db, task.missionId).catch(() => undefined);
         }
       }
     } catch (err) {
@@ -231,11 +234,17 @@ export class TaskEngine {
     try {
       const result = await this.runner.execute(task.id);
 
+      const simulated =
+        !!result.output &&
+        typeof result.output === "object" &&
+        (result.output as Record<string, unknown>).simulated === true;
+
       await this.db.task.update({
         where: { id: task.id },
         data: {
           status: "COMPLETED",
           output: JSON.stringify(result.output || {}),
+          simulated,
           completedAt: new Date(),
           cost: {
             increment: result.cost,
@@ -288,6 +297,9 @@ export class TaskEngine {
           }, 400);
         }
       }
+
+      // Roll the verdict up to the mission/operation once its last task settles.
+      await settleMissionIfComplete(this.db, task.missionId).catch(() => undefined);
     } catch (err) {
       await this.db.task.update({
         where: { id: task.id },
@@ -313,6 +325,8 @@ export class TaskEngine {
           source: "task-engine",
         }).catch(() => undefined);
       }
+
+      await settleMissionIfComplete(this.db, task.missionId).catch(() => undefined);
     }
   }
 
@@ -339,6 +353,8 @@ export class TaskEngine {
         source: "task-engine",
       }).catch(() => undefined);
     }
+
+    await settleMissionIfComplete(this.db, task.missionId).catch(() => undefined);
   }
 
   private async retryTask(task: any) {
