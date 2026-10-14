@@ -59,7 +59,9 @@ high-level product is not. Do not assume a screen that renders is a screen that 
 - **The topology renderer**, the chat path, and the observability pages read real data.
 
 ### Scaffolding (declared and consumed, but never emitted or never called)
-- `brain.state.changed` — declared and consumed, **never emitted** (`events.ts:92`).
+- ~~`brain.state.changed` — declared and consumed, **never emitted** (`events.ts:92`).~~
+  **Emitted since M2.1 (`a82073b`)** — `setBrainState` (`src/lib/brain.ts`) persists a
+  `BrainState` singleton and emits the event from planning/launch/task/retry/settlement.
 - `spawnAgent()` (`runtime-state.ts:411`) — **never called** during execution; the
   `delegating` state is never set; `delegation.*` / `agent.spawned` never emitted.
 - `TriggerEngine` / `ActionEngine` — singletons with **zero callers**
@@ -238,8 +240,21 @@ actually starts (D44). **Verified flow:** create → simulated plan → approve 
 `mission.created → mission.started → mission.completed`. Nothing has yet run against a **real**
 model provider — with no provider configured the whole loop runs in honest simulation.
 
-**Next: start M2** (the workforce becomes real — Brain entity, `spawnAgent()` delegation,
-scoped permissions + spawn ceiling, Specialists page, live work flow). Same loop: implement →
-`tsc` → detached build → serve `:3010` → verify → commit (explicit paths, no push).
+**M2.1 status: ✅ DONE — verified e2e** (`a82073b`). The Brain is now a persisted,
+observable entity: a `BrainState` singleton (migration `20261014090431_m2_brain_state`)
+plus real `brain.state.changed` emissions from planning/launch/task/retry/settlement,
+surfaced at `/workforce/brain` (`GET /api/brain`). **Verified flow:** planning → idle
+(Planned 3 steps, simulated) → delegating (3 tasks) → supervising ×3 → idle
+(Mission completed). `computeBrainRuntime` (health) is unchanged; activity is the new
+beside-it signal (D45).
+
+**Next: M2.2** (delegation is real — `spawnAgent()` called during execution, `delegating`
+set, `delegation.*` / `agent.spawned` emitted). Same loop: implement → `tsc` → detached
+build → serve `:3010` → verify → commit (explicit paths, no push).
+
+> **Pre-existing check failures (not ours):** `scripts/check-node-contrast.ts` and
+> `scripts/check-orb-palette.ts` both abort because a `clean` theme is referenced but
+> missing from the theme registry / `globals.css`. Unrelated to M2.1 (no theme files
+> touched). The `npm run build` script includes these, so use `npx next build` directly.
 
 **M1 exit criteria:** ✅ met (see above).

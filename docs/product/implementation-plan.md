@@ -165,15 +165,23 @@ makes the scheduler actually start, so the loop is observable rather than frozen
 
 *[D4, D5, D6, D10, D17]*
 
-## M2.1 — The Brain is a real, observable entity
+## M2.1 — The Brain is a real, observable entity ✅ DONE
 - **Objective:** a Brain with state that reports what it is doing.
-- **Affected files:** new `Brain` persistence, `src/lib/events.ts` (:92
-  `brain.state.changed` never emitted), new `src/app/workforce/brain`.
+- **Affected files:** `prisma/schema.prisma` (`BrainState` singleton, migration
+  `20261014090431_m2_brain_state`), new `src/lib/brain.ts` (`setBrainState`/
+  `getBrainState`), emission wiring in `src/lib/mission-engine.ts` (`planMission`,
+  `startMission`), `src/lib/task-engine.ts` (`runTask`/`failTask`/`retryTask`),
+  `src/lib/completion.ts` (`settleMissionIfComplete`), new `src/app/api/brain`,
+  new `src/app/workforce/brain`, `src/lib/navigation.ts`.
 - **Dependencies:** M1.
 - **Expected behaviour:** the Brain has states (idle/planning/delegating/supervising/
-  recovering) emitted as real events; the page shows current state + recent decisions.
+  recovering) persisted in a singleton row and emitted as real
+  `brain.state.changed` events; the page shows current state + recent decisions.
+- **Design note:** `computeBrainRuntime` (health aggregate) is untouched; the new
+  persisted state is the complementary *activity* signal, shown beside it.
 - **Acceptance criteria:** a planning operation emits `brain.state.changed` ≥2 times; the
-  page reflects it live.
+  page reflects it live. ✅ Verified e2e: planning → idle (Planned 3 steps) →
+  delegating (3 tasks) → supervising ×3 → idle (Mission completed).
 - **Edge cases:** E5.
 - **Testing:** integration — event emission; e2e — page updates.
 

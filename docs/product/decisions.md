@@ -79,6 +79,7 @@ These are **not** endorsed — they were adopted to keep moving. Veto freely.
 | D42 | Abandoning a plan keeps the mission row as `CANCELLED` (no hard delete, no orphan) — no tasks are ever created | CONFIRMED |
 | D43 | M1.3 is *approve-only*: review + approve + launch ship now; hand-editing the plan before approval is deferred | CONFIRMED |
 | D44 | `experimental.instrumentationHook` is enabled so `src/instrumentation.ts` runs on boot and starts the task scheduler; without it the whole loop silently never executes (tasks materialize but stay `QUEUED`) | CONFIRMED |
+| D45 | M2.1 keeps `computeBrainRuntime` as the *health* aggregate and adds a separate persisted *activity* state (singleton `BrainState`, states idle/planning/delegating/supervising/recovering) emitted as `brain.state.changed` and shown at `/workforce/brain` — health and activity stay distinct signals | CONFIRMED |
 
 ## G. Decision gates
 
