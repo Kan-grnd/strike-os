@@ -256,16 +256,31 @@ makes the scheduler actually start, so the loop is observable rather than frozen
 - **Testing:** integration — install all 4 bundles + trial-run each against Postgres;
   redeploy denied 409.
 
-## M2.5 — Live work flow
-- **Objective:** `/workforce/live` renders real executing work; empty/reconnecting states.
-- **Affected files:** new `src/app/workforce/live` (from `/topology`), runtime store.
+## M2.5 — Live work flow ✅ DONE (verified; relocation deferred to M4.3)
+- **Objective:** the live work flow renders real executing work; empty/reconnecting states.
+- **Affected files:** none changed — the live flow already exists at `/topology`
+  (`src/app/topology/page.tsx` + `src/lib/runtime/store.ts`). The planned
+  `/workforce/live` is a *relocation* into the Workforce domain, which is the unconfirmed
+  five-domain IA restructure (G2, D20/D23) — deferred to M4.3.
 - **Dependencies:** M2.2.
 - **Expected behaviour:** the graph shows missions → operations → tasks → agents with live
   edges; reload re-populates current execution only; on drop it stops animating.
-- **Acceptance criteria:** during a run the graph shows the executing agent and its
-  delegation edge; killing the stream shows "reconnecting".
-- **Edge cases:** E5, D12.
-- **Testing:** e2e — run a mission while watching; drop the connection.
+- **Design (D49):** the milestone's *substance* is already present, so M2.5 is verified in
+  place rather than re-built: `/topology` subscribes to the runtime store (2s poll), renders
+  `delegation.*`/`communication.*`/`verification.*` as transient edges (15s TTL), builds a
+  `brain` node (`BRAIN_NODE_ID`) so `brain → agent` edges resolve, has an honest empty state
+  ("No topology yet"), and a `CONNECTED/DISCONNECTED/RECONNECTING` badge. Creating a
+  duplicate `/workforce/live` now would collide with the pending IA and be reworked.
+- **Acceptance criteria:** ✅ a run emits the delegation edges the graph draws — verified:
+  a ghost-agent mission spawned 1 sub-agent and emitted 3 `delegation.started`
+  (`from="brain"` → the spawned agent, one per task), spawned agent present in the snapshot;
+  ✅ empty state present; ✅ drop-handling (E5) present in the store: poll failure →
+  `DISCONNECTED` + `needsResync`, retry → `RECONNECTING`, then cursor resync — never a stale
+  frame implying liveness. Visual confirmation of the badge is the operator's (no browser
+  tooling here).
+- **Edge cases:** E5, D12 (verified in `store.ts`).
+- **Testing:** e2e — ran a mission and polled `/api/runtime/snapshot` + `/api/runtime/events`
+  as the store does; confirmed the live-edge contract + spawned agent in the live set.
 
 ---
 

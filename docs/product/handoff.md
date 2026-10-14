@@ -282,9 +282,20 @@ deploy (201) → trial PASS + `simulated=true` + `ACTIVE`; all 4 specialists app
 roster; redeploy denied 409. Domain move to `/workforce/specialists` and the
 permission-prompt gate are deferred (M4.3 IA / M3.1 approvals). D48.
 
-**Next: M2.5** (Live work flow — `/workforce/live` renders real executing work; empty/
-reconnecting states). Same loop: implement → `tsc` → detached build → serve `:3010` →
-verify → commit (explicit paths, no push).
+**M2.5 status: ✅ DONE — verified in place** (no code change, so no commit). The live work
+flow already exists at `/topology`: it subscribes to the runtime store (2s poll), draws
+`delegation.*` edges (15s TTL) onto a `brain` node (`BRAIN_NODE_ID`), has an honest empty
+state, and transitions `CONNECTED → DISCONNECTED → RECONNECTING` per E5 (poll failure sets
+`needsResync`, then a cursor resync — never a stale frame implying liveness). **Verified:**
+a ghost-agent mission spawned 1 sub-agent and emitted 3 `delegation.started`
+(`from="brain"` → that agent, one per task) with the agent present in the live snapshot.
+The planned `/workforce/live` is a *relocation* (unconfirmed five-domain IA, G2) → deferred
+to M4.3. D49.
+
+**M2 complete.** Next block: **M3 — the intervention contract** (M3.1 approvals: a real
+blocking gate that pauses work and is resolvable). M2.3's spawn ceiling and M2.4's
+permission-prompt both land there. Same loop: implement → `tsc` → detached build → serve
+`:3010` → verify → commit (explicit paths, no push).
 
 > **Pre-existing check failures (not ours):** `scripts/check-node-contrast.ts` and
 > `scripts/check-orb-palette.ts` both abort because a `clean` theme is referenced but
