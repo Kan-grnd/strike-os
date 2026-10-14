@@ -404,19 +404,54 @@ makes the scheduler actually start, so the loop is observable rather than frozen
   *health* aggregate (D45); this is the task/operation/mission rollup the attention surface
   (M4.1) consumes.
 
-## M3.4 — Cost & drift gates
+## M3.4 — Cost & drift gates ✅ DONE
 - **Objective:** spending ceilings and drift signals become real gates.
-- **Affected files:** mission policy, cost accounting (`model-gateway.ts:65` hardcoded
-  tables), drift detector.
+- **Affected files:** `src/lib/spend-policy.ts` (new, pure), `src/lib/drift-policy.ts` (new,
+  pure), `src/lib/gates.ts` (new — the wiring), `scripts/check-spend-policy.ts`,
+  `scripts/check-drift-policy.ts`, `src/lib/task-engine.ts` (tick), `src/lib/events.ts`
+  (`spend.warning`/`spend.gated`/`drift.detected`).
 - **Dependencies:** M3.1.
 - **Expected behaviour:** crossing a ceiling pauses the operation and asks; drift signals
   route to the attention queue.
-- **Acceptance criteria:** a mission with a low ceiling gates mid-run; a mission off
-  cadence appears in "needs you".
-- **Edge cases:** E15, E16.
-- **Testing:** integration — ceiling breach; drift injection.
-- **Note:** thresholds are **open questions** (Q1, Q2). Make them configurable; do not
-  invent values.
+- **Design (D57–D58):**
+  - **Spend ceiling (D57, E15):** the ceiling is read from `Mission.policy` — no invented
+    default. Shape `{ "spend": { "operationCap", "missionCap", "warnRatio" } }`; a bare
+    `"spendCeiling"` aliases `operationCap`. `spendDecision` gates when spend has reached a
+    cap or when spend + the next step's plan estimate would exceed it (the tighter
+    dimension — operation before mission — wins); it only **warns** when a `warnRatio` is
+    declared and the ratio is met, so "approaching" is an opt-in soft signal. `checkSpendGate`
+    runs in the task-engine tick before a task executes; a gate raises an **operation-scoped**
+    `SPEND_CEILING` approval and pauses the run. Idempotent (no second gate for a scope that
+    already holds one).
+  - **Drift (D58, E16/Q2):** three configurable signals, each **off unless the policy switches
+    it on** (no invented thresholds): `stalled` (a `RUNNING` run quiet past `stallMs`),
+    `rising_cost` (spend accrued with no completion past `risingCostWindowMs`), `missed_cadence`
+    (no run within `cadenceMs × (1 + cadenceGrace)`). `sweepDrift` runs once per tick over
+    `RUNNING` missions; a drifting mission raises a **mission-scoped** `DRIFT` approval and is
+    paused into the attention queue. Idempotent (skips a mission already holding a PENDING
+    DRIFT gate; pausing removes it from the next sweep).
+  - **Both reuse the M3.1 primitive:** pause/resume/deny are already handled by
+    `requestApproval`/`resolveApproval` (`onApprove`'s `default` lifts a spend/drift gate;
+    deny cancels the scope — both are blocking triggers per D52). No new gate machinery.
+- **Acceptance criteria:** ✅ a mission with a low ceiling gates mid-run (operation paused,
+  `SPEND_CEILING` approval); ✅ a mission off cadence appears in "needs you" (a `DRIFT`
+  PENDING approval on `/api/approvals`); ✅ both pause the affected scope; ✅ a warning does not
+  gate; ✅ denying a spend gate cancels the gated work.
+- **Edge cases:** E15 (ceiling crossed mid-operation → pause + ask), E16 (drift → attention
+  queue without a hard failure), E10/D52 (deny semantics reused), E6 (an unrelated mission is
+  untouched — gates are scoped).
+- **Testing:** pure `check-spend-policy` (15) + `check-drift-policy` (16); **live e2e** (14) —
+  gate + pause + idempotency + warn-does-not-gate + approvals feed + API resolve/deny.
+- **Note:** the plan cited "cost accounting (`model-gateway.ts:65` hardcoded tables)" — this is
+  a **misattribution**: `model-gateway.ts:65` is provider routing, and cost is provider-reported
+  via each adapter's `estimateCost` pricing table (anthropic/openai/omniroute). No cost table
+  needed changing; cost already rolls up task → operation → mission (`completion.ts`) and is
+  billable. Thresholds are **open questions** (Q1 spending granularity, Q2 drift signals) — both
+  are configurable and unset by default here, per the plan note not to invent values.
+- **Release note:** the M3.3 `missionHealth` mapping treats a gated (PAUSED) run as `BLOCKED`
+  and a merely-paused mission as `DEGRADED`, so a spend-gated mission reads `BLOCKED` and a
+  drift-gated mission reads `DEGRADED` — exactly the state-model §7 rows ("any operation
+  blocked" → `BLOCKED`; "rising cost / drift" → `DEGRADED`).
 
 **M3 exit criteria:** an autonomous run can proceed, gate, recover and escalate, with the
 operator's decisions actually controlling execution.

@@ -226,8 +226,8 @@ The full, corrected task list is in **[implementation-plan.md](./implementation-
 
 ```
 M1  Close the intent → execution loop     ← START HERE [CONFIRMED, D19]
-M2  The workforce becomes real            (Brain, delegation, Specialists)
-M3  The intervention contract             (approvals, recovery, health, ceilings)
+M2  The workforce becomes real            (Brain, delegation, Specialists)  ✅
+M3  The intervention contract             (approvals, recovery, health, ceilings)  ✅
 M4  Attention-first surfaces & honesty    (IA, Control Center, Activity)
 M5  Hygiene & configuration               (routing, policies, dead controls)
 ```
@@ -364,10 +364,33 @@ build clean, artifacts fresh.
 **Next: M3.4 — Cost & drift gates** (spending ceilings + drift → real gates; thresholds are
 open questions Q1/Q2 — make them configurable, do not invent values). Same loop.
 
+**M3.4 status: ✅ DONE, verified** — commit **`373d7b3`**. The last two of the six intervention
+triggers are now real, through the same M3.1 primitive (no new machinery). Two new pure modules:
+`src/lib/spend-policy.ts` (ceiling from `Mission.policy.spend`; `spendDecision` gates on
+spent ≥ cap or spent + next-step plan estimate > cap, tighter dimension wins; a declared
+`warnRatio` warns without gating) and `src/lib/drift-policy.ts` (three opt-in signals — stalled /
+rising_cost / missed_cadence — each off unless the policy enables it). `src/lib/gates.ts` wires
+them: `checkSpendGate` runs in the task-engine tick *before* a task executes → operation-scoped
+`SPEND_CEILING` gate + pause; `sweepDrift` runs at tick end over `RUNNING` missions →
+mission-scoped `DRIFT` gate + pause into the attention queue. Both idempotent; both opt-in with
+no invented thresholds (Q1/Q2 stay open). **Verified:** pure `check-spend-policy` 15/15 +
+`check-drift-policy` 16/16; **live e2e** (14) — gate + pause + idempotency + warn-does-not-gate
++ appears on `/api/approvals` + deny cancels scope. Regressions all green (health 24, recovery
+15, approvals 10, spawn 11, nav 19, selectors 138); `tsc` clean; build clean, artifacts fresh.
+**M3 is now complete — all six triggers live.** D57, D58.
+
+> **M3.4 correction:** the plan's "cost accounting (`model-gateway.ts:65` hardcoded tables)" is a
+> misattribution — `:65` is provider routing; cost is provider-reported via each adapter's
+> `estimateCost`, and already rolls up task → operation → mission. No cost table needed changing.
+
+> **M3.4 health tie-in:** a spend-gated mission reads `BLOCKED` (an operation is blocked) and a
+> drift-gated mission reads `DEGRADED` (paused, no failing run) — matching state-model §7. No
+> change to `health.ts`/D56 was needed.
+
 > **M3.1 note for the UI:** the control center (`/`) already lists approvals (rough, via
 > `useApprovals`) and `/decisions` exists, but neither can resolve a gate yet — the
 > actionable "Needs you" queue is **M4.1**. Operators resolve via `POST /api/approvals/[id]`
-> until then.
+> until then. This now includes `SPEND_CEILING` and `DRIFT` gates.
 
 > **Pre-existing check failures (not ours):** `scripts/check-node-contrast.ts` and
 > `scripts/check-orb-palette.ts` both abort because a `clean` theme is referenced but
