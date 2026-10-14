@@ -29,7 +29,7 @@ is the first milestone.** [CONFIRMED]
   **stops and asks for approval.** [CONFIRMED]
 - **Loading:** planning is a real LLM call — show a planning state on the mission, with the
   Brain visibly `planning` in the workforce view.
-- **Success:** operator approves → mission goes `ACTIVE` → the Brain creates the first
+- **Success:** operator approves → mission goes `RUNNING` → the Brain creates the first
   Operation and its Tasks → the scheduler picks them up → live flow lights up in
   Workforce → Live.
 - **Failure:** planning fails (provider error) → **fail loudly**, offer retry; never fall
@@ -166,7 +166,7 @@ is the first milestone.** [CONFIRMED]
 - **Entry point:** mission appears flagged `SYSTEM` in the attention queue.
 - **Action:** the operator reads why the Brain created it, then approves, edits or discards.
 - **System response:** it is **not scheduled until reviewed.** [CONFIRMED]
-- **Success:** approved → `ACTIVE`, or edited → `DRAFT` → re-plan.
+- **Success:** approved → `RUNNING`, or edited → `PLANNING` → re-plan.
 - **Empty/failure/cancel/undo:** standard; discard removes it and logs the reason.
 - **Persistence & permissions:** operator-owned once reviewed.
 - **Next action:** watch it, or back to the queue.

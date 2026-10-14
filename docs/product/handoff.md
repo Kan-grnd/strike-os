@@ -123,10 +123,10 @@ are the accurate versions.**
    (`task-runner-real.ts:104-112`) **and** `ModelGateway.parsePolicy`
    (`model-gateway.ts:198-204`) both read `agent.memoryScope`. The real `modelPolicy` and
    `fallbackModelIds` columns exist and are unused (`schema.prisma:54-55`). (M1.5)
-5. **Status vocabulary conflict.** The code uses
+5. **Status vocabulary — RESOLVED (G1).** Keep the code vocabulary
    `PLANNING / READY / RUNNING / PAUSED / COMPLETED / FAILED / CANCELLED`
-   (`schema.prisma:118`, `mission-engine.ts:156,217`). The product spec proposed
-   `DRAFT / ACTIVE / PAUSED / COMPLETED / ARCHIVED`. **See the decision gate below.**
+   (`schema.prisma:118`, `mission-engine.ts`). The spec's earlier `DRAFT / ACTIVE` proposal
+   is dropped; the docs were patched to match. No engine rename.
 
 ---
 
@@ -162,16 +162,10 @@ flag anything you could not verify at runtime.
 
 ## 5. Decision gates — resolve before the task that needs them
 
-### G1 — Mission status vocabulary (blocks M1.3)
-The code and the spec disagree. Options:
-- **A — Adopt the code's vocabulary** (`READY` / `RUNNING`). Least churn.
-- **B — Adopt the spec's vocabulary** (`DRAFT` / `ACTIVE`) and rename in the engine.
-  Reads correctly for standing intent; touches `mission-engine.ts` in four places plus the
-  schema default.
-- **C — Keep both and map at the boundary.** Worst of both.
-
-**Recommended: B.** "An ACTIVE mission" is the correct mental model for standing work, and
-the rename is contained to one file. **Proceed with B unless the operator says otherwise.**
+### G1 — Mission status vocabulary ✅ RESOLVED
+**Kept the code's vocabulary** (`PLANNING` / `READY` / `RUNNING` / `PAUSED` / `COMPLETED` /
+`FAILED` / `CANCELLED`) — zero churn, UI + engine + event bus agree. The `DRAFT` / `ACTIVE`
+rename is dropped and the spec docs were patched to match. **M1.3 is unblocked.**
 
 ### G2 — The `RECOMMENDED` IA items (blocks M4.3)
 These are proposals, not confirmed decisions. Build them unless vetoed:
@@ -224,10 +218,11 @@ Each milestone is independently shippable. Within a milestone, tasks are ordered
 
 ## 8. Where to start
 
-**M1.1 — the real planner.** It is the head of the chain: nothing downstream can be
-verified until a mission produces a genuine plan. Then M1.2 (wire the route to the engine
-and add the `Operation` model), M1.3 (the plan-review gate — resolve G1 first), M1.4
-(honest simulation), M1.5 (model policy).
+**M1 status:** M1.1 ✅ done, M1.4 ✅ done, M1.5 ◑ partial — all landed in `76e96e2` and
+`dc7d4c3`. M1.2 is **materialize-at-start** ◑, with the `Operation` model + `Task.simulated`
+column **deferred** (D40 — Postgres down). **Next: M1.3 (the plan-review gate), now
+unblocked** (G1 resolved) — but first settle the two open M1.3 gaps (abandon-leaves-no-rows,
+pre-approval plan editing). Re-read D40 before touching schema.
 
 **M1 exit criteria:** intent → approved plan → running tasks → visible REAL/SIMULATED,
 verified on a served build.

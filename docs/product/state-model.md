@@ -12,14 +12,16 @@ from the existing code are cited as facts; anything I chose freely is marked [AS
 
 | State | Meaning | Entered by |
 |---|---|---|
-| `DRAFT` | Created but not launched. Not scheduling work. | Operator creates a mission, or Brain authors one (flagged PENDING REVIEW) |
-| `ACTIVE` | Standing intent is live. The Brain schedules operations on cadence/trigger. | Operator approves launch (or reviews a system-authored mission) |
-| `PAUSED` | No new operations start. In-flight operations may finish or be halted per the pause scope. | Operator, or an automatic pause on a gated approval |
+| `PLANNING` | Created; a plan is being drafted. Not scheduling work. | Operator creates a mission, or Brain authors one (flagged PENDING REVIEW) |
+| `READY` | Plan approved and ready to launch. Still not scheduling. | Plan reviewed/approved |
+| `RUNNING` | Standing intent is live; the engine schedules tasks. | Operator launches (`startMission`) |
+| `PAUSED` | No new tasks start. In-flight tasks may finish or be halted per the pause scope. | Operator, or an automatic pause on a gated approval |
 | `COMPLETED` | The mission's objective is met and it stops being scheduled. | Brain marks it complete (operator-confirmed if consequential), or operator |
-| `ARCHIVED` | Retained for history, out of the default view. | Operator |
+| `FAILED` | The mission ended in failure. | Engine / operator |
+| `CANCELLED` | Cancelled before completion; retained for history. | Operator |
 
 **Orthogonal field — `health`:** `HEALTHY · DEGRADED · BLOCKED · FAILING`. Health is
-independent of lifecycle state: an `ACTIVE` mission can be `BLOCKED`, a `PAUSED` mission
+independent of lifecycle state: a `RUNNING` mission can be `BLOCKED`, a `PAUSED` mission
 can be `HEALTHY`.
 
 **Orthogonal field — `origin`:** `OPERATOR · SYSTEM`. System-authored missions render
@@ -27,20 +29,18 @@ with a distinct marker and appear in the attention queue until reviewed. [CONFIR
 
 **Transitions**
 ```
-DRAFT ──launch──▶ ACTIVE ──pause──▶ PAUSED ──resume──▶ ACTIVE
-  │                 │  │                                │
-  │                 │  └──complete──▶ COMPLETED ──archive──▶ ARCHIVED
-  │                 └──fail (operator)──▶ PAUSED (health FAILING)
-  └──discard──▶ (deleted)
+PLANNING ──approve──▶ READY ──start──▶ RUNNING ──pause──▶ PAUSED ──resume──▶ RUNNING
+   │                   │                 │  │                                  │
+   │                   │                 │  └──complete──▶ COMPLETED
+   │                   │                 └──fail──▶ FAILED
+   └──cancel──▶ CANCELLED
 ```
 
-> **Vocabulary conflict — resolve before building (gate G1).** The code uses
+> **G1 RESOLVED — keep the code vocabulary.** The engine already uses
 > `PLANNING / READY / RUNNING / PAUSED / COMPLETED / FAILED / CANCELLED`
-> (`schema.prisma:118`, `mission-engine.ts:156,217`). This document proposes
-> `DRAFT / ACTIVE / PAUSED / COMPLETED / ARCHIVED`. **Recommended: adopt this document's
-> vocabulary** (`DRAFT`/`ACTIVE`) and rename in the engine — "an ACTIVE mission" is the
-> correct mental model for standing intent, and the rename is contained to one file. See
-> [handoff.md](./handoff.md) §5 G1.
+> (`schema.prisma:118`, `mission-engine.ts`). The spec adopts these exact names — the
+> earlier `DRAFT / ACTIVE` proposal is dropped — so the UI, engine and event bus share one
+> vocabulary with zero churn. `ARCHIVED` is folded into `CANCELLED`.
 
 ---
 

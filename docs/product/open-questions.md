@@ -33,7 +33,7 @@ own learned context, or a stateless orchestrator over shared memory? [needs oper
 **Q6 — May the Brain create missions unattended?** Confirmed it may draft (flagged), and
 we allow it to author from triggers/escalations. But may a *trigger* create a mission the
 operator never wrote, that then runs before review? Default proposal: **no** — automated
-creation always lands as `DRAFT` + review. [recommended default]
+creation always lands as `PLANNING` + review. [recommended default]
 
 **Q7 — Sub-agent permission inheritance depth.** Confirmed scoped subsets. How deep, and
 how narrow by default (read-only tools first?)? [needs operator]

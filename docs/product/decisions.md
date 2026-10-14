@@ -74,6 +74,8 @@ These are **not** endorsed — they were adopted to keep moving. Veto freely.
 | D37 | Offline = explicit error, not local queuing | ASSUMED |
 | D38 | Recovery *within policy* is automatic; outside policy is a gate | ASSUMED |
 | D39 | Keep the existing glass design system and radius profiles | ASSUMED |
+| D40 | Defer the `Operation` model, `Task.parentOperationId` and a `Task.simulated` column until Postgres is reachable; M1.2/M1.4 read simulation state from the existing `Task.output` JSON | CONFIRMED |
+| D41 | M1.2 is *materialize-at-start*: `startMission` creates tasks from the stored plan; the UI route `POST /api/missions` creates the plan only | CONFIRMED |
 
 ## G. Decision gates
 
@@ -82,7 +84,7 @@ recommended default so the building agent is not blocked.
 
 | Gate | Decision | Blocks | Recommended default |
 |---|---|---|---|
-| **G1** | Mission status vocabulary — code says `READY`/`RUNNING`, spec says `DRAFT`/`ACTIVE` | M1.3 | **Adopt `DRAFT`/`ACTIVE`** and rename in `mission-engine.ts` |
+| **G1** | ~~Mission status vocabulary~~ **RESOLVED** — keep the code vocabulary `PLANNING`/`READY`/`RUNNING`/`PAUSED`/`COMPLETED`/`FAILED`/`CANCELLED`; spec docs patched to match (no engine rename) | — | ✅ Resolved (was "adopt `DRAFT`/`ACTIVE`") |
 | **G2** | The `RECOMMENDED` IA items (D20–D24) | M4.3 | **Build as proposed** unless vetoed |
 
 ## F. Open questions

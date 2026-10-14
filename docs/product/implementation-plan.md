@@ -27,7 +27,13 @@ may depend on earlier tasks. **Do not start M2 until M1 is verified.**
 
 *The milestone that makes the product real. [D9, D11, D18, D19]*
 
-## M1.1 — A real planner
+> **M1 status:** M1.1 ✅ done · M1.2 ◑ partial (task materialization done; `Operation` model
+> deferred — Postgres down) · M1.3 ☐ todo (G1 now resolved) · M1.4 ✅ done (simulation flag
+> read from `Task.output`; `Task.simulated` column deferred) · M1.5 ◑ partial (policy reads
+> fixed + dead router removed; task→operation→mission policy chain deferred).
+> Landed in `76e96e2` (M1.1 + M1.2 partial) and `dc7d4c3` (M1.4 + M1.5).
+
+## M1.1 — A real planner ✅ DONE
 
 - **Objective:** replace the keyword planner with a genuine LLM plan; make planning failure
   loud.
@@ -50,18 +56,20 @@ may depend on earlier tasks. **Do not start M2 until M1 is verified.**
   the prompt to the actual installed types, or have the planner return `agentId` directly.**
   This is the most likely way M1.1 yields an unexecutable plan.
 
-## M1.2 — A mission actually creates work
+## M1.2 — A mission actually creates work ◑ PARTIAL
 
-- **Objective:** approving a mission persists an Operation and its Tasks, which the
-  existing scheduler picks up.
-- **Affected files:** `src/app/api/missions/route.ts` (:29-51 — bypasses the engine),
-  `src/lib/mission-engine.ts` (`createMission` :138-212 — already creates tasks),
-  `prisma/schema.prisma` (add `Operation`; add `Task.parentOperationId`),
-  `src/lib/engine.ts` (`getDb()` :24-27).
-- **Dependencies:** M1.1.
-- **Expected behaviour:** the route calls `getMissionEngine()` → `createMission(...)`,
-  which creates one `Operation` (`PLANNING→RUNNING`) and its `Task` rows (`QUEUED`), each
-  with `parentOperationId`. Within one 2s tick the scheduler claims them.
+- **Objective:** approving a mission materializes real Tasks, which the existing scheduler
+  picks up.
+- **⚠ Deferred (D40):** the `Operation` model and `Task.parentOperationId` require a schema
+  migration, which cannot be run/verified while Postgres is down. Task materialization
+  ships now; the run→Operation layer lands with the migration.
+- **Affected files:** `src/lib/mission-engine.ts` (`createMission`, private `materializePlan`,
+  `startMission`), `src/app/api/missions/[id]/plan/route.ts`, `src/lib/automation-actions.ts`,
+  `src/app/api/specialists/route.ts:252`.
+- **Dependencies:** M1.1. **Done:** `76e96e2`.
+- **Expected behaviour (as shipped):** the plan is stored on the mission; `startMission`
+  materializes the stored steps into `Task` rows (`QUEUED`) on first run; `createMission`
+  shares the same `materializePlan` path. The scheduler claims them within one 2s tick.
 - **Acceptance criteria:**
   - Approve a mission → 1 `Operation` + N `Task` rows with `status=QUEUED`.
   - Within 3s a task transitions `QUEUED→ASSIGNED→RUNNING`.
@@ -74,12 +82,13 @@ may depend on earlier tasks. **Do not start M2 until M1 is verified.**
   here rather than later. Also fold `getDb()` onto the shared `@/lib/db` singleton — it
   currently constructs a second `PrismaClient` (two pools).
 
-## M1.3 — Plan review & the launch gate
+## M1.3 — Plan review & the launch gate ☐ TODO
 
 - **Objective:** nothing runs until the operator approves the plan.
 - **Affected files:** new `src/app/(missions)/new` route; `mission-engine.ts`
   (`startMission` :214-232).
-- **Dependencies:** M1.1, M1.2, **G1 resolved** (status vocabulary).
+- **Dependencies:** M1.1, M1.2. **G1 is resolved** — keep the code vocabulary
+  (`PLANNING`/`READY`/`RUNNING`); no engine rename.
 - **Expected behaviour:** `/missions/new` shows the plan (steps, workers, cadence, cost,
   permissions); the operator can edit then approve; approval launches; abandoning creates
   nothing.
@@ -89,10 +98,14 @@ may depend on earlier tasks. **Do not start M2 until M1 is verified.**
   - Abandon leaves no rows.
 - **Edge cases:** E1, E19.
 - **Testing:** e2e — plan → approve → run; plan → abandon → no rows.
-- **Gotcha:** `createMission` writes `status: "READY"` (`:156`) and `startMission` accepts
-  `["READY","PLANNING"]` (`:217`). Under **G1 option B** these become `DRAFT` / `ACTIVE`.
+- **Gotcha:** `createMission` writes `status: "READY"` and `startMission` accepts
+  `["READY","PLANNING"]`. Under **G1 (resolved)** these stay exactly as they are — the
+  `DRAFT`/`ACTIVE` rename is dropped.
+- **Open gap:** the launch gate (no tasks before approval) already holds, but two acceptance
+  criteria are unmet — "abandon leaves no rows" (the mission row is written at plan time as
+  `PLANNING`) and pre-approval plan editing. Needs a product call before M1.3 is done.
 
-## M1.4 — Honest simulation, end to end
+## M1.4 — Honest simulation, end to end ✅ DONE
 
 - **Objective:** REAL vs SIMULATED is visible everywhere a result appears; silent
   degradation is removed.
@@ -110,28 +123,33 @@ may depend on earlier tasks. **Do not start M2 until M1 is verified.**
 - **Edge cases:** E1, E2, E4.
 - **Testing:** unit — flag propagation; integration — provider failure yields either
   recovery or a marked simulated result, never unmarked.
-- **Note:** the flag **already exists** in `Task.output` JSON (`task-engine.ts:31`,
-  `task-runner-real.ts:121`). Add a real `Task.simulated` boolean column so it is
-  queryable, set it in `runTask`, and **delete `mockFallback`** — the runner must recover
-  (M3.2) or throw.
+- **Note (as shipped):** the flag lives in `Task.output` JSON (`task-engine.ts:31`,
+  `task-runner-real.ts`). Per **D40** the `Task.simulated` column is **deferred** with the
+  migration; `taskSimulated(output)` (in `execution-meta.ts`) reads the JSON instead.
+  `mockFallback` is **deleted** — a provider failure now throws and the task `FAILED`
+  (recovery is M3.2). Real output carries `simulated: false`; `/api/health` exposes a
+  `simulated` flag and the shell header shows a `SystemModeIndicator` on every surface.
+  `NEXT_PUBLIC_DASHBOARD_SAMPLE` (+ `sample.ts`) removed.
 - **Reality check:** with `.env` holding only `DATABASE_URL` and no `secrets` rows,
   `hasApiKeys()` is false → the engine runs `MockTaskRunner` → **the whole product is
   simulated today.** The banner will be on from day one until a provider is configured.
 
-## M1.5 — Correct model policy on tasks
+## M1.5 — Correct model policy on tasks ◑ PARTIAL
 
 - **Objective:** routing uses the mission/task policy, not a repurposed field.
-- **Affected files:** `src/lib/task-runner-real.ts` (`parseAgentPolicy` :104-112),
-  `src/lib/model-gateway.ts` (`parsePolicy` :198-204, `selectModel` :65-143).
-- **Dependencies:** none.
+- **Affected files:** `src/lib/task-runner-real.ts` (`parseModelPolicy`), `src/lib/model-gateway.ts`.
+- **Dependencies:** none. **Done:** `dc7d4c3`.
 - **Expected behaviour:** policy resolves **task → operation → mission → agent default**;
-  `memoryScope` is never consulted for model choice.
+  `memoryScope` is never consulted for model choice. **⚠ Partial (D40):** the task→operation→
+  mission chain needs policy columns the deferred migration adds; today routing reads
+  `Agent.modelPolicy` / `Agent.fallbackModelIds` directly.
 - **Acceptance criteria:** a task whose mission policy names model M executes on M
   regardless of the agent's `memoryScope`.
 - **Edge cases:** E20.
 - **Testing:** unit — policy resolution order.
-- **Gotcha:** the bug is in **two** places, and `selectModel` has **no callers** — either
-  wire it in or remove it. A router nobody calls is a lie in the UI.
+- **Gotcha (resolved):** the `memoryScope` misread was in two places; both now read the
+  real columns, and the caller-less `selectModel` / `parsePolicy` / `ModelPolicy` /
+  `RoutingResult` were **removed**. Write the real chain when the migration lands.
 
 **M1 exit criteria:** intent → approved plan → running tasks → visible REAL/SIMULATED,
 verified on a served build.

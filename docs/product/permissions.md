@@ -43,7 +43,7 @@ policy, not workers." [CONFIRMED]
 
 ## 3. What the Brain may do — within policy, without asking
 
-- Plan and create operations and tasks for an `ACTIVE` mission.
+- Plan and create operations and tasks for a `RUNNING` mission.
 - Delegate tasks and spawn sub-agents **up to the mission's spawn ceiling**.
 - Retry failed tasks **up to the retry bound**.
 - Recover: reassign, fall back to another model **within policy**, spawn a replacement.
