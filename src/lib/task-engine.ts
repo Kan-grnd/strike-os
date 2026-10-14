@@ -10,6 +10,7 @@ import { setAgentState } from "./runtime-state";
 import { settleMissionIfComplete } from "./completion";
 import { setBrainState, BRAIN_ID } from "./brain";
 import { recoverTask } from "./recovery";
+import { checkSpendGate, sweepDrift } from "./gates";
 import { PrismaClient } from "@prisma/client";
 
 export interface TaskResult {
@@ -129,6 +130,8 @@ export class TaskEngine {
 
       for (const task of assigned) {
         if (isGated(task)) continue;
+        // M3.4: crossing the mission's spending ceiling pauses the run and asks.
+        if (await checkSpendGate(this.db, task)) continue;
         await this.runTask(task);
       }
 
@@ -168,6 +171,9 @@ export class TaskEngine {
           });
         }
       }
+
+      // 5. Sweep RUNNING missions for drift → raise DRIFT gates (M3.4, E16).
+      await sweepDrift(this.db).catch((err) => console.error("[TaskEngine] drift sweep failed:", err));
     } catch (err) {
       console.error("[TaskEngine] Tick error:", err);
     }

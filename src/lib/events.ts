@@ -110,6 +110,10 @@ export type EventType =
   | "approval.requested"
   | "approval.approved"
   | "approval.denied"
+  // Cost & drift — the signals that feed the attention queue (M3.4)
+  | "spend.warning"
+  | "spend.gated"
+  | "drift.detected"
   // System
   | "system.started"
   | "system.error"
