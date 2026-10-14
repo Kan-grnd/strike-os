@@ -15,7 +15,7 @@ import { SystemModeIndicator } from "@/components/shell/system-mode-indicator";
 export default function GlobalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const fullBleed =
-    pathname === "/chat" || pathname === "/topology" || pathname === "/knowledge";
+    pathname === "/chat" || pathname === "/workforce/live" || pathname === "/knowledge";
 
   const { data: settings } = useSettings();
   /* `panelOpen` rather than `collapsed`: the rail is always present, so what

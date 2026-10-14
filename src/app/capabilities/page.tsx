@@ -146,7 +146,7 @@ export default function CapabilitiesPage() {
                               {providers.slice(0, 3).map((p) => (
                                 <Link
                                   key={p.id}
-                                  href={`/agents/${p.id}`}
+                                  href={`/workforce/agents/${p.id}`}
                                   className={cn(
                                     badgeVariants({ variant: "outline" }),
                                     "text-xs transition-colors hover:border-primary/40 hover:text-foreground"

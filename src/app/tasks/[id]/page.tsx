@@ -111,7 +111,7 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
           <span className="text-muted-foreground">No mission</span>
         )}
         {task.ownerAgentId && (
-          <Link href={`/agents/${task.ownerAgentId}`} className="text-info hover:underline underline-offset-2">
+          <Link href={`/workforce/agents/${task.ownerAgentId}`} className="text-info hover:underline underline-offset-2">
             Agent {task.ownerAgentId.slice(0, 8)}
           </Link>
         )}

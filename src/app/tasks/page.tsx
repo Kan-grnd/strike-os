@@ -52,7 +52,7 @@ function TaskCard({ t, index }: { t: any; index: number }) {
           )}
           {t.agentName ? (
             <Link
-              href={`/agents/${t.ownerAgentId}`}
+              href={`/workforce/agents/${t.ownerAgentId}`}
               className="truncate transition-colors hover:text-foreground hover:underline underline-offset-2"
             >
               {t.agentName}

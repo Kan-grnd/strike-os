@@ -577,7 +577,7 @@ function MemoryDetail({
                   </dt>
                   <dd className="min-w-0 truncate">
                     <Link
-                      href={`/agents/${memory.agentId}`}
+                      href={`/workforce/agents/${memory.agentId}`}
                       className="text-primary underline-offset-4 hover:underline"
                     >
                       View agent

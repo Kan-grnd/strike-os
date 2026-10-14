@@ -58,9 +58,8 @@ interface NeedItem {
 }
 
 /* Where a click lands: the home of the worst thing, same priority the sidebar
-   footer uses. Missions live in the merged /work list (/missions 308-redirects
-   and would drop the filter). */
-const WORST_HOME = "/work?type=missions";
+   footer uses. Missions live on the real Missions list (M4.2). */
+const WORST_HOME = "/missions";
 
 function humanize(value: unknown): string {
   const s = String(value ?? "").trim();
@@ -90,7 +89,7 @@ function buildItems(
         title: truncate(a.description || "Approval requested", 52),
         detail: humanize(a.type),
         time: formatRelativeTime(a.createdAt),
-        href: "/agents",
+        href: "/workforce/agents",
       });
     });
 
@@ -105,7 +104,7 @@ function buildItems(
         title: a.name || "Unnamed agent",
         detail: a.blockedBy || a.stateReason || "Waiting on you",
         time: formatRelativeTime(a.lastActiveAt || a.updatedAt || a.createdAt),
-        href: "/agents",
+        href: "/workforce/agents",
       });
     });
 
@@ -306,7 +305,7 @@ export function MissionProgressSection({
         </div>
         {overflow > 0 && (
           <Link
-            href="/work?type=missions"
+            href="/missions"
             className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             +{overflow} more

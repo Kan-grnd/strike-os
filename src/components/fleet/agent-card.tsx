@@ -48,7 +48,7 @@ export function AgentCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, delay: Math.min(index * 0.05, 0.4), ease: EASE }}
     >
-      <Link href={`/agents/${agent.id}`} className="block h-full">
+      <Link href={`/workforce/agents/${agent.id}`} className="block h-full">
         <Card className="group relative flex h-full flex-col gap-4 overflow-hidden p-5 transition-colors hover:border-ring/40">
           <div
             aria-hidden

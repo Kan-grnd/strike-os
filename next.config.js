@@ -6,18 +6,10 @@ const nextConfig = {
   experimental: {
     instrumentationHook: true,
   },
-  async redirects() {
-    return [
-      /* Workflows and the duplicate Automations surface still live under the
-       * merged /work page for now; M4.3 retires them when the five-domain IA
-       * lands. Missions is a real page again as of M4.2 (the redirect had to go
-       * or the page could never serve — redirects run before routing. 308 so a
-       * POST to a legacy list route keeps its method and payload. */
-      { source: "/workflows", destination: "/work", statusCode: 308 },
-      { source: "/automations", destination: "/work?type=automations", statusCode: 308 },
-      { source: "/automations/:path*", destination: "/workflows/:path*", statusCode: 308 },
-    ];
-  },
+  // M4.3 retired the half-finished route merge. There are no redirects: the
+  // Missions domain is real, workflow/automation detail folds into mission
+  // triggers, and the merged /work page is gone. A route either exists or is a
+  // genuine 404 — no surface hides behind a 308.
 }
 
 module.exports = nextConfig

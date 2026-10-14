@@ -204,7 +204,7 @@ export default function AgentArchitectPage() {
         setResult({ ok: false, error: data.error });
       } else {
         setResult({ ok: true, agent: data.agent });
-        setTimeout(() => router.push(`/agents/${data.agent.id}`), 1000);
+        setTimeout(() => router.push(`/workforce/agents/${data.agent.id}`), 1000);
       }
     } catch (err: any) {
       setResult({ ok: false, error: err.message });
@@ -587,7 +587,7 @@ export default function AgentArchitectPage() {
                 )}
                 Create Agent
               </Button>
-              <Button variant="ghost" onClick={() => router.push("/agents")}>
+              <Button variant="ghost" onClick={() => router.push("/workforce/agents")}>
                 Cancel
               </Button>
             </div>

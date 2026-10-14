@@ -8,7 +8,7 @@ import type { BrainState, WorkforceRuntime } from "./types";
  * everywhere except production; the topology page ignores ?fixture= entirely
  * in a production build, and the orb gate asserts the guard below.
  *
- * Usage: /topology?fixture=brain-working&active=3
+ * Usage: /workforce/live?fixture=brain-working&active=3
  *   brain: brain-working | brain-active | brain-blocked | brain-error | brain-idle
  *     active: 0..6 (default 6); total is always 6.
  *   scenes: colony-0|1|3|6|12|13|40-agents, three-colonies, error-agent,

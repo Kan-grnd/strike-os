@@ -4,7 +4,6 @@ import {
   BookOpen,
   Boxes,
   Brain,
-  Briefcase,
   Cpu,
   Database,
   FileText,
@@ -74,12 +73,24 @@ export interface NavigationDomain {
 
 export const NAV_DOMAINS: NavigationDomain[] = [
   {
-    id: "overview",
-    label: "Overview",
+    id: "control-center",
+    label: "Control Center",
     icon: LayoutDashboard,
     children: [
-      { label: "Command Center", href: "/" },
+      { label: "Control Center", href: "/" },
       { label: "AI Chat", href: "/chat", kind: "section" },
+    ],
+  },
+  {
+    id: "missions",
+    label: "Missions",
+    icon: Target,
+    children: [
+      /* Missions is the directing surface (M4.2). The legacy workflow/automation
+       * detail (folded into mission triggers) still resolves here via `matches`
+       * so an old bookmark or a workflow URL lights up the same item. */
+      { label: "Missions", href: "/missions", matches: ["/missions", "/workflows"] },
+      { label: "Tasks", href: "/tasks", matches: ["/tasks"] },
     ],
   },
   {
@@ -87,66 +98,20 @@ export const NAV_DOMAINS: NavigationDomain[] = [
     label: "Workforce",
     icon: Users,
     children: [
-      { label: "Agents", href: "/agents", matches: ["/agents"] },
       { label: "Brain", href: "/workforce/brain" },
+      { label: "Specialists", href: "/workforce/specialists" },
+      { label: "Agents", href: "/workforce/agents", matches: ["/workforce/agents"] },
+      { label: "Live", href: "/workforce/live" },
+      /* Colony is demoted from a top-level domain (D21) to a Workforce item. */
       { label: "Colonies", href: "/colonies" },
-      { label: "Agent Architect", href: "/architect" },
       { label: "Capabilities", href: "/capabilities" },
     ],
   },
   {
-    id: "execution",
-    label: "Execution",
-    icon: Target,
+    id: "activity",
+    label: "Activity",
+    icon: Activity,
     children: [
-      /* Missions is a real surface again as of M4.2 — the directing input. The
-       * merged /work page still exists for workflows/automations until M4.3. */
-      { label: "Missions", href: "/missions", matches: ["/missions"] },
-      {
-        label: "Work",
-        href: "/work",
-        /* The legacy workflow list redirects to /work; matching it keeps a
-         * workflow detail page (or an old bookmark) lighting up the same item. */
-        matches: ["/work", "/workflows"],
-      },
-      { label: "Tasks", href: "/tasks", matches: ["/tasks"] },
-    ],
-  },
-  {
-    id: "intelligence",
-    label: "Intelligence",
-    icon: Database,
-    children: [
-      { label: "Memory", href: "/memory" },
-      { label: "Knowledge", href: "/knowledge" },
-      { label: "Decisions", href: "/decisions" },
-    ],
-  },
-  {
-    id: "model-brain",
-    label: "Model Brain",
-    icon: Cpu,
-    children: [
-      { label: "Models", href: "/models" },
-      { label: "Routing", href: "/routing" },
-    ],
-  },
-  {
-    id: "tool-fabric",
-    label: "Tool Fabric",
-    icon: Wrench,
-    children: [
-      { label: "Tools", href: "/tools" },
-      { label: "MCP", href: "/mcp" },
-      { label: "Connectors", href: "/connectors" },
-    ],
-  },
-  {
-    id: "observatory",
-    label: "Observatory",
-    icon: Layers,
-    children: [
-      { label: "Live Topology", href: "/topology" },
       { label: "Events", href: "/observability/events" },
       { label: "Traces", href: "/observability/traces", matches: ["/observability/traces"] },
       { label: "Logs", href: "/observability/logs" },
@@ -155,14 +120,22 @@ export const NAV_DOMAINS: NavigationDomain[] = [
        * in here, so neither page loses its own entry. */
       { label: "Metrics", href: "/observability/performance" },
       { label: "Costs", href: "/observability/costs" },
+      { label: "Decisions", href: "/decisions" },
     ],
   },
   {
-    id: "system",
-    label: "System",
+    id: "settings",
+    label: "Settings",
     icon: Settings,
     children: [
       { label: "Settings", href: "/settings" },
+      { label: "Models", href: "/models" },
+      { label: "Routing", href: "/routing" },
+      { label: "Tools", href: "/tools" },
+      { label: "MCP", href: "/mcp" },
+      { label: "Connectors", href: "/connectors" },
+      { label: "Memory", href: "/memory" },
+      { label: "Knowledge", href: "/knowledge" },
       { label: "Edit Queue", href: "/edit-queue" },
     ],
   },
@@ -172,29 +145,28 @@ export const NAV_DOMAINS: NavigationDomain[] = [
 const CHILD_ICONS: Record<string, IconComponent> = {
   "/": LayoutDashboard,
   "/chat": MessageSquare,
-  "/agents": Users,
-  "/workforce/brain": Brain,
-  "/colonies": Boxes,
-  "/architect": Sparkles,
-  "/capabilities": Target,
   "/missions": Target,
-  "/work": Briefcase,
   "/tasks": ListTodo,
-  "/memory": Database,
-  "/knowledge": Network,
-  "/decisions": BookOpen,
-  "/models": Cpu,
-  "/routing": Route,
-  "/tools": Wrench,
-  "/mcp": Plug,
-  "/connectors": Globe,
-  "/topology": Layers,
+  "/workforce/brain": Brain,
+  "/workforce/specialists": Sparkles,
+  "/workforce/agents": Users,
+  "/workforce/live": Layers,
+  "/colonies": Boxes,
+  "/capabilities": Target,
   "/observability/events": Activity,
   "/observability/traces": FileText,
   "/observability/logs": FileText,
   "/observability/performance": Gauge,
   "/observability/costs": Gauge,
+  "/decisions": BookOpen,
   "/settings": Settings,
+  "/models": Cpu,
+  "/routing": Route,
+  "/tools": Wrench,
+  "/mcp": Plug,
+  "/connectors": Globe,
+  "/memory": Database,
+  "/knowledge": Network,
   "/edit-queue": ListTodo,
 };
 

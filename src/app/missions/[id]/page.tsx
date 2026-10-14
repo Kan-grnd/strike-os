@@ -146,7 +146,7 @@ const EVENT_COLUMNS: DataTableColumn<any>[] = [
     render: (e) => (
       <span className="flex items-center gap-2 text-xs">
         {e.agentId && (
-          <Link href={`/agents/${e.agentId}`} className="font-mono text-info hover:underline">
+          <Link href={`/workforce/agents/${e.agentId}`} className="font-mono text-info hover:underline">
             agent {e.agentId.slice(0, 8)}
           </Link>
         )}

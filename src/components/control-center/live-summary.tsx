@@ -46,7 +46,7 @@ export function LiveSummary({
     <section aria-label="Live now" className="grid gap-3">
       <header className="flex items-center justify-between gap-3">
         <SectionLabel>Live now</SectionLabel>
-        <Link href="/topology" className="text-xs text-muted-foreground hover:text-foreground">
+        <Link href="/workforce/live" className="text-xs text-muted-foreground hover:text-foreground">
           Live work flow
         </Link>
       </header>

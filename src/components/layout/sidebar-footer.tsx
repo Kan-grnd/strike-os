@@ -104,11 +104,10 @@ function joinParts(parts: string[]) {
 }
 
 /** The worst thing's home, for whichever rail control needs a destination.
- *  Missions live in the merged /work list, so the facet goes in the query —
- *  /missions only 308s there and would silently drop the filter. */
+ *  Missions live on the real Missions list (M4.2). */
 function attentionHref(a: SidebarAttention): string {
-  if (a.approvalsPending || a.agentsStuck) return "/agents";
-  return a.tasksFailed ? "/tasks" : "/work?type=missions";
+  if (a.approvalsPending || a.agentsStuck) return "/workforce/agents";
+  return a.tasksFailed ? "/tasks" : "/missions";
 }
 
 /** One shared reading of "what needs the user right now", for the aria label and

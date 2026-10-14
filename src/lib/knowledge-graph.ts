@@ -158,7 +158,7 @@ export function resolveEntity(
       type,
       label: a?.name ? clip(String(a.name), 48) : `Agent ${shortId(id)}`,
       subtitle: a?.runtimeState ?? a?.status ?? null,
-      href: a ? `/agents/${id}` : null,
+      href: a ? `/workforce/agents/${id}` : null,
       degree: 0,
     };
   }

@@ -22,7 +22,7 @@ export async function GET(req: Request) {
 
   // Return a single event stream initialization message
   // Real SSE requires a persistent connection managed by the server
-  return new NextResponse("event: connected\ndata: {\"message\":\"Observatory stream connected\"}\n\n", {
+  return new NextResponse("event: connected\ndata: {\"message\":\"Activity stream connected\"}\n\n", {
     headers: resHeaders,
   });
 }

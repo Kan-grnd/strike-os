@@ -488,7 +488,7 @@ function KnowledgePageInner() {
           title="No relationships yet"
           description="Relationships are written by the runtime as agents are organised into territories and assigned to missions. There is nothing to draw until the workforce creates its first link."
           cta="Open topology"
-          ctaHref="/topology"
+          ctaHref="/workforce/live"
         />
       </div>
     );

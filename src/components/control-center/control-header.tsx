@@ -49,7 +49,7 @@ export function ControlHeader({ isStreaming, lastEventAt, needsCount, activeMiss
             </Link>
           </Button>
           <Button asChild variant="outline" className="rounded-full">
-            <Link href="/topology">
+            <Link href="/workforce/live">
               <Network className="mr-2 size-4" aria-hidden />
               Live work flow
             </Link>

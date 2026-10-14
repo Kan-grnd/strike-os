@@ -90,40 +90,42 @@ const domainOf = (route: string) => resolveNavigation(route).domain?.id ?? "null
 const distinctDomains = new Set(appRoutes.map(domainOf));
 check(
   "routes spread across the domains instead of collapsing into one",
-  distinctDomains.size >= 6,
+  distinctDomains.size >= 5,
   `${distinctDomains.size} distinct domains: ${Array.from(distinctDomains).sort().join(",")}`
 );
 
 /* Spot-check the mapping that the whole sidebar is built on, one page per
    domain, so a regression names the domain it broke. */
 const EXPECTED: Array<[string, string]> = [
-  ["/", "overview"],
-  ["/chat", "overview"],
-  ["/agents", "workforce"],
-  ["/agents/abc", "workforce"],
+  ["/", "control-center"],
+  ["/chat", "control-center"],
+  ["/missions", "missions"],
+  ["/missions/new", "missions"],
+  ["/workflows/sample-id", "missions"],
+  ["/tasks", "missions"],
+  ["/workforce/brain", "workforce"],
+  ["/workforce/specialists", "workforce"],
+  ["/workforce/agents", "workforce"],
+  ["/workforce/agents/abc", "workforce"],
+  ["/workforce/live", "workforce"],
   ["/colonies", "workforce"],
-  ["/architect", "workforce"],
   ["/capabilities", "workforce"],
-  ["/work", "execution"],
-  ["/missions/new", "execution"],
-  ["/tasks", "execution"],
-  ["/memory", "intelligence"],
-  ["/knowledge", "intelligence"],
-  ["/decisions", "intelligence"],
-  ["/models", "model-brain"],
-  ["/routing", "model-brain"],
-  ["/tools", "tool-fabric"],
-  ["/mcp", "tool-fabric"],
-  ["/connectors", "tool-fabric"],
-  ["/topology", "observatory"],
-  ["/observability/events", "observatory"],
-  ["/observability/traces", "observatory"],
-  ["/observability/traces/abc", "observatory"],
-  ["/observability/logs", "observatory"],
-  ["/observability/performance", "observatory"],
-  ["/observability/costs", "observatory"],
-  ["/settings", "system"],
-  ["/edit-queue", "system"],
+  ["/observability/events", "activity"],
+  ["/observability/traces", "activity"],
+  ["/observability/traces/abc", "activity"],
+  ["/observability/logs", "activity"],
+  ["/observability/performance", "activity"],
+  ["/observability/costs", "activity"],
+  ["/decisions", "activity"],
+  ["/settings", "settings"],
+  ["/models", "settings"],
+  ["/routing", "settings"],
+  ["/tools", "settings"],
+  ["/mcp", "settings"],
+  ["/connectors", "settings"],
+  ["/memory", "settings"],
+  ["/knowledge", "settings"],
+  ["/edit-queue", "settings"],
 ];
 const wrongDomain = EXPECTED.filter(([route, want]) => domainOf(route) !== want);
 check(
@@ -164,6 +166,36 @@ check(
   domainIds.join(",")
 );
 
+/* M4.3 (D20/G2): the navigation is exactly the five-domain IA, in order. The
+ * order is the operator's loop — Control Center (what needs me) → Missions
+ * (what should it do) → Workforce (who) → Activity (what happened) → Settings. */
+const FIVE_DOMAINS = ["control-center", "missions", "workforce", "activity", "settings"];
+check(
+  "the five-domain IA is exact and ordered",
+  domainIds.length === FIVE_DOMAINS.length && domainIds.every((id, i) => id === FIVE_DOMAINS[i]),
+  domainIds.join(",")
+);
+/* D22: the half-finished merge is retired — the merged /work page is gone and
+ * workflow/automation detail resolves under Missions via `matches`. */
+check(
+  "the merged /work surface is gone",
+  !appRoutes.includes("/work"),
+  appRoutes.includes("/work") ? "/work still exists" : "/work removed"
+);
+/* D48/D49: the Workforce surfaces moved under /workforce in M4.3. */
+const OLD_WORKFORCE = ["/agents", "/architect", "/topology"];
+const staleWorkforce = OLD_WORKFORCE.filter((r) => appRoutes.includes(r));
+check(
+  "the old Workforce paths are gone",
+  staleWorkforce.length === 0,
+  staleWorkforce.length ? `still present: ${staleWorkforce.join(", ")}` : "/agents, /architect, /topology removed"
+);
+check(
+  "workflow detail resolves under Missions",
+  resolveNavigation("/workflows/sample-id").domain?.id === "missions",
+  "/workflows/sample-id -> missions"
+);
+
 /* ── Boundary matching ───────────────────────────────────────────────────────
  * `startsWith` without a boundary would make `/agents` claim `/agentsfoo`. The
  * negative cases below are the actual hazard; the positive ones are the promise. */
@@ -184,11 +216,11 @@ check("an exact path matches exactly", matchesPath("/missions", "/missions") && 
    every route. */
 check(
   "the root does not shadow every other route",
-  resolveNavigation("/").domain?.id === "overview" &&
-    resolveNavigation("/settings").domain?.id === "system" &&
-    resolveNavigation("/topology").domain?.id === "observatory" &&
-    resolveNavigation("/edit-queue").domain?.id === "system",
-  "/ -> overview, /settings -> system, /topology -> observatory, /edit-queue -> system"
+  resolveNavigation("/").domain?.id === "control-center" &&
+    resolveNavigation("/settings").domain?.id === "settings" &&
+    resolveNavigation("/workforce/live").domain?.id === "workforce" &&
+    resolveNavigation("/edit-queue").domain?.id === "settings",
+  "/ -> control-center, /settings -> settings, /workforce/live -> workforce, /edit-queue -> settings"
 );
 
 /* ── Shape ─────────────────────────────────────────────────────────────────── */
@@ -232,16 +264,18 @@ check(
   labelFor("/observability/performance") === "Metrics",
   `/observability/performance -> ${labelFor("/observability/performance")}`
 );
-/* Nothing lost in the move: Live Topology and Costs stayed reachable. */
+/* Nothing lost in the move: Live and Costs stayed reachable. Live is the
+ * Workforce name for the live work flow (was "Live Topology" under Observatory,
+ * relocated from /topology to /workforce/live in M4.3). */
 check(
-  "topology and costs remain in navigation",
-  labelFor("/topology") === "Live Topology" && labelFor("/observability/costs") === "Costs",
-  "Live Topology, Costs"
+  "Live and costs remain in navigation",
+  labelFor("/workforce/live") === "Live" && labelFor("/observability/costs") === "Costs",
+  "Live, Costs"
 );
 check(
-  "Edit Queue is reachable from System",
-  resolveNavigation("/edit-queue").domain?.id === "system" && labelFor("/edit-queue") === "Edit Queue",
-  "/edit-queue -> system"
+  "Edit Queue is reachable from Settings",
+  resolveNavigation("/edit-queue").domain?.id === "settings" && labelFor("/edit-queue") === "Edit Queue",
+  "/edit-queue -> settings"
 );
 
 /* A domain must never carry a third level of grouping. `kind: "section"` is the

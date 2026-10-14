@@ -96,7 +96,7 @@ function Agents() {
         title="Agents"
         description="Every member of your AI workforce, with live runtime state."
         actions={
-          <Link href="/architect">
+          <Link href="/workforce/specialists">
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
               New Agent
@@ -228,7 +228,7 @@ function Agents() {
               : "Create your first workforce member to get started."
           }
           cta={hasFilters ? undefined : "Create Agent"}
-          ctaHref={hasFilters ? undefined : "/architect"}
+          ctaHref={hasFilters ? undefined : "/workforce/specialists"}
           className="py-16"
         />
       )}

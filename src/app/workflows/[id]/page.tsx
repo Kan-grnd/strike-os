@@ -232,7 +232,7 @@ export default function AutomationDetailPage({ params }: { params: { id: string 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
-        backHref="/work?type=automations"
+        backHref="/missions"
         icon={Zap}
         eyebrow="Automation"
         title={
