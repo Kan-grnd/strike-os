@@ -232,17 +232,29 @@ makes the scheduler actually start, so the loop is observable rather than frozen
   integration — ceiling-0 mission refuses spawns and still completes; default ceiling still
   spawns (regression).
 
-## M2.4 — Specialists actually work
-- **Objective:** fix the permanent 403, add the page, make install usable.
-- **Affected files:** `src/lib/specialist-bundles.ts` (:167 dev guard), new
-  `src/app/workforce/specialists`, `POST /api/specialists`.
+## M2.4 — Specialists actually work ✅ DONE
+- **Objective:** fix the permanent 403, make install usable.
+- **Affected files:** `src/lib/specialist-bundles.ts` (remove dev guard, add `simulated`
+  to `SpecialistTrialRecord`), `src/app/api/specialists/route.ts` (drop the 403),
+  `src/app/architect/page.tsx` (label simulated trials). The forge UI already lived at
+  `/architect` — the domain move to `/workforce/specialists` is deferred to the IA
+  milestone (M4.3), so no page was added.
 - **Dependencies:** M2.1.
 - **Expected behaviour:** installation works against Postgres; Specialists appear in the
   roster and can own standing work.
-- **Acceptance criteria:** installing each of the 4 bundles succeeds; the roster lists it;
-  the operator is prompted for permissions (a gate, M3.1).
-- **Edge cases:** E13.
-- **Testing:** integration — install all bundles on a clean DB.
+- **Design (D48):** `specialistsAllowed()` tested for a SQLite `dev.db` that no longer
+  exists, so deploy/trial returned **403 in every real configuration**. Deploying a
+  specialist is a normal operator capability, so the guard is removed (matching the
+  handoff's "prototype tells — remove or fix"). The trial benchmark runs through
+  `MockTaskRunner`, so `SpecialistTrialRecord.simulated = true` and the UI labels it
+  **SIMULATED** — a simulated trial is never presented as real. The permission-prompt
+  gate is M3.1 (per the acceptance note).
+- **Acceptance criteria:** ✅ installing each of the 4 bundles succeeds (e2e: all 4 →
+  201, trial PASS + `simulated=true` + `ACTIVE`); ✅ the roster lists them (all 4 in
+  `/api/agents`); the operator permission prompt is M3.1.
+- **Edge cases:** E13 (uninstall — not yet built; see M4/M5).
+- **Testing:** integration — install all 4 bundles + trial-run each against Postgres;
+  redeploy denied 409.
 
 ## M2.5 — Live work flow
 - **Objective:** `/workforce/live` renders real executing work; empty/reconnecting states.

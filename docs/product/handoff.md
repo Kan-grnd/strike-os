@@ -103,9 +103,12 @@ success). The `simulated` flag is persisted to `Task.simulated` and marked in th
 
 ### Dev guards that are permanently off
 Every guard tests `dbUrl.includes("dev.db")` against a **Postgres** database, so it never
-matches: `specialist-bundles.ts:167`, `demo-seed.ts`,
-`api/admin/clean-content/route.ts:10`, `api/admin/reset-demo/route.ts:11`,
-`edit-tickets.ts:224` (this one has an `ALLOW_EDIT_TICKETS=true` escape).
+matches: `demo-seed.ts`, `api/admin/clean-content/route.ts:10`,
+`api/admin/reset-demo/route.ts:11`, `edit-tickets.ts:224` (this one has an
+`ALLOW_EDIT_TICKETS=true` escape).
+- ~~`specialist-bundles.ts` `specialistsAllowed()`~~ **Removed in M2.4 (`47e36cd`)** — the
+  guard 403'd the forge in every real configuration; deploying a specialist is a normal
+  operator action. The forge lives at `/architect`.
 
 ### App shape
 31 `page.tsx` (all `"use client"`), 31 `layout.tsx`, and **no** `loading.tsx` /
@@ -270,9 +273,18 @@ and the step runs unowned. **Verified:** e2e ceiling 0 → 3 `spawn.denied`, 0 s
 unowned tasks, mission `COMPLETED`; default ceiling → 1 spawned, 3 owned, `COMPLETED`;
 `check-spawn-policy` 11/11. The operator-facing blocking gate + pause is M3.1 (D47).
 
-**Next: M2.4** (Specialists actually work — fix the permanent 403, add
-`/workforce/specialists`, make install usable against Postgres). Same loop: implement →
-`tsc` → detached build → serve `:3010` → verify → commit (explicit paths, no push).
+**M2.4 status: ✅ DONE — verified e2e** (`47e36cd`). The permanent 403 is gone — the
+dev-only `specialistsAllowed()` guard (which tested a SQLite `dev.db`) was removed; the
+forge UI that already lived at `/architect` (template cards, Deploy, Run trial) now works
+against Postgres. `SpecialistTrialRecord.simulated` is set and the UI labels trials
+**SIMULATED** (the benchmark runs through `MockTaskRunner`). **Verified:** all 4 bundles
+deploy (201) → trial PASS + `simulated=true` + `ACTIVE`; all 4 specialists appear in the
+roster; redeploy denied 409. Domain move to `/workforce/specialists` and the
+permission-prompt gate are deferred (M4.3 IA / M3.1 approvals). D48.
+
+**Next: M2.5** (Live work flow — `/workforce/live` renders real executing work; empty/
+reconnecting states). Same loop: implement → `tsc` → detached build → serve `:3010` →
+verify → commit (explicit paths, no push).
 
 > **Pre-existing check failures (not ours):** `scripts/check-node-contrast.ts` and
 > `scripts/check-orb-palette.ts` both abort because a `clean` theme is referenced but
