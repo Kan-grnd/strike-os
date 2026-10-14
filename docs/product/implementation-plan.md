@@ -28,10 +28,10 @@ may depend on earlier tasks. **Do not start M2 until M1 is verified.**
 *The milestone that makes the product real. [D9, D11, D18, D19]*
 
 > **M1 status:** M1.1 ✅ done · M1.2 ◑ partial (task materialization done; `Operation` model
-> deferred — Postgres down) · M1.3 ☐ todo (G1 now resolved) · M1.4 ✅ done (simulation flag
+> deferred — Postgres down) · M1.3 ✅ done (approve-only, D43; abandon = CANCELLED, D42) · M1.4 ✅ done (simulation flag
 > read from `Task.output`; `Task.simulated` column deferred) · M1.5 ◑ partial (policy reads
 > fixed + dead router removed; task→operation→mission policy chain deferred).
-> Landed in `76e96e2` (M1.1 + M1.2 partial) and `dc7d4c3` (M1.4 + M1.5).
+> Landed in `76e96e2` (M1.1 + M1.2 partial), `dc7d4c3` (M1.4 + M1.5), `3273372` (M1.3).
 
 ## M1.1 — A real planner ✅ DONE
 
@@ -82,7 +82,7 @@ may depend on earlier tasks. **Do not start M2 until M1 is verified.**
   here rather than later. Also fold `getDb()` onto the shared `@/lib/db` singleton — it
   currently constructs a second `PrismaClient` (two pools).
 
-## M1.3 — Plan review & the launch gate ☐ TODO
+## M1.3 — Plan review & the launch gate ✅ DONE
 
 - **Objective:** nothing runs until the operator approves the plan.
 - **Affected files:** new `src/app/(missions)/new` route; `mission-engine.ts`
@@ -101,9 +101,8 @@ may depend on earlier tasks. **Do not start M2 until M1 is verified.**
 - **Gotcha:** `createMission` writes `status: "READY"` and `startMission` accepts
   `["READY","PLANNING"]`. Under **G1 (resolved)** these stay exactly as they are — the
   `DRAFT`/`ACTIVE` rename is dropped.
-- **Open gap:** the launch gate (no tasks before approval) already holds, but two acceptance
-  criteria are unmet — "abandon leaves no rows" (the mission row is written at plan time as
-  `PLANNING`) and pre-approval plan editing. Needs a product call before M1.3 is done.
+- **Resolved:** abandon keeps the `PLANNING`/`READY` row as `CANCELLED` (D42); pre-approval
+  plan editing is deferred (D43) — M1.3 ships approve-only. Landed in `3273372`.
 
 ## M1.4 — Honest simulation, end to end ✅ DONE
 

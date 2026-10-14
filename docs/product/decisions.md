@@ -76,6 +76,8 @@ These are **not** endorsed — they were adopted to keep moving. Veto freely.
 | D39 | Keep the existing glass design system and radius profiles | ASSUMED |
 | D40 | Defer the `Operation` model, `Task.parentOperationId` and a `Task.simulated` column until Postgres is reachable; M1.2/M1.4 read simulation state from the existing `Task.output` JSON | CONFIRMED |
 | D41 | M1.2 is *materialize-at-start*: `startMission` creates tasks from the stored plan; the UI route `POST /api/missions` creates the plan only | CONFIRMED |
+| D42 | Abandoning a plan keeps the mission row as `CANCELLED` (no hard delete, no orphan) — no tasks are ever created | CONFIRMED |
+| D43 | M1.3 is *approve-only*: review + approve + launch ship now; hand-editing the plan before approval is deferred | CONFIRMED |
 
 ## G. Decision gates
 
