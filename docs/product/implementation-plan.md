@@ -369,15 +369,40 @@ makes the scheduler actually start, so the loop is observable rather than frozen
   **escalation** steps. Health *degradation* is the M3.3 rollup — M3.2 produces the facts
   (escalated task, open mission, gate) M3.3 turns into health.
 
-## M3.3 — Health rollup
+## M3.3 — Health rollup ✅ DONE
 - **Objective:** task → operation → mission health for the attention surface.
-- **Affected files:** new health computation; mission/operation/task reads.
+- **Affected files:** `src/lib/health.ts` (new, pure), `scripts/check-health.ts` (new),
+  `src/app/api/missions/route.ts` (list), `src/app/api/missions/[id]/route.ts` (detail +
+  per-operation health), `src/app/missions/[id]/page.tsx` (health badge), `src/hooks/useApi.ts`,
+  `src/lib/execution-meta.ts` (`HEALTH_COLOR`/`HEALTH_LABEL`, `ESCALATED` task colour).
 - **Dependencies:** M1.2, M3.2.
-- **Expected behaviour:** health computed from children; debounced so a within-tick
-  recovery does not flash.
-- **Acceptance criteria:** a failing task makes its operation `DEGRADED`; a failing
-  operation makes its mission `BLOCKED`, within one tick.
-- **Testing:** unit — rollup matrix; integration — drive a mission into each state.
+- **Expected behaviour:** health computed from children on every read (always fresh); debounced
+  so a within-tick recovery does not flash. Health is **orthogonal to lifecycle** — a `RUNNING`
+  mission can be `BLOCKED`, a `PAUSED` mission `HEALTHY`.
+- **Design (D56):**
+  - **Vocabulary (state-model §1):** `HEALTHY · DEGRADED · BLOCKED · FAILING`, ranked
+    `FAILING > BLOCKED > DEGRADED > HEALTHY`. Severity rises as it rolls up: a **failing task**
+    degrades its operation (`DEGRADED`); a **failing operation** blocks its mission (`BLOCKED`).
+  - **Task (`taskHealth`):** `ESCALATED`/`WAITING` (a gate) → `BLOCKED`; `FAILED` with retries
+    remaining → `HEALTHY` (it will retry/recover, so it must not flash — this *is* the
+    debounce); a settled `FAILED` (retries exhausted) → `DEGRADED`; everything else → `HEALTHY`.
+  - **Operation (`operationHealth`):** lifecycle `FAILED` → `FAILING`; `CANCELLED` → `HEALTHY`;
+    otherwise the worst child task, with a `PAUSED` run and nothing wrong → `DEGRADED` (stalled).
+  - **Mission (`missionHealth`):** lifecycle `FAILED` → `FAILING`; otherwise the worst operation,
+    where any `DEGRADED`/`BLOCKED` run → `BLOCKED` (the mission can't proceed without the
+    operator) and a barely-`PAUSED` mission (healthy runs) → `DEGRADED`.
+  - **Read-shaping (`missionHealthFrom`):** groups tasks by `parentOperationId` (tasks with no run
+    count at the mission level) so both API routes derive health from raw reads.
+- **Acceptance criteria:** ✅ a failing task makes its operation `DEGRADED`; ✅ a failing operation
+  makes its mission `BLOCKED`; ✅ within one tick (health is computed on read — no stale field);
+  ✅ a within-tick recovery does not flash (still-retrying failure leaves the mission `HEALTHY`);
+  ✅ health shown independently of the state label.
+- **Testing:** pure `scripts/check-health.ts` (24 — full rollup matrix incl. debounce and
+  orthogonality); live e2e — drives missions into `BLOCKED`/`HEALTHY`/`FAILING` and asserts both
+  the list and detail endpoints agree (9; temp script removed before commit).
+- **Note:** `computeBrainRuntime` (`runtime/mappers.ts:109`) stays the separate brain-level
+  *health* aggregate (D45); this is the task/operation/mission rollup the attention surface
+  (M4.1) consumes.
 
 ## M3.4 — Cost & drift gates
 - **Objective:** spending ceilings and drift signals become real gates.

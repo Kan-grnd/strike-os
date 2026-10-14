@@ -343,6 +343,27 @@ approvals 10/10; build clean, artifacts fresh.
 **Next: M3.3 — Health rollup** (task → operation → mission health for the attention surface;
 debounced so a within-tick recovery does not flash). Same loop.
 
+**M3.3 status: ✅ DONE, verified** — commit **`37557c2`**. New `src/lib/health.ts` (pure): health
+`HEALTHY · DEGRADED · BLOCKED · FAILING`, **orthogonal to lifecycle**, rolled up task →
+operation → mission (D56). A failing task degrades its run; a failing run blocks its mission;
+computed on every read so it is never stale. Debounce is built into `taskHealth`: a `FAILED` task
+with retries remaining contributes nothing, so a within-tick recovery does not flash. Exposed on
+`/api/missions` (list) and `/api/missions/[id]` (detail + per-operation health); shown as a badge
+on the mission detail header independent of the state label. Also coloured `ESCALATED` tasks.
+**Verified:** pure `check-health` 24/24 (full rollup matrix incl. debounce + orthogonality);
+**live e2e** (9) drove missions into `BLOCKED`/`HEALTHY`/`FAILING` and both endpoints agreed.
+`tsc` clean; nav 19/19; selectors 138/138; spawn-policy 11/11; approvals 10/10; recovery 15/15;
+build clean, artifacts fresh.
+
+> **M3.3 note for the UI / e2e:** health is derived on read, so `RUNNING` test missions are
+> raced by the live scheduler (it recovers+reruns a failed task between two reads — M3.2 working).
+> Drive health assertions with a scheduler-inert status (`READY`/`PAUSED`); health is orthogonal
+> to lifecycle so this exercises the same rollup.
+> 
+
+**Next: M3.4 — Cost & drift gates** (spending ceilings + drift → real gates; thresholds are
+open questions Q1/Q2 — make them configurable, do not invent values). Same loop.
+
 > **M3.1 note for the UI:** the control center (`/`) already lists approvals (rough, via
 > `useApprovals`) and `/decisions` exists, but neither can resolve a gate yet — the
 > actionable "Needs you" queue is **M4.1**. Operators resolve via `POST /api/approvals/[id]`
