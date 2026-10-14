@@ -92,6 +92,8 @@ export type EventType =
   | "brain.state.changed"
   | "delegation.started"
   | "delegation.completed"
+  | "spawn.denied"
+  | "permission.denied"
   | "communication.started"
   | "communication.completed"
   | "verification.started"

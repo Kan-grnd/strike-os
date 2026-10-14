@@ -18,6 +18,7 @@ import { PlanStep, MissionPlan, parseMissionPlan, normalizeSteps, simulatedPlan 
 import { setAgentState, pauseAgent, resumeAgent, spawnAgent } from "./runtime-state";
 import { settleMissionIfComplete } from "./completion";
 import { setBrainState, BRAIN_ID } from "./brain";
+import { resolveSpawnCeiling } from "./spawn-policy";
 
 export type { PlanStep } from "./plan";
 export { parseMissionPlan, simulatedPlan } from "./plan";
@@ -206,6 +207,7 @@ export class MissionEngine {
           plan.steps,
           this.agentIdsFromMission(mission),
           mission.priority,
+          resolveSpawnCeiling(mission.policy),
         );
       }
     }
@@ -258,6 +260,7 @@ export class MissionEngine {
     steps: PlanStep[],
     agentIds: string[] = [],
     priority = 0,
+    spawnCeiling = resolveSpawnCeiling(undefined),
   ): Promise<number> {
     const agents = await db.agent.findMany(
       agentIds.length ? { where: { id: { in: agentIds } } } : undefined,
@@ -267,6 +270,10 @@ export class MissionEngine {
       (byType[a.type] ||= []).push(a.id);
     }
     let anyAgent = agents[0]?.id;
+
+    // The ceiling is per-mission across its whole life, so count spawns already
+    // recorded for this mission rather than only what this call creates.
+    let spawnsUsed = await db.event.count({ where: { type: "agent.spawned", missionId } });
 
     const created: { id: string; step: number }[] = [];
     for (const step of steps) {
@@ -281,26 +288,46 @@ export class MissionEngine {
       // needs. The sub-agent hangs off the mission's lead agent (if any) and is
       // reused by later steps of the same type.
       if (!ownerAgentId) {
-        try {
-          const spawned = await spawnAgent({
-            name: `${step.agentType || "WORKER"} · ${step.description.slice(0, 40)}`,
-            type: step.agentType || "WORKER",
-            description: `Sub-agent spawned for mission step ${step.step}`,
-            /* Parent off a real, loaded agent only — `agentIds` may name agents
-             * that do not exist, and a bad parentId is an FK violation. */
-            parentId: anyAgent || undefined,
-            missionId,
+        if (spawnsUsed >= spawnCeiling) {
+          // E12: the ceiling is a hard stop on spawning. We refuse now and record
+          // it; the operator-facing blocking gate and pause arrive in the
+          // approval milestone (M3.1). The step simply runs unowned.
+          await eventBus.emit({
+            type: "spawn.denied",
             source: "mission-engine",
+            subject: "mission",
+            subjectId: missionId,
+            missionId,
+            payload: {
+              reason: "spawn ceiling reached",
+              ceiling: spawnCeiling,
+              step: step.step,
+              agentType: step.agentType ?? "WORKER",
+            },
           });
-          ownerAgentId = spawned?.id ?? null;
-          if (ownerAgentId) {
-            (byType[step.agentType] ||= []).push(ownerAgentId);
-            anyAgent = anyAgent ?? ownerAgentId;
+        } else {
+          try {
+            const spawned = await spawnAgent({
+              name: `${step.agentType || "WORKER"} · ${step.description.slice(0, 40)}`,
+              type: step.agentType || "WORKER",
+              description: `Sub-agent spawned for mission step ${step.step}`,
+              /* Parent off a real, loaded agent only — `agentIds` may name agents
+               * that do not exist, and a bad parentId is an FK violation. */
+              parentId: anyAgent || undefined,
+              missionId,
+              source: "mission-engine",
+            });
+            ownerAgentId = spawned?.id ?? null;
+            if (ownerAgentId) {
+              (byType[step.agentType] ||= []).push(ownerAgentId);
+              anyAgent = anyAgent ?? ownerAgentId;
+              spawnsUsed += 1;
+            }
+          } catch (err) {
+            // A spawn failure must not abort the mission — the step just runs
+            // unowned, exactly as it would have without the spawn attempt.
+            console.error("[mission-engine] sub-agent spawn failed:", err);
           }
-        } catch (err) {
-          // A spawn failure must not abort the mission — the step just runs
-          // unowned, exactly as it would have without the spawn attempt.
-          console.error("[mission-engine] sub-agent spawn failed:", err);
         }
       }
 

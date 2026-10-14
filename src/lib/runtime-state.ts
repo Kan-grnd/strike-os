@@ -8,6 +8,7 @@
 
 import prisma from "@/lib/db";
 import { eventBus, type EventType } from "@/lib/events";
+import { intersectGrants } from "@/lib/spawn-policy";
 
 export const AGENT_RUNTIME_STATES = [
   "idle",
@@ -404,19 +405,57 @@ export interface SpawnAgentInput {
   colonyId?: string;
   capabilities?: string[];
   tools?: string[];
+  permissions?: string[];
   models?: string[];
   memoryScope?: string;
   /** The mission this sub-agent was spawned for, if any (carried on the event). */
   missionId?: string;
 }
 
+const safeJsonArray = (raw: string | null | undefined): string[] => {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+};
+
 export async function spawnAgent(input: SpawnAgentInput & { source?: string }): Promise<{ id: string } | null> {
   if (!input.name) return null;
 
   const parent = input.parentId
-    ? await prisma.agent.findUnique({ where: { id: input.parentId }, select: { colonyId: true } })
+    ? await prisma.agent.findUnique({
+        where: { id: input.parentId },
+        select: { colonyId: true, tools: true, permissions: true },
+      })
     : null;
   const colonyId = input.colonyId ?? parent?.colonyId ?? null;
+
+  // Scoped inheritance: a child holds ≤ its parent's grants. It inherits the
+  // parent's grants when it requests nothing; anything it explicitly requests
+  // that the parent lacks is denied. With no parent there is nothing to inherit
+  // from, so the requested grants stand.
+  let tools: string[];
+  let permissions: string[];
+  let deniedTools: string[] = [];
+  let deniedPermissions: string[] = [];
+  if (parent) {
+    const parentTools = safeJsonArray(parent.tools);
+    const parentPermissions = safeJsonArray(parent.permissions);
+    const requestedTools = input.tools?.length ? input.tools : parentTools;
+    const requestedPermissions = input.permissions?.length ? input.permissions : parentPermissions;
+    const toolGrants = intersectGrants(requestedTools, parentTools);
+    const permissionGrants = intersectGrants(requestedPermissions, parentPermissions);
+    tools = toolGrants.allowed;
+    permissions = permissionGrants.allowed;
+    deniedTools = toolGrants.denied;
+    deniedPermissions = permissionGrants.denied;
+  } else {
+    tools = input.tools ?? [];
+    permissions = input.permissions ?? [];
+  }
 
   const agent = await prisma.agent.create({
     data: {
@@ -428,7 +467,8 @@ export async function spawnAgent(input: SpawnAgentInput & { source?: string }): 
       parentId: input.parentId,
       colonyId,
       capabilities: JSON.stringify(input.capabilities ?? []),
-      tools: JSON.stringify(input.tools ?? []),
+      tools: JSON.stringify(tools),
+      permissions: JSON.stringify(permissions),
       models: JSON.stringify(input.models ?? []),
       memoryScope: input.memoryScope ?? "AGENT",
     },
@@ -457,8 +497,28 @@ export async function spawnAgent(input: SpawnAgentInput & { source?: string }): 
       type: agent.type,
       colonyId,
       parentId: input.parentId ?? null,
+      deniedTools,
+      deniedPermissions,
     },
   });
+
+  // A requested grant the parent lacks is a denial — recorded, not silently kept.
+  if (deniedTools.length > 0 || deniedPermissions.length > 0) {
+    await eventBus.emit({
+      type: "permission.denied",
+      source: input.source ?? "topology",
+      subject: "agent",
+      subjectId: agent.id,
+      agentId: agent.id,
+      missionId: input.missionId,
+      payload: {
+        parentId: input.parentId ?? null,
+        tools: deniedTools,
+        permissions: deniedPermissions,
+        reason: "exceeds parent grants",
+      },
+    });
+  }
 
   await setAgentState(agent.id, "initializing", { reason: "agent spawned", source: input.source ?? "topology" });
 
