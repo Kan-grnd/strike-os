@@ -145,8 +145,8 @@ export default function AgentArchitectPage() {
         setForgeMsg({
           ok: t.verdict === "PASS",
           text: `${bundle.label} trial ${t.verdict} · ${(t.durationMs / 1000).toFixed(1)}s · $${(t.cost ?? 0).toFixed(4)} · ${t.trace?.length ?? 0} trace steps${
-            t.verdict === "FAIL" && t.reason ? ` — ${t.reason}` : ""
-          }`,
+            t.simulated ? " · simulated" : ""
+          }${t.verdict === "FAIL" && t.reason ? ` — ${t.reason}` : ""}`,
         });
         mutateForge();
       }
@@ -355,6 +355,11 @@ export default function AgentArchitectPage() {
                           {lastTrial.verdict} · {((lastTrial.durationMs ?? 0) / 1000).toFixed(1)}s
                           {lastTrial.cost != null ? ` · $${Number(lastTrial.cost).toFixed(4)}` : ""}
                         </span>
+                        {lastTrial.simulated && (
+                          <Badge variant="outline" className="px-1 py-0 font-mono text-[10px]">
+                            SIMULATED
+                          </Badge>
+                        )}
                       </p>
                     )}
                     <div className="mt-auto flex flex-wrap gap-2 pt-1">

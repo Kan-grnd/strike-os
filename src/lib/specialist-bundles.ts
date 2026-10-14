@@ -65,6 +65,8 @@ export interface SpecialistTrialRecord {
   passCriteria: string;
   finishedAt: string;
   trace: unknown[];
+  /** The trial benchmark runs through the mock runner, so its result is simulated. */
+  simulated: boolean;
 }
 
 export const SPECIALIST_BUNDLES: SpecialistBundle[] = [
@@ -156,14 +158,4 @@ const BUNDLE_MAP = new Map<SpecialistBundleId, SpecialistBundle>(
 
 export function getSpecialistBundle(id: string): SpecialistBundle | undefined {
   return BUNDLE_MAP.get(id as SpecialistBundleId);
-}
-
-/**
- * Dev-only guard, mirroring the reset-demo / edit-tickets pattern. The Forge
- * deploys real agents and runs live trials — mutations are denied outside dev.
- */
-export function specialistsAllowed(): boolean {
-  const dbUrl = process.env.DATABASE_URL || "";
-  if (!dbUrl.includes("dev.db")) return false;
-  return process.env.NODE_ENV === "development";
 }

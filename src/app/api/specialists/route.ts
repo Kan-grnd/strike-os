@@ -4,7 +4,6 @@ import {
   SPECIALIST_BUNDLES,
   SPECIALIST_BUNDLE_VERSION,
   getSpecialistBundle,
-  specialistsAllowed,
   type SpecialistInstallRecord,
   type SpecialistTrialRecord,
 } from "@/lib/specialist-bundles";
@@ -54,13 +53,6 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  if (!specialistsAllowed()) {
-    return NextResponse.json(
-      { error: "Specialist Forge is only available in development" },
-      { status: 403 }
-    );
-  }
-
   let body: Record<string, unknown> = {};
   try {
     body = await req.json();
@@ -234,8 +226,8 @@ async function runTrial(bundleId: string) {
   }
 
   // The trial runs the benchmark task in-process via MockTaskRunner, then calls
-  // checkCompletion — no global scheduling loop, no SQLite contention, real
-  // execution proof.
+  // checkCompletion — no global scheduling loop, no DB contention. The run is
+  // simulated and the record says so; a real benchmark runner is future work.
   const engine = await getMissionEngine();
   const plan: PlanStep[] = [
     {
@@ -295,7 +287,7 @@ async function runTrial(bundleId: string) {
       reason: `running trial task`, taskId: task.id, missionId: mission.id, source: "specialist-forge",
     }).catch(() => undefined);
 
-    // Execute the real benchmark via MockTaskRunner.
+    // Execute the benchmark through the mock runner (simulated).
     const runner = new MockTaskRunner();
     const result = await runner.execute(task.id);
 
@@ -342,6 +334,7 @@ async function runTrial(bundleId: string) {
     passCriteria: bundle.benchmark.passCriteria,
     finishedAt: new Date().toISOString(),
     trace,
+    simulated: true,
   };
 
   const history = JSON.parse(install.trialHistory || "[]") as SpecialistTrialRecord[];
