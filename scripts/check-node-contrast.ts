@@ -21,7 +21,7 @@ import {
   type Rgb,
 } from "../src/components/topology/nodes/node-palette";
 
-const THEMES = ["clean", "calm", "bold", "graphite", "void", "signal"] as const;
+const THEMES = ["calm", "bold", "void", "signal"] as const;
 
 const css = readFileSync(join(process.cwd(), "src", "styles", "globals.css"), "utf8");
 

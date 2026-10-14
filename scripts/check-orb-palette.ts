@@ -26,7 +26,7 @@ import {
 } from "../src/components/topology/nodes/node-palette";
 import { isFixtureEnabled } from "../src/lib/runtime/fixtures";
 
-const THEMES = ["clean", "calm", "bold", "graphite", "void", "signal"] as const;
+const THEMES = ["calm", "bold", "void", "signal"] as const;
 const ROLES: CoreOrbRole[] = ["working", "idle", "active", "blocked", "error"];
 const BLACK: Rgb = [0, 0, 0];
 
