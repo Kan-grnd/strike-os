@@ -462,6 +462,25 @@ D61.
 > moves are folded into **M5** (Policies/Tools/Routing work). The nav *domains* are correct now;
 > only those two homes' sub-paths remain at their legacy `-` paths.
 
+**M4.4 status: ✅ DONE, verified** — commit **`9ee48e0`**. Activity is now **runs · events ·
+traces** (a run **is** an operation). The Observatory split is retired: **new `/api/operations`
+endpoints** (list with rolled-up health + mission; detail with tasks, per-task health and joined
+traces — `Trace` has no `operationId`, so runs join traces through their task ids) feed a new
+**`/activity`** runs list and **`/activity/runs/[id]`** detail (tasks, cost, duration, per-task
+**REAL/SIMULATED**, recovery history, trace links). The runs list orders **worst-health-first**
+via the pure `sortRunsByAttention` (`src/lib/activity.ts`). The old `costs`/`logs`/`performance`
+pages are **retired** — **cost lives on the run**, **logs + metrics fold into Events** as tabs
+(the `/api/observability/*` APIs stay and back them). Every `/observability/*` **page** is now a
+404; nav's Activity children are runs · events · traces · decisions. **Verified:** `check-activity`
+**10/10**; `check-navigation` **24/24** (+fold assertions); live e2e `m44-e2e.ts` **27/27**;
+regressions green (attention 14, health 24, spend 15, drift 16, recovery 15, approvals 10,
+spawn 11, missions 26, selectors 138); `tsc` clean; build clean, artifacts fresh. D62.
+
+> **M4.4 deferred — Settings sub-paths only.** Activity's `/observability → /activity` move is
+> done. The remaining IA sub-path moves (`/settings/{models,routing,tools,memory}`) stay in **M5**
+> (Policies/Tools/Routing work); pagination for the runs list (E18) is also noted for **M5**.
+> M4.5 (universal states) and M4.6 (dead controls) remain.
+
 > **Pre-existing check failures (not ours):** `scripts/check-node-contrast.ts` and
 > `scripts/check-orb-palette.ts` both abort because a `clean` theme is referenced but
 > missing from the theme registry / `globals.css`. Unrelated to M2.1 (no theme files

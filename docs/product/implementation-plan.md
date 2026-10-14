@@ -543,17 +543,33 @@ operator's decisions actually controlling execution.
   15, approvals 10, spawn 11, missions 26, selectors 138); `tsc` clean; build clean,
   artifacts fresh.
 
-## M4.4 — Activity
-- **Objective:** consolidate history.
-- **Affected files:** new `src/app/activity/{runs,events,traces}`; retire the
-  Observatory/Observability split.
+## M4.4 — Activity ✅ DONE
+- **Objective:** consolidate history. **(D62.)**
+- **Affected files:** new `src/app/activity/{page,layout}.tsx` (runs list), `src/app/activity/runs/[id]/{page,layout}.tsx`
+  (run detail); moved `src/app/observability/{events,traces} → src/app/activity/*`; new
+  `src/app/api/operations/{route,[id]/route}.ts`; new pure `src/lib/activity.ts` + `scripts/check-activity.ts`;
+  new `src/components/activity/activity-nav.tsx`; `src/hooks/useApi.ts` (`useOperations`/`useOperation`);
+  `src/lib/navigation.ts`; `src/lib/execution-meta.ts`; deleted the rest of `src/app/observability/*` and the
+  orphaned `src/components/observability/observability-nav.tsx`.
 - **Dependencies:** M3.3.
-- **Expected behaviour:** runs list + run detail (tasks, cost, duration, REAL/SIMULATED,
-  recovery history), events, traces.
-- **Acceptance criteria:** one word — Activity — everywhere; run detail shows per-task
-  simulation state.
-- **Edge cases:** E18 (paginate; no client-side loops).
-- **Testing:** e2e — open a completed run.
+- **Expected behaviour:** Activity is **runs · events · traces** (a run is an operation). Runs list + run
+  detail (tasks, cost, duration, per-task REAL/SIMULATED, recovery history, trace links); Events folds the
+  old Events/Logs/Metrics pages into one tabbed console; Traces moved in place. Cost lives on the run.
+- **Design (D62):** a run's data comes from **new `/api/operations` endpoints** (list with rolled-up
+  health + mission; detail with tasks, per-task health, joined traces — `Trace` has no `operationId`, so
+  runs join traces through their task ids). The list orders **worst-health-first** via the pure
+  `sortRunsByAttention` (asserted in `check-activity`). The standalone `costs`/`logs`/`performance` pages
+  are **retired**; the `/api/observability/*` APIs stay and back the folded tabs.
+- **Acceptance criteria:** ✅ one word — Activity — everywhere (nav, layout, eyebrow); ✅ run detail shows
+  per-task simulation state (REAL/SIMULATED); ✅ no `/observability/*` page remains (404s), APIs intact.
+- **Testing:** ✅ pure `check-activity` (**10** — health ranking, ordering, non-mutation, stable ties,
+  terminality, duration clamping); ✅ `check-navigation` (**24/24**, +fold assertions); ✅ live e2e
+  `m44-e2e.ts` (**27/27**: `/api/operations` list+detail+404, status filter, Activity pages 200, all
+  `/observability/*` 404, folded APIs alive). Regressions green (attention 14, health 24, spend 15, drift
+  16, recovery 15, approvals 10, spawn 11, missions 26, selectors 138); `tsc` clean; build clean, artifacts
+  fresh.
+- **Edge cases:** E18 (paginate; no client-side loops) — deferred: the list is bounded by the seeded set,
+  pagination noted for M5.
 
 ## M4.5 — Universal states
 - **Objective:** every data surface defines all five states.
