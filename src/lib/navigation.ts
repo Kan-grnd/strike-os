@@ -7,7 +7,6 @@ import {
   Cpu,
   Database,
   FileText,
-  Gauge,
   Globe,
   Layers,
   LayoutDashboard,
@@ -112,14 +111,13 @@ export const NAV_DOMAINS: NavigationDomain[] = [
     label: "Activity",
     icon: Activity,
     children: [
-      { label: "Events", href: "/observability/events" },
-      { label: "Traces", href: "/observability/traces", matches: ["/observability/traces"] },
-      { label: "Logs", href: "/observability/logs" },
-      /* Labelled Metrics, not Performance: this is the request's name for the
-       * destination. Costs stays a separate item below rather than being folded
-       * in here, so neither page loses its own entry. */
-      { label: "Metrics", href: "/observability/performance" },
-      { label: "Costs", href: "/observability/costs" },
+      /* Activity = runs · events · traces (M4.4). A run is an operation, so the
+       * runs list lives at the domain root and its detail under /activity/runs.
+       * Logs and Metrics are folded into Events, and cost lives with the run —
+       * so there is no standalone Logs/Metrics/Costs entry any more. */
+      { label: "Runs", href: "/activity", matches: ["/activity", "/activity/runs"] },
+      { label: "Events", href: "/activity/events" },
+      { label: "Traces", href: "/activity/traces", matches: ["/activity/traces"] },
       { label: "Decisions", href: "/decisions" },
     ],
   },
@@ -153,11 +151,9 @@ const CHILD_ICONS: Record<string, IconComponent> = {
   "/workforce/live": Layers,
   "/colonies": Boxes,
   "/capabilities": Target,
-  "/observability/events": Activity,
-  "/observability/traces": FileText,
-  "/observability/logs": FileText,
-  "/observability/performance": Gauge,
-  "/observability/costs": Gauge,
+  "/activity": Activity,
+  "/activity/events": Activity,
+  "/activity/traces": FileText,
   "/decisions": BookOpen,
   "/settings": Settings,
   "/models": Cpu,
@@ -227,7 +223,7 @@ export function resolveNavigation(pathname: string): ResolvedNavigation {
   }
 
   if (fallback.length > 0) {
-    /* Longest prefix wins, so `/observability/traces` beats `/observability`
+    /* Longest prefix wins, so `/activity/traces` beats `/activity`
      * if the config ever grows a nested one. */
     const best = fallback.reduce((a, b) => (b.prefix.length > a.prefix.length ? b : a));
     return { domain: best.domain, child: best.child };

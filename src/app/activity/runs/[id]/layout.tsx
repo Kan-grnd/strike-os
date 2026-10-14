@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-export const metadata: Metadata = { title: "Costs" };
+export const metadata: Metadata = { title: "Run" };
 
 export default function RouteLayout({ children }: { children: ReactNode }) {
   return children;

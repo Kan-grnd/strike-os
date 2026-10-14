@@ -71,7 +71,7 @@ export default function TracesPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: Math.min(i * 0.03, 0.3), ease: EASE }}
             >
-              <Link href={`/observability/traces/${t.id}`} className="block">
+              <Link href={`/activity/traces/${t.id}`} className="block">
                 <Card className="p-4 transition-colors hover:border-ring/40">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex min-w-0 items-start gap-3">

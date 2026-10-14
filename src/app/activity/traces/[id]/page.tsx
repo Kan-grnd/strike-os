@@ -55,7 +55,7 @@ export default function TraceDetailPage({
     return (
       <div className="space-y-6">
         <PageHeader
-          backHref="/observability/traces"
+          backHref="/activity/traces"
           backLabel="Traces"
           icon={Zap}
           eyebrow="Observability"
@@ -82,7 +82,7 @@ export default function TraceDetailPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        backHref="/observability/traces"
+        backHref="/activity/traces"
         backLabel="Traces"
         icon={Zap}
         eyebrow="Observability"

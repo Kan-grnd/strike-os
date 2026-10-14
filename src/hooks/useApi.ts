@@ -109,6 +109,23 @@ export function useApprovals(options?: { poll?: boolean }) {
   return useSWR<{ approvals: any[] }>("/api/approvals", fetcher, options?.poll ? pollOptions(rate) : undefined);
 }
 
+export function useOperations(filters?: Record<string, string>, options?: { poll?: boolean }) {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set("status", filters.status);
+  if (filters?.missionId) params.set("missionId", filters.missionId);
+  const key = `/api/operations${params.toString() ? `?${params}` : ""}`;
+  const rate = useRefreshRate();
+  return useSWR<{ operations: any[] }>(key, fetcher, options?.poll ? pollOptions(rate) : undefined);
+}
+
+export function useOperation(id?: string) {
+  return useSWR<{ operation: any; health?: string; traces: any[] }>(
+    id ? `/api/operations/${id}` : null,
+    fetcher,
+    liveOptions()
+  );
+}
+
 export function useTools() {
   return useSWR<{ tools: any[] }>("/api/tools", fetcher);
 }

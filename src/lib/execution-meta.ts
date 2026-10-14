@@ -19,6 +19,15 @@ export const OPERATION_STATUS_COLOR: Record<string, string> = {
   CANCELLED: "bg-muted text-muted-foreground",
 };
 
+export const OPERATION_STATUS_OPTIONS = [
+  "PLANNING",
+  "RUNNING",
+  "PAUSED",
+  "COMPLETED",
+  "FAILED",
+  "CANCELLED",
+] as const;
+
 /** Health is orthogonal to lifecycle (M3.3): it answers "does this need the
  * operator?" independently of the mission's state label. */
 export const HEALTH_COLOR: Record<string, string> = {

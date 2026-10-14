@@ -5,24 +5,29 @@ import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 
+/* One word: Activity (D23). The old Observatory/Observability split is retired;
+ * cost and log/metric views fold into the run and event surfaces rather than
+ * living as separate destinations. */
 const TABS = [
-  { href: "/observability/performance", label: "Performance" },
-  { href: "/observability/costs", label: "Costs" },
-  { href: "/observability/traces", label: "Traces" },
-  { href: "/observability/events", label: "Events" },
-  { href: "/observability/logs", label: "Logs" },
+  { href: "/activity", label: "Runs" },
+  { href: "/activity/events", label: "Events" },
+  { href: "/activity/traces", label: "Traces" },
 ];
 
-export function ObservabilityNav() {
+export function ActivityNav() {
   const pathname = usePathname();
 
   return (
     <nav
-      aria-label="Observability sections"
+      aria-label="Activity sections"
       className="flex flex-wrap items-center gap-1 rounded-xl border bg-card p-1"
     >
       {TABS.map((tab) => {
-        const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+        /* Runs is the index: match it exactly so it is not active on every child. */
+        const active =
+          tab.href === "/activity"
+            ? pathname === "/activity"
+            : pathname === tab.href || pathname.startsWith(`${tab.href}/`);
         return (
           <Link
             key={tab.href}
@@ -30,14 +35,12 @@ export function ObservabilityNav() {
             aria-current={active ? "page" : undefined}
             className={cn(
               "relative rounded-xl px-3 py-1.5 text-sm font-medium transition-colors",
-              active
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground"
+              active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
             {active && (
               <motion.span
-                layoutId="observability-tab"
+                layoutId="activity-tab"
                 transition={{ type: "spring", stiffness: 400, damping: 32 }}
                 className="absolute inset-0 rounded-xl bg-muted"
               />

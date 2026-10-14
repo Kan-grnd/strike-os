@@ -110,12 +110,11 @@ const EXPECTED: Array<[string, string]> = [
   ["/workforce/live", "workforce"],
   ["/colonies", "workforce"],
   ["/capabilities", "workforce"],
-  ["/observability/events", "activity"],
-  ["/observability/traces", "activity"],
-  ["/observability/traces/abc", "activity"],
-  ["/observability/logs", "activity"],
-  ["/observability/performance", "activity"],
-  ["/observability/costs", "activity"],
+  ["/activity", "activity"],
+  ["/activity/runs/sample-id", "activity"],
+  ["/activity/events", "activity"],
+  ["/activity/traces", "activity"],
+  ["/activity/traces/abc", "activity"],
   ["/decisions", "activity"],
   ["/settings", "settings"],
   ["/models", "settings"],
@@ -201,12 +200,12 @@ check(
  * negative cases below are the actual hazard; the positive ones are the promise. */
 check(
   "a prefix does not swallow a lookalike path",
-  !matchesPath("/tasksomething", "/task") && !matchesPath("/agentsfoo", "/agents"),
-  "/task vs /tasksomething, /agents vs /agentsfoo"
+  !matchesPath("/tasksomething", "/task") && !matchesPath("/workforce/agentsfoo", "/workforce/agents"),
+  "/task vs /tasksomething, /workforce/agents vs /workforce/agentsfoo"
 );
 check(
   "a prefix does claim its own descendants",
-  matchesPath("/agents/abc", "/agents") && matchesPath("/observability/traces/abc", "/observability/traces"),
+  matchesPath("/workforce/agents/abc", "/workforce/agents") && matchesPath("/activity/traces/abc", "/activity/traces"),
   "detail routes match their parent"
 );
 check("an exact path matches exactly", matchesPath("/missions", "/missions") && matchesPath("/mission", "/missions") === false);
@@ -259,18 +258,30 @@ check(
     labelFor("/connectors") === "Connectors",
   "Knowledge, MCP, Connectors"
 );
+/* M4.4 (D23): the Observatory split is retired. Activity is exactly the loop
+ * runs → events → traces, plus Decisions. Logs and Metrics folded into Events;
+ * cost folded into the run detail, so no standalone Logs/Metrics/Costs entry
+ * remains — and none of the deleted /observability pages survive as a href. */
+const ACTIVITY_HREFS = ["/activity", "/activity/events", "/activity/traces", "/decisions"];
+const activityChildren = NAV_DOMAINS.find((d) => d.id === "activity")!.children.map((c) => c.href);
 check(
-  "Metrics is a label on the performance route",
-  labelFor("/observability/performance") === "Metrics",
-  `/observability/performance -> ${labelFor("/observability/performance")}`
+  "Activity is runs, events, traces and decisions",
+  activityChildren.length === ACTIVITY_HREFS.length &&
+    activityChildren.every((h, i) => h === ACTIVITY_HREFS[i]),
+  activityChildren.join(",")
 );
-/* Nothing lost in the move: Live and Costs stayed reachable. Live is the
- * Workforce name for the live work flow (was "Live Topology" under Observatory,
- * relocated from /topology to /workforce/live in M4.3). */
 check(
-  "Live and costs remain in navigation",
-  labelFor("/workforce/live") === "Live" && labelFor("/observability/costs") === "Costs",
-  "Live, Costs"
+  "the folded Observatory pages are no longer listed",
+  !activityChildren.some((h) => h.includes("/observability/")) &&
+    appRoutes.every((r) => !r.startsWith("/observability")),
+  "no /observability/* pages or hrefs"
+);
+/* Live is the Workforce name for the live work flow (was "Live Topology" under
+ * Observatory, relocated from /topology to /workforce/live in M4.3). */
+check(
+  "Live remains in navigation",
+  labelFor("/workforce/live") === "Live",
+  "Live"
 );
 check(
   "Edit Queue is reachable from Settings",
