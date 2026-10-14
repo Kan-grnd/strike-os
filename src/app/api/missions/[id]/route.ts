@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { eventBus } from "@/lib/events";
 import { getMissionEngine } from "@/lib/engine";
+import { operationHealth, missionHealthFrom } from "@/lib/health";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,9 @@ export async function GET(req: Request, { params }: { params: Params }) {
       where: { id: params.id },
       include: {
         tasks: {
+          orderBy: { createdAt: "asc" },
+        },
+        operations: {
           orderBy: { createdAt: "asc" },
         },
       },
@@ -27,7 +31,14 @@ export async function GET(req: Request, { params }: { params: Params }) {
       orderBy: { timestamp: "asc" },
     });
 
-    return NextResponse.json({ mission, events });
+    // Health rolls up task → operation → mission (M3.3).
+    const operations = mission.operations.map((op) => ({
+      ...op,
+      health: operationHealth(op, mission.tasks.filter((t) => t.parentOperationId === op.id)),
+    }));
+    const health = missionHealthFrom(mission, mission.operations, mission.tasks);
+
+    return NextResponse.json({ mission: { ...mission, operations }, health, events });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "Failed to fetch mission" }, { status: 500 });

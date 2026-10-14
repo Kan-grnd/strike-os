@@ -88,7 +88,7 @@ function liveOptions() {
 }
 
 export function useMission(id?: string) {
-  return useSWR<{ mission: any; events: any[] }>(id ? `/api/missions/${id}` : null, fetcher, liveOptions());
+  return useSWR<{ mission: any; health?: string; events: any[] }>(id ? `/api/missions/${id}` : null, fetcher, liveOptions());
 }
 
 export function useTask(id?: string) {

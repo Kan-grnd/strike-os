@@ -10,7 +10,7 @@ import { useMission } from "@/hooks/useApi";
 import { MissionProgressBar } from "@/components/execution/mission-progress-bar";
 import { DataTable, type DataTableColumn } from "@/components/execution/data-table";
 import { safeJson, formatCost, formatDuration } from "@/lib/utils";
-import { MISSION_STATUS_COLOR, TASK_STATUS_COLOR, missionProgress, taskSimulated } from "@/lib/execution-meta";
+import { MISSION_STATUS_COLOR, TASK_STATUS_COLOR, HEALTH_COLOR, HEALTH_LABEL, missionProgress, taskSimulated } from "@/lib/execution-meta";
 import { parseMissionPlan } from "@/lib/plan";
 import { PageHeader, SectionLabel } from "@/components/shared/page-header";
 
@@ -134,6 +134,7 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
 
   const mission = data?.mission;
   const events = data?.events || [];
+  const health = data?.health;
   const eventsByTime = [...events].sort(
     (a: any, b: any) => (new Date(a.timestamp).getTime() || 0) - (new Date(b.timestamp).getTime() || 0)
   );
@@ -234,6 +235,14 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
           <span className="flex flex-wrap items-center gap-2">
             <span className="truncate">{mission.goal}</span>
             <Badge className={MISSION_STATUS_COLOR[mission.status] || "bg-muted"}>{mission.status}</Badge>
+            {health && !["COMPLETED", "CANCELLED"].includes(mission.status) && (
+              <Badge
+                className={HEALTH_COLOR[health] || "bg-muted text-muted-foreground"}
+                title="Operational health — independent of the state label"
+              >
+                {HEALTH_LABEL[health] || health}
+              </Badge>
+            )}
           </span>
         }
         description={`Priority ${mission.priority} · ${mission.id.slice(0, 8)}${

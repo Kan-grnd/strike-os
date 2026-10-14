@@ -9,6 +9,22 @@ export const MISSION_STATUS_COLOR: Record<string, string> = {
   CANCELLED: "bg-muted text-muted-foreground",
 };
 
+/** Health is orthogonal to lifecycle (M3.3): it answers "does this need the
+ * operator?" independently of the mission's state label. */
+export const HEALTH_COLOR: Record<string, string> = {
+  HEALTHY: "bg-success/10 text-success",
+  DEGRADED: "bg-warning/10 text-warning",
+  BLOCKED: "bg-warning/10 text-warning",
+  FAILING: "bg-destructive/10 text-destructive",
+};
+
+export const HEALTH_LABEL: Record<string, string> = {
+  HEALTHY: "Healthy",
+  DEGRADED: "Degraded",
+  BLOCKED: "Blocked",
+  FAILING: "Failing",
+};
+
 export const MISSION_STATUS_OPTIONS = [
   "PLANNING",
   "READY",
@@ -27,6 +43,7 @@ export const TASK_STATUS_COLOR: Record<string, string> = {
   WAITING: "bg-warning/10 text-warning",
   COMPLETED: "bg-success/10 text-success",
   FAILED: "bg-destructive/10 text-destructive",
+  ESCALATED: "bg-warning/10 text-warning",
   CANCELLED: "bg-muted text-muted-foreground",
 };
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { eventBus } from "@/lib/events";
+import { missionHealthFrom } from "@/lib/health";
 
 export const dynamic = "force-dynamic";
 
@@ -17,13 +18,26 @@ export async function GET(req: Request) {
           status: true,
           description: true,
           ownerAgentId: true,
+          retryCount: true,
+          maxRetries: true,
+          parentOperationId: true,
         },
+      },
+      operations: {
+        select: { id: true, status: true },
       },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ missions });
+  // Health rolls up task → operation → mission (M3.3) on every read, so it is
+  // always fresh and never flashes a within-tick recovery (health.ts).
+  const withHealth = missions.map((m) => ({
+    ...m,
+    health: missionHealthFrom(m, m.operations, m.tasks),
+  }));
+
+  return NextResponse.json({ missions: withHealth });
 }
 
 export async function POST(req: Request) {
