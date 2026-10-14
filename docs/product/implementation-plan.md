@@ -321,21 +321,53 @@ makes the scheduler actually start, so the loop is observable rather than frozen
   idempotency + deny matrix (20); live wiring — mission-engine spawn gate resolved via HTTP,
   tool-fabric permission gate (13); scheduler hold/release (2).
 
-## M3.2 — Failure recovery
+## M3.2 — Failure recovery ✅ DONE
 - **Objective:** retry → Brain recovers → escalate, using the declared policies.
-- **Affected files:** `runtime-state.ts` (`ESCALATE`/`ABORT_BRANCH`/`SPAWN_REPLACEMENT`
-  :43-53), `task-engine.ts` (retry loop :128-158), health.
+- **Affected files:** `src/lib/recovery-policy.ts` (new, pure), `src/lib/recovery.ts` (new),
+  `scripts/check-recovery.ts` (new), `prisma/schema.prisma` (`Task.recovery` +
+  `m3_task_recovery`), `events.ts`, `task-engine.ts` (retry-exhaustion branch), `engine.ts`
+  (boot re-queue), `approvals.ts` (recovery-gate resolution), `model-policy.ts`
+  (`DEFAULT_PRIMARY` exported), `approval-policy.ts` (`ESCALATED` is non-terminal).
 - **Dependencies:** M3.1.
 - **Expected behaviour:** bounded retry (already built) → reassign → fallback model (within
   policy) → spawn replacement; if all fail, escalate with context; health degrades.
   Outside-policy model fallback is a gate.
-- **Acceptance criteria:** a repeatedly-failing task reassigns at least once and then
-  escalates; escalation carries the failure context; no silent permanent `FAILED`.
-- **Edge cases:** E2, E3, E10, E20.
-- **Testing:** integration — scripted failures across each recovery path.
-- **Note:** **retry already exists** (`task-engine.ts:128-158`) and already emits
-  `task.failed` with `retryExhausted: true` on exhaustion. Build the **recovery** and
-  **escalation** steps, not the retry.
+- **Design (D53–D55):**
+  - **The ladder (D53):** on retry exhaustion the Brain walks `reassign → fallback →
+    replacement → escalate`, each stage attempted **at most once**. The stages run are
+    recorded on `Task.recovery` (`{ tried: stage[], lastError? }`), so the same task advances
+    the ladder instead of repeating a stage and the total work is bounded
+    (`stages × maxRetries`). `reassign` picks another capable agent (same type preferred, never
+    an agent that is itself failed/blocked/paused); if none exists the stage is marked tried and
+    the ladder moves on. `replacement` spawns a sub-agent, honouring the spawn ceiling — at the
+    ceiling it raises the M3.1 `SPAWN_CEILING` gate.
+  - **Fallback is in-policy or gated (D54):** if the task/mission policy lists a fallback model,
+    the task switches silently (a warning is emitted). If the policy names **no** fallback,
+    switching models would be *outside policy*, so a `MODEL_FALLBACK` gate is raised (task held
+    non-terminal `WAITING`) rather than a silent swap. Approving it authorises the default
+    model and re-queues; denying cancels the scope (blocking trigger, D52).
+  - **Escalation (D55):** when the ladder is exhausted the task ends non-terminal
+    **`ESCALATED`** — never a silent `FAILED` — and an `ESCALATION` gate (scope `MISSION`,
+    D51) is raised carrying the full context (stages tried, last error). Because `ESCALATED`
+    is non-terminal, the mission cannot settle; it stays open and visibly needs the operator.
+    Approving starts a fresh recovery cycle; denying cancels the scope.
+  - **E3 boot sweep:** a `RUNNING` task orphaned by a crash/restart is re-queued on engine
+    start with a reattempt cap (increments `retryCount`; past the cap it settles `FAILED`), and
+    its agent resets out of `executing`.
+- **Acceptance criteria:** ✅ a repeatedly-failing task reassigns (to a different agent) and
+  then escalates (verified, ladder e2e); ✅ escalation carries the failure context (stages
+  tried + last error) on the gate; ✅ no silent permanent `FAILED` (tasks end `ESCALATED` with
+  a gate, or are cancelled by a deny); ✅ the mission never settles while a task is escalated;
+  ✅ an in-policy fallback switches silently, an out-of-policy fallback gates.
+- **Edge cases:** E2 (recovers or fails honestly, never a fake success), E3 (boot re-queue +
+  cap), E10 (deny semantics via M3.1), E20 (stale `memoryScope` already fixed — policy resolves
+  task → operation → mission → agent).
+- **Testing:** pure `scripts/check-recovery.ts` (15); integration — full ladder + fallback
+  gate + escalation-context + idempotent resolution + E3 (20); live — the running scheduler
+  escalates a synthetic unrecoverable task and raises a `MISSION`-scope `ESCALATION` gate.
+- **Note:** **retry already existed** (`task-engine.ts`); this built the **recovery** and
+  **escalation** steps. Health *degradation* is the M3.3 rollup — M3.2 produces the facts
+  (escalated task, open mission, gate) M3.3 turns into health.
 
 ## M3.3 — Health rollup
 - **Objective:** task → operation → mission health for the attention surface.

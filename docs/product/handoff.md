@@ -318,6 +318,31 @@ Outside-policy fallback is a gate — call the M3.1 `requestApproval` primitive 
 loop: implement → `tsc` → detached build → serve `:3010` → verify → commit (explicit paths,
 no push).
 
+**M3.2 status: ✅ DONE, verified** — commit **`ca1d70e`**. A task that exhausts its retries
+is no longer a silent permanent `FAILED`. New `src/lib/recovery-policy.ts` (pure: the ladder,
+state parse/record, `fallbackDecision`) + `src/lib/recovery.ts` (`recoverTask` walks
+`reassign → fallback → replacement → escalate`, each stage tried at most once per D53;
+`requeueOrphanedTasks` for E3). `Task` gained a `recovery` column (`m3_task_recovery`). The
+task-engine retry-exhaustion branch now calls `recoverTask`; `engine.ts` re-queues orphaned
+`RUNNING` tasks on boot. `ESCALATED` joins the non-terminal set (D55) so a gated mission never
+settles silently. Fallback is in-policy-or-gated (D54): the policy's fallback list switches
+silently, an absent one raises a `MODEL_FALLBACK` gate. Escalation ends the task non-terminal
+`ESCALATED` + a `MISSION`-scope `ESCALATION` gate carrying the tried stages and last error;
+approve starts a fresh cycle, deny cancels. **Verified:** pure `check-recovery` 15/15;
+integration 20/20 (full ladder, fallback gate, escalation context, idempotent resolve, E3);
+**live** — the running scheduler escalated a synthetic unrecoverable task and raised the
+`MISSION`-scope gate. `tsc` clean; nav 19/19; selectors 138/138; spawn-policy 11/11;
+approvals 10/10; build clean, artifacts fresh.
+
+> **M3.2 note for the UI:** an escalated task is `ESCALATED` with a `MISSION`-scope
+> `ESCALATION` gate; a fallback gate holds the task `WAITING`. Both resolve via
+> `POST /api/approvals/[id]` for now — the actionable "Needs you" queue is **M4.1**. Health
+> *degradation* is the **M3.3** rollup; M3.2 produces the facts (escalated task, open mission,
+> gate) it will consume.
+
+**Next: M3.3 — Health rollup** (task → operation → mission health for the attention surface;
+debounced so a within-tick recovery does not flash). Same loop.
+
 > **M3.1 note for the UI:** the control center (`/`) already lists approvals (rough, via
 > `useApprovals`) and `/decisions` exists, but neither can resolve a gate yet — the
 > actionable "Needs you" queue is **M4.1**. Operators resolve via `POST /api/approvals/[id]`
