@@ -492,16 +492,34 @@ operator's decisions actually controlling execution.
 - **Deferred:** the global command bar exists in the shell (`command-bar.tsx`, IM1); folding chat
   in as the directing input is later. `/missions` is still a redirect to `/work` until M4.2.
 
-## M4.2 — Missions list & detail
+## M4.2 — Missions list & detail ✅ DONE
 - **Objective:** the directing surface.
-- **Affected files:** new `src/app/missions`, `src/app/missions/[id]`.
+- **Affected files:** new `src/app/missions/{page,layout}.tsx`; `src/app/missions/[id]/page.tsx`
+  (operations timeline + triggers); new `src/components/missions/mission-triggers.tsx`; new pure
+  `src/lib/missions.ts` + `scripts/check-missions.ts`; `src/app/api/missions/{route,[id]/route}.ts`;
+  `src/app/api/automations/route.ts` (accept/filter `missionId`); `src/lib/navigation.ts`;
+  `next.config.js`; `src/lib/execution-meta.ts`; `src/hooks/useApi.ts`.
 - **Dependencies:** M1.2.
 - **Expected behaviour:** a list (health, cadence, last run, cost, next run), sorted
   "needs attention first"; detail shows operations timeline, cadence/triggers, limits,
   history. **Automations fold in as triggers on the detail page.**
-- **Acceptance criteria:** a mission's triggers are editable on its detail page; no
-  separate Automations surface remains.
-- **Testing:** e2e — create, view, pause, resume.
+- **Design (D60):** triggers attach by a **nullable `Automation.missionId`** (FK, `ON DELETE SET
+  NULL`, indexed) plus an optional **`Mission.cadence`** (JSON, null = manual). Triggers *are* the
+  existing automations, created/renamed/enabled/disabled/deleted on the detail page via the
+  existing `/api/automations` endpoints (extended to accept/filter `missionId`) — **no separate
+  Automations surface**. The list reuses the Control Center's severity idea via
+  `sortMissionsByAttention` (worst health → running → the rest → terminal last). **Honesty:** no
+  runtime loop fires a trigger on a schedule, so "Next run" shows only when an automation actually
+  carries `nextRun`, and a mission with no cadence and no triggers reads "Manual".
+- **Acceptance criteria:** ✅ a mission's triggers are editable on its detail page
+  (add / pause / activate / delete); ✅ no separate Automations surface remains. `/missions` stops
+  redirecting so the page can serve; `/workflows` and `/automations` keep redirecting until M4.3.
+- **Testing:** pure `check-missions` (26 — ordering, cadence parse/format, trigger next/last run,
+  scheduled-ness); **live e2e** (16) — `/missions` serves a page (not a redirect) and
+  server-renders; create a mission with a cadence and see it in the list; link a trigger and see it
+  on the detail payload and by `?missionId=`; pause + delete the trigger; edit + clear the cadence.
+- **Deferred:** mission "limits/permissions" editing UI is M5.2; the five-domain IA reorg and full
+  `/workflows`+`/automations` retirement are M4.3.
 
 ## M4.3 — IA reorg
 - **Objective:** apply the five-domain structure.

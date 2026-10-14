@@ -412,8 +412,33 @@ clean, artifacts fresh, `/` 200. D59.
 > adapter, swarm, y-ticks, section-header, error boundary) was **deleted**. Only `theme-ambient`
 > (used by the shell) and `use-streaming` (used by `/`) remain there.
 
-> **M4.1 deferred:** `/missions` still redirects to `/work` — the real Missions list is **M4.2**.
+> **M4.1 deferred (resolved by M4.2):** `/missions` was a redirect; it is now a real page.
 > The global command bar already exists in the shell (IM1).
+
+**M4.2 status: ✅ DONE, verified** — commit **`4a2e781`**. `/missions` is the directing surface
+again. The list shows health, status, cadence, last/next run and cost, ordered **needs-attention
+first** by the shared pure ranking (`sortMissionsByAttention` — worst health, then running, then
+the rest, terminal last). The mission detail gains an **operations timeline** and a **Cadence &
+triggers** panel. **Triggers fold into the mission** (D60): automations link by a new nullable
+`Automation.missionId`, added by migration `m4_mission_triggers` (which also adds
+`Mission.cadence`), and are created/enabled/disabled/deleted on the detail page via the existing
+`/api/automations` endpoints — there is **no separate Automations surface**. **Verified:** pure
+`check-missions` 26/26; **live e2e** (16) — `/missions` serves a page (not a redirect) and
+server-renders; a mission created with a cadence appears in the list; a linked trigger shows on
+the detail payload and by `?missionId=`; pause + delete; edit + clear the cadence. Regressions all
+green (attention 14, health 24, spend 15, drift 16, recovery 15, approvals 10, spawn 11, nav 19,
+selectors 138); `tsc` clean; build clean, artifacts fresh, `/missions` + `/` 200. D60.
+
+> **M4.2 honesty note:** nothing in the runtime fires a trigger on a schedule — `nextRun` is read
+> by no loop and `automation-triggers.ts` is an in-memory engine nothing registers. The UI
+> therefore shows "Next run" **only** when an automation actually carries `nextRun`, and a mission
+> with no cadence and no triggers reads **"Manual"**. Wiring a real trigger loop is out of scope
+> for M4.2 (M5 hygiene / a later engine concern).
+
+> **M4.2 routing:** `/missions` no longer redirects (a page cannot serve behind a redirect — the
+> entry was removed from `next.config.js`). `/workflows` and `/automations` still redirect to the
+> merged `/work` page; M4.3 retires them with the five-domain IA. Nav gained a real **Missions**
+> item in the Execution domain (before the merged Work page).
 
 > **Pre-existing check failures (not ours):** `scripts/check-node-contrast.ts` and
 > `scripts/check-orb-palette.ts` both abort because a `clean` theme is referenced but
