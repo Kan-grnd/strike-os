@@ -187,13 +187,13 @@ the API.
 `FAILED` / `CANCELLED`) — zero churn, UI + engine + event bus agree. The `DRAFT` / `ACTIVE`
 rename is dropped and the spec docs were patched to match. **M1.3 is unblocked.**
 
-### G2 — The `RECOMMENDED` IA items (blocks M4.3)
-These are proposals, not confirmed decisions. Build them unless vetoed:
+### G2 — The `RECOMMENDED` IA items ✅ RESOLVED (implemented in M4.3)
+User confirmed "build as proposed". Implemented as **D61**:
 - Five-domain IA: Control Center · Missions · Workforce · Activity · Settings (D20).
-- Demote Colony from primary navigation (D21).
-- Retire the route redirects and the merged `/work` (D22).
-- Rename Observatory/Observability → **Activity** (D23).
-- Rebuild `/routing` or mark it a preview (D24).
+- Colony demoted from primary navigation to a Workforce item (D21).
+- Retired the route redirects and the merged `/work` (D22).
+- Renamed Observatory/Observability → **Activity** (D23).
+- `/routing` rebuild-or-preview is deferred to **M5.1** (D24).
 
 ### G3 — Open questions that do not block M1
 Spending-ceiling granularity, drift signals, overlapping operations, approval timeout,
@@ -439,6 +439,28 @@ selectors 138); `tsc` clean; build clean, artifacts fresh, `/missions` + `/` 200
 > entry was removed from `next.config.js`). `/workflows` and `/automations` still redirect to the
 > merged `/work` page; M4.3 retires them with the five-domain IA. Nav gained a real **Missions**
 > item in the Execution domain (before the merged Work page).
+
+**M4.3 status: ✅ DONE, verified** — commit **`50d0c6c`**. The IA is the five domains the
+operator actually uses, in their loop order: **Control Center · Missions · Workforce ·
+Activity · Settings** (was eight infrastructure domains). **Observatory/Observability →
+Activity** (one word); **Colony demoted** to a Workforce item; **"Live Topology" → Live**.
+**Workforce relocates under the domain (D48/D49):** `/agents → /workforce/agents`,
+`/architect → /workforce/specialists`, `/topology → /workforce/live` — the old paths 404.
+**Every redirect is retired (D22):** `next.config.js` now has no `redirects()`, the merged
+`/work` page is **deleted**, and `/work`, `/workflows`, `/automations` are honest **404s**
+(not 308s). Workflow/automation detail still resolves under **Missions** via the nav
+`matches` prefix, and the sidebar-footer + needs-you links point at `/missions`.
+**G2 resolved** (user confirmed "build as proposed"). **Verified:** `check-navigation` **23/23**
+(five domains exact + ordered; `/work` gone; old Workforce paths gone; workflow detail under
+Missions); live e2e `m43-e2e.ts` **34/34** (every nav href 200; retired paths 404-not-308;
+`/missions` 200). Regressions green (attention 14, health 24, spend 15, drift 16, recovery 15,
+approvals 10, spawn 11, missions 26, selectors 138); `tsc` clean; build clean, artifacts fresh.
+D61.
+
+> **M4.3 not-yet-moved:** the IA route plan also lists `/settings/{models,routing,tools,memory}`
+> and `/activity/{runs,events,traces}`. Activity's consolidation is **M4.4**; the Settings path
+> moves are folded into **M5** (Policies/Tools/Routing work). The nav *domains* are correct now;
+> only those two homes' sub-paths remain at their legacy `-` paths.
 
 > **Pre-existing check failures (not ours):** `scripts/check-node-contrast.ts` and
 > `scripts/check-orb-palette.ts` both abort because a `clean` theme is referenced but

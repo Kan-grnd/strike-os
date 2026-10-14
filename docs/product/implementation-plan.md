@@ -521,15 +521,27 @@ operator's decisions actually controlling execution.
 - **Deferred:** mission "limits/permissions" editing UI is M5.2; the five-domain IA reorg and full
   `/workflows`+`/automations` retirement are M4.3.
 
-## M4.3 — IA reorg
-- **Objective:** apply the five-domain structure.
+## M4.3 — IA reorg ✅ DONE
+- **Objective:** apply the five-domain structure. **(D61; G2 confirmed.)**
 - **Affected files:** `src/lib/navigation.ts`, `next.config.js`, route moves.
-- **Dependencies:** M4.1, M4.2, **G2 resolved**.
+- **Dependencies:** M4.1, M4.2, **G2 resolved** ✅.
 - **Expected behaviour:** Control Center · Missions · Workforce · Activity · Settings;
-  redirects retired; the merged `/work` removed.
-- **Acceptance criteria:** `scripts/check-navigation.ts` passes; every route appears
-  exactly once; `/missions`, `/workflows`, `/automations` no longer redirect.
-- **Testing:** run the nav checker; assert no 404s on nav targets.
+  redirects retired; the merged `/work` removed. **Done** — nav collapses from eight
+  infrastructure domains to the five, in loop order; Observatory→**Activity**;
+  **Colony demoted** to a Workforce item; **Live** replaces "Live Topology".
+  Workforce relocates under the domain (D48/D49): `/agents → /workforce/agents`,
+  `/architect → /workforce/specialists`, `/topology → /workforce/live` (old paths 404).
+  `next.config.js` has **no redirects**; the merged `/work` page is deleted and
+  `/work`, `/workflows`, `/automations` are honest 404s — workflow detail still
+  resolves under Missions via nav `matches`.
+- **Acceptance criteria:** ✅ `scripts/check-navigation.ts` passes **23/23**; every
+  route resolves to exactly one of the five domains; `/missions` is 200 (not a
+  redirect), `/workflows` + `/automations` no longer redirect (404).
+- **Testing:** ✅ nav checker; live e2e `m43-e2e.ts` (**34/34**: five domains exact +
+  ordered, every nav href 200, retired paths 404-not-308, `/missions` 200). No 404s on
+  nav targets. Regressions green (attention 14, health 24, spend 15, drift 16, recovery
+  15, approvals 10, spawn 11, missions 26, selectors 138); `tsc` clean; build clean,
+  artifacts fresh.
 
 ## M4.4 — Activity
 - **Objective:** consolidate history.
