@@ -100,12 +100,11 @@ export class ActionEngine {
   private async createMission(config: Record<string, unknown>, context: Record<string, unknown>): Promise<any> {
     const missionEngine = await this.getMissionEngine();
     const goal = (config.goal as string) || "Automated mission";
-    const useLlm = config.useLlm === true;
 
-    const planSteps = await missionEngine.planMission(goal, useLlm);
+    const plan = await missionEngine.planMission(goal);
     const agentIds = (config.agentIds as string[]) || [];
 
-    const mission = await missionEngine.createMission(prisma, goal, planSteps, agentIds, config.priority as number || 0);
+    const mission = await missionEngine.createMission(prisma, goal, plan.steps, agentIds, config.priority as number || 0);
 
     // Start mission immediately if configured
     if (config.autoStart === true) {

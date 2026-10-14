@@ -5,11 +5,12 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import prisma from "./db";
 import { TaskEngine, TaskRunner } from "./task-engine";
 import { MissionEngine } from "./mission-engine";
 import { ModelGateway } from "./model-gateway";
 import { RealTaskRunner } from "./task-runner-real";
-import { getSecret } from "./secrets";
+import { hasConfiguredProvider } from "./providers/config";
 
 let _taskEngine: TaskEngine | null = null;
 let _missionEngine: MissionEngine | null = null;
@@ -21,30 +22,17 @@ const globalForEngine = globalThis as unknown as {
   modelGateway: ModelGateway | undefined;
 };
 
+/** Shared Prisma singleton (avoids a second client / connection pool). */
 function getDb(): PrismaClient {
-  const { PrismaClient: PC } = require("@prisma/client");
-  return new PC({ log: [] });
-}
-
-async function hasApiKeys(): Promise<boolean> {
-  try {
-    const [anthropic, openai, omniroute] = await Promise.all([
-      getSecret("anthropic", "ANTHROPIC_API_KEY"),
-      getSecret("openai", "OPENAI_API_KEY"),
-      getSecret("omniroute", "OMNIROUTE_API_KEY"),
-    ]);
-    return !!(anthropic || openai || omniroute);
-  } catch {
-    return false;
-  }
+  return prisma;
 }
 
 export async function getTaskEngine(): Promise<TaskEngine> {
   if (globalForEngine.taskEngine) return globalForEngine.taskEngine;
-  
+
   const db = getDb();
-  const hasKeys = await hasApiKeys();
-  
+  const hasKeys = await hasConfiguredProvider();
+
   let runner: TaskRunner;
   if (hasKeys) {
     const gateway = getModelGateway();
@@ -54,7 +42,7 @@ export async function getTaskEngine(): Promise<TaskEngine> {
     runner = new (require("./task-engine").MockTaskRunner)();
     console.log("[Engine] Using MockTaskRunner (no API keys configured)");
   }
-  
+
   globalForEngine.taskEngine = new TaskEngine(db, runner);
   return globalForEngine.taskEngine;
 }
@@ -63,7 +51,7 @@ export async function getMissionEngine(): Promise<MissionEngine> {
   if (globalForEngine.missionEngine) return globalForEngine.missionEngine;
   const db = getDb();
   const taskEngine = await getTaskEngine();
-  globalForEngine.missionEngine = new MissionEngine(db, taskEngine);
+  globalForEngine.missionEngine = new MissionEngine(db, taskEngine, getModelGateway());
   return globalForEngine.missionEngine;
 }
 

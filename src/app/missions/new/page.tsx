@@ -28,6 +28,7 @@ export default function NewMissionPage() {
   const [error, setError] = useState("");
   const [missionId, setMissionId] = useState<string | null>(null);
   const [planSteps, setPlanSteps] = useState<PlanStep[] | null>(null);
+  const [planSimulated, setPlanSimulated] = useState(false);
 
   const planMission = async () => {
     if (!goal.trim() || planning) return;
@@ -51,7 +52,7 @@ export default function NewMissionPage() {
       const planRes = await fetch(`/api/missions/${id}/plan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ llm: false }),
+        body: JSON.stringify({}),
       });
       if (!planRes.ok) {
         const body = await planRes.json().catch(() => ({}));
@@ -60,6 +61,7 @@ export default function NewMissionPage() {
       const planData = await planRes.json();
       const steps = Array.isArray(planData.planSteps) ? (planData.planSteps as PlanStep[]) : [];
       if (steps.length === 0) throw new Error("Planner returned an empty plan");
+      setPlanSimulated(planData.simulated === true);
 
       await fetch(`/api/missions/${id}`, {
         method: "PATCH",
@@ -153,6 +155,9 @@ export default function NewMissionPage() {
             <div className="flex flex-wrap items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-success" />
               <h2 className="font-semibold">Plan for this mission</h2>
+              {planSimulated && (
+                <Badge className="bg-warning/10 text-warning">Simulated</Badge>
+              )}
               {missionId && (
                 <Badge variant="outline" className="font-mono text-xs">
                   {missionId.slice(0, 8)}

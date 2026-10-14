@@ -11,6 +11,7 @@ import { MissionProgressBar } from "@/components/execution/mission-progress-bar"
 import { DataTable, type DataTableColumn } from "@/components/execution/data-table";
 import { safeJson, formatCost, formatDuration } from "@/lib/utils";
 import { MISSION_STATUS_COLOR, TASK_STATUS_COLOR, missionProgress } from "@/lib/execution-meta";
+import { parseMissionPlan } from "@/lib/plan";
 import { PageHeader, SectionLabel } from "@/components/shared/page-header";
 
 const PLAN_COLUMNS: DataTableColumn<any>[] = [
@@ -209,10 +210,8 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
 
   if (!mission) return null;
 
-  const plan = safeJson<Array<{ step: number; description: string; agentType: string; estimatedDuration?: number }>>(
-    mission.plan,
-    []
-  );
+  const parsedPlan = parseMissionPlan(mission.plan);
+  const plan = parsedPlan.steps;
   const prog = missionProgress(mission);
   const isTerminal = ["COMPLETED", "FAILED", "CANCELLED"].includes(mission.status);
 
@@ -311,7 +310,10 @@ export default function MissionDetailPage({ params }: { params: { id: string } }
       </div>
 
       <section className="space-y-3">
-        <SectionLabel>Plan</SectionLabel>
+        <div className="flex items-center gap-2">
+          <SectionLabel>Plan</SectionLabel>
+          {parsedPlan.simulated && <Badge className="bg-warning/10 text-warning">Simulated</Badge>}
+        </div>
         {plan.length > 0 ? (
           <DataTable
             columns={PLAN_COLUMNS}
