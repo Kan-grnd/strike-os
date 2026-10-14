@@ -43,10 +43,13 @@ high-level product is not. Do not assume a screen that renders is a screen that 
 
 ### Real (build on these)
 - **The scheduler.** `instrumentation.ts` → `startEngine()` → `TaskEngine.start()`, a 2s
-  `setInterval` (`src/lib/task-engine.ts:50`) that picks up any `QUEUED` task globally and
-  drives `QUEUED → ASSIGNED → RUNNING → COMPLETED/FAILED`, with dependency resolution
-  (`:64-111`), timeouts (`:113-126`) and **bounded retry with exponential backoff**
-  (`:128-158`).
+  `setInterval` (`src/lib/task-engine.ts:53`) that picks up any `QUEUED` task globally and
+  drives `QUEUED → ASSIGNED → RUNNING → COMPLETED/FAILED`, with dependency resolution,
+  timeouts and **bounded retry with exponential backoff**. **Note (fixed, D44):** it only
+  actually started once `experimental.instrumentationHook` was enabled in `next.config.js` —
+  before that `register()` never ran and the loop silently froze at `QUEUED`. Now it starts at
+  boot (`[TaskEngine] Started scheduling loop` in the server log). On each terminal task it
+  also calls `settleMissionIfComplete` so the mission + its `Operation` roll up.
 - **The agent state machine.** 15 states in `src/lib/runtime-state.ts:12-71`.
 - **The runtime store.** Cursor polling, stale-event guards, TTL transient edges (15s),
   flashes (4s), resync. Keep it — the confirmed model validates this design.
@@ -63,19 +66,23 @@ high-level product is not. Do not assume a screen that renders is a screen that 
   (`automation-triggers.ts:213`, `automation-actions.ts:274`).
 - `Approval` — model exists, **no auto-creation, no resolve endpoint, nothing blocks**
   (`api/approvals/route.ts`); `waiting_for_approval` never set.
-- `selectModel()` (`model-gateway.ts:65-143`) — **no callers**.
 - Dependency policies `ESCALATE` / `ABORT_BRANCH` / `SPAWN_REPLACEMENT`
   (`runtime-state.ts:43-53`) — **never referenced**.
-- `checkCompletion()` (`mission-engine.ts:342`) — called by nothing, so missions never
-  complete.
 - Tools echo their input and report a hardcoded `successRate: 99` (`tool-fabric.ts:61-84`).
 - The SSE endpoint returns one hardcoded "connected" event and closes
   (`observability/events/route.ts:13-28`).
 
-### Silent degradation — the worst defect in the codebase
-`RealTaskRunner` catches **every** provider failure and returns a fabricated
-`simulated: true` result (`src/lib/task-runner-real.ts:68-72`). Nothing in the UI
-distinguishes it. **This is the behaviour D18 exists to kill.**
+> **Resolved in M1 (`13de2e8`):** `selectModel()` was removed (no callers);
+> `checkCompletion()` is now driven by `settleMissionIfComplete` (`src/lib/completion.ts`),
+> called from the task engine on every terminal transition — missions and their operations
+> complete; the silent-degradation defect is gone.
+
+### Silent degradation — **fixed in M1 (`dc7d4c3`)**
+`RealTaskRunner` no longer catches provider failures to fabricate a result: `mockFallback`
+was **deleted**, so a provider failure now throws and the task goes `FAILED` (no fake
+success). The `simulated` flag is persisted to `Task.simulated` and marked in the UI. The
+**remaining** simulation is honest: with no provider configured the engine runs
+`MockTaskRunner` and labels everything simulated (D18).
 
 ### Prototype tells (do not build on these; remove or fix them)
 - `/routing` is 100% mock and its "Run test" POSTs to a non-existent `/api/models/select`
@@ -146,17 +153,21 @@ The shell cwd defaults to `/home/kan` — always `cd` first.
 5. Commit with **explicit paths** (never `git add -A`). **Never push.**
 
 **Hard constraints:**
-- **Never run `npm run build`** — it runs `prisma migrate deploy`, and Postgres is **down**
-  at `127.0.0.1:5433`.
+- **Never run `npm run build`** — it runs `prisma migrate deploy`. (Postgres is now **up**, but
+  keep using the detached `npx next build` path anyway.)
 - Detached build/serve calls usually hit the 120s shell timeout — poll the log with a
   follow-up `sleep` call rather than blocking.
 - **No browser or screenshot tooling.** Visual verification is the operator's eyes only.
 - `cn()` is `clsx` + `tailwind-merge` (`src/lib/utils.ts:5`).
 - One commit per workstream. Never commit unserved code.
 
-**Because Postgres is down:** `/api/settings` returns 500, and the admin/reset/clean-content
-routes and the AI fast lane cannot be exercised. Build against the code and the types;
-flag anything you could not verify at runtime.
+**Database (as of M1 verification):** a throwaway PostgreSQL 18.4 runs at `127.0.0.1:5433`
+(user `strike` / `strikeos`, db `strike_os_redesign`) via `embedded-postgres` launched from
+`/tmp/opencode/strike-pg/start.mjs`. It is **ephemeral** (gone on reboot) — restart it from
+that script. Migrations: `20260928150459_init`, `20261001184414_add_memory_categories`,
+`20261014023002_m1_operations_and_policy`. Seed: `npx tsx prisma/seed.ts`. `psql` is **not**
+installed — query through the `pg` npm package (`/tmp/opencode/strike-pg/node_modules/pg`) or
+the API.
 
 ---
 
@@ -218,15 +229,17 @@ Each milestone is independently shippable. Within a milestone, tasks are ordered
 
 ## 8. Where to start
 
-**M1 status:** M1.1 ✅ done, M1.4 ✅ done, M1.5 ◑ partial — all landed in `76e96e2` and
-`dc7d4c3`. M1.2 is **materialize-at-start** ◑, with the `Operation` model + `Task.simulated`
-column **deferred** (D40 — Postgres down). **Next: M1.3 (the plan-review gate), now
-unblocked** (G1 resolved) — but first settle the two open M1.3 gaps (abandon-leaves-no-rows,
-pre-approval plan editing). Re-read D40 before touching schema.
+**M1 status: ✅ DONE — verified end to end on a served build against a real database** (`13de2e8`).
+M1.1–M1.5 all landed (`76e96e2`, `dc7d4c3`, `3273372`, `13de2e8`). The `Operation` model,
+`Task.parentOperationId` and `Task.simulated` columns are live (migration `20261014023002`,
+D40 resolved); the task→operation→mission policy chain is implemented; and the scheduler now
+actually starts (D44). **Verified flow:** create → simulated plan → approve → tasks run
+(simulated) → operation + mission `COMPLETED` with rolled-up cost, events
+`mission.created → mission.started → mission.completed`. Nothing has yet run against a **real**
+model provider — with no provider configured the whole loop runs in honest simulation.
 
-**M1 exit criteria:** intent → approved plan → running tasks → visible REAL/SIMULATED,
-verified on a served build.
+**Next: start M2** (the workforce becomes real — Brain entity, `spawnAgent()` delegation,
+scoped permissions + spawn ceiling, Specialists page, live work flow). Same loop: implement →
+`tsc` → detached build → serve `:3010` → verify → commit (explicit paths, no push).
 
-**Do not start M2 until M1 is verified.** M1.4 in particular is what makes M1 trustworthy —
-without it, M1.1–M1.3 produce a working loop that can silently lie, which is worse than the
-current broken loop.
+**M1 exit criteria:** ✅ met (see above).

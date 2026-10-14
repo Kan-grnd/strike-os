@@ -27,11 +27,11 @@ may depend on earlier tasks. **Do not start M2 until M1 is verified.**
 
 *The milestone that makes the product real. [D9, D11, D18, D19]*
 
-> **M1 status:** M1.1 ✅ done · M1.2 ◑ partial (task materialization done; `Operation` model
-> deferred — Postgres down) · M1.3 ✅ done (approve-only, D43; abandon = CANCELLED, D42) · M1.4 ✅ done (simulation flag
-> read from `Task.output`; `Task.simulated` column deferred) · M1.5 ◑ partial (policy reads
-> fixed + dead router removed; task→operation→mission policy chain deferred).
-> Landed in `76e96e2` (M1.1 + M1.2 partial), `dc7d4c3` (M1.4 + M1.5), `3273372` (M1.3).
+> **M1 status:** ✅ **DONE** — M1.1 ✅ · M1.2 ✅ · M1.3 ✅ · M1.4 ✅ · M1.5 ✅.
+> The `Operation` model, `Task.parentOperationId` and `Task.simulated` columns landed with
+> migration `20261014023002` (D40 resolved), the task→operation→mission policy chain is live,
+> and the scheduler now actually starts (D44). Landed in `76e96e2` (M1.1 + M1.2 partial),
+> `dc7d4c3` (M1.4 + M1.5), `3273372` (M1.3), `13de2e8` (schema + policy chain + completion wiring).
 
 ## M1.1 — A real planner ✅ DONE
 
@@ -56,31 +56,32 @@ may depend on earlier tasks. **Do not start M2 until M1 is verified.**
   the prompt to the actual installed types, or have the planner return `agentId` directly.**
   This is the most likely way M1.1 yields an unexecutable plan.
 
-## M1.2 — A mission actually creates work ◑ PARTIAL
+## M1.2 — A mission actually creates work ✅ DONE
 
 - **Objective:** approving a mission materializes real Tasks, which the existing scheduler
   picks up.
-- **⚠ Deferred (D40):** the `Operation` model and `Task.parentOperationId` require a schema
-  migration, which cannot be run/verified while Postgres is down. Task materialization
-  ships now; the run→Operation layer lands with the migration.
 - **Affected files:** `src/lib/mission-engine.ts` (`createMission`, private `materializePlan`,
-  `startMission`), `src/app/api/missions/[id]/plan/route.ts`, `src/lib/automation-actions.ts`,
-  `src/app/api/specialists/route.ts:252`.
-- **Dependencies:** M1.1. **Done:** `76e96e2`.
+  `startMission`, `ensureOperationAndTasks`), `src/app/api/missions/[id]/plan/route.ts`,
+  `src/lib/automation-actions.ts`, `src/app/api/specialists/route.ts:252`.
+- **Dependencies:** M1.1. **Done:** `76e96e2` (task materialization), `13de2e8` (Operation layer).
 - **Expected behaviour (as shipped):** the plan is stored on the mission; `startMission`
-  materializes the stored steps into `Task` rows (`QUEUED`) on first run; `createMission`
-  shares the same `materializePlan` path. The scheduler claims them within one 2s tick.
+  opens a run (`Operation`) and materializes the stored steps into `Task` rows (`QUEUED`) on
+  first run, each linked via `parentOperationId`; `createMission` shares the same
+  `ensureOperationAndTasks` path (idempotent — reuses the latest operation, only creates tasks
+  when none exist).
 - **Acceptance criteria:**
-  - Approve a mission → 1 `Operation` + N `Task` rows with `status=QUEUED`.
-  - Within 3s a task transitions `QUEUED→ASSIGNED→RUNNING`.
-  - Every task has `parentOperationId`.
+  - Approve a mission → 1 `Operation` (`RUNNING`, `startedAt` set) + N `Task` rows with
+    `status=QUEUED`, all with `parentOperationId`. ✅ verified
+  - Within 3s a task transitions `QUEUED→ASSIGNED→RUNNING`. ✅ verified
+  - `cancelMission` closes the open operation as `CANCELLED`. ✅
 - **Edge cases:** E19 (idempotent launch), E14 (edit-during-planning).
 - **Testing:** integration — launch against a test DB, assert task creation and a `RUNNING`
   transition; double-POST asserts a single mission.
 - **Gotcha:** `createMission` assigns `ownerAgentId` by type-matching and falls back to
   `agentIds[0]` (`:167-168`), so a step can land on an agent that cannot do it. Tighten
   here rather than later. Also fold `getDb()` onto the shared `@/lib/db` singleton — it
-  currently constructs a second `PrismaClient` (two pools).
+  currently constructs a second `PrismaClient` (two pools). *(The single-`PrismaClient`
+  fold landed in `76e96e2`.)*
 
 ## M1.3 — Plan review & the launch gate ✅ DONE
 
@@ -122,36 +123,41 @@ may depend on earlier tasks. **Do not start M2 until M1 is verified.**
 - **Edge cases:** E1, E2, E4.
 - **Testing:** unit — flag propagation; integration — provider failure yields either
   recovery or a marked simulated result, never unmarked.
-- **Note (as shipped):** the flag lives in `Task.output` JSON (`task-engine.ts:31`,
-  `task-runner-real.ts`). Per **D40** the `Task.simulated` column is **deferred** with the
-  migration; `taskSimulated(output)` (in `execution-meta.ts`) reads the JSON instead.
-  `mockFallback` is **deleted** — a provider failure now throws and the task `FAILED`
-  (recovery is M3.2). Real output carries `simulated: false`; `/api/health` exposes a
-  `simulated` flag and the shell header shows a `SystemModeIndicator` on every surface.
-  `NEXT_PUBLIC_DASHBOARD_SAMPLE` (+ `sample.ts`) removed.
+- **Note (as shipped):** the flag is persisted to the `Task.simulated` column (migration
+  `20261014023002`) by `task-engine.runTask`, and also lives in `Task.output` JSON
+  (`MockTaskRunner` :31, `task-runner-real.ts`). `taskSimulated(task)` (in `execution-meta.ts`)
+  prefers the column and falls back to the output JSON. `mockFallback` is **deleted** — a
+  provider failure now throws and the task `FAILED` (recovery is M3.2). Real output carries
+  `simulated: false`; `/api/health` exposes a `simulated` flag and the shell header shows a
+  `SystemModeIndicator` on every surface. `NEXT_PUBLIC_DASHBOARD_SAMPLE` (+ `sample.ts`) removed.
 - **Reality check:** with `.env` holding only `DATABASE_URL` and no `secrets` rows,
   `hasApiKeys()` is false → the engine runs `MockTaskRunner` → **the whole product is
   simulated today.** The banner will be on from day one until a provider is configured.
 
-## M1.5 — Correct model policy on tasks ◑ PARTIAL
+## M1.5 — Correct model policy on tasks ✅ DONE
 
 - **Objective:** routing uses the mission/task policy, not a repurposed field.
-- **Affected files:** `src/lib/task-runner-real.ts` (`parseModelPolicy`), `src/lib/model-gateway.ts`.
-- **Dependencies:** none. **Done:** `dc7d4c3`.
-- **Expected behaviour:** policy resolves **task → operation → mission → agent default**;
-  `memoryScope` is never consulted for model choice. **⚠ Partial (D40):** the task→operation→
-  mission chain needs policy columns the deferred migration adds; today routing reads
-  `Agent.modelPolicy` / `Agent.fallbackModelIds` directly.
-- **Acceptance criteria:** a task whose mission policy names model M executes on M
-  regardless of the agent's `memoryScope`.
+- **Affected files:** `src/lib/task-runner-real.ts`, `src/lib/model-gateway.ts`,
+  `src/lib/model-policy.ts` (new), `prisma/schema.prisma`.
+- **Dependencies:** none. **Done:** `dc7d4c3` (reads + dead router), `13de2e8` (chain).
+- **Expected behaviour:** policy resolves **task → operation → mission → agent default**
+  (`resolveModelPolicy`, `src/lib/model-policy.ts`); `memoryScope` is never consulted for
+  model choice. Each layer stores an optional JSON policy (`{ primary, fallback[] }`) on the
+  mission, operation and task (columns added in migration `20261014023002`).
+- **Acceptance criteria:** a task whose mission/operation policy names model M resolves to M
+  regardless of the agent's `memoryScope`. ✅ (chain wired; verified by construction — no live
+  provider to exercise routing end-to-end)
 - **Edge cases:** E20.
 - **Testing:** unit — policy resolution order.
 - **Gotcha (resolved):** the `memoryScope` misread was in two places; both now read the
   real columns, and the caller-less `selectModel` / `parsePolicy` / `ModelPolicy` /
-  `RoutingResult` were **removed**. Write the real chain when the migration lands.
+  `RoutingResult` were **removed**. The task→operation→mission chain is now implemented.
 
-**M1 exit criteria:** intent → approved plan → running tasks → visible REAL/SIMULATED,
-verified on a served build.
+**M1 exit criteria:** ✅ met — intent → approved plan → running tasks → mission and its
+operation roll up to `COMPLETED` with cost → visible REAL/SIMULATED, verified end to end on a
+served build against a real database (`13de2e8`). Nothing here has yet run against a **real**
+model provider: with no provider configured the whole loop runs in honest simulation (D44
+makes the scheduler actually start, so the loop is observable rather than frozen).
 
 ---
 
